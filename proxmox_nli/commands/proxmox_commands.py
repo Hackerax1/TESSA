@@ -211,7 +211,7 @@ class ProxmoxCommands:
             "delete vm <id> - Delete a virtual machine",
             "list containers - Show all LXC containers",
             "get cluster status - Show cluster status",
-            "get status of node <name> - Show node status",
+            "get status of node <n> - Show node status",
             "get storage info - Show storage information",
             "help - Show this help message"
         ]

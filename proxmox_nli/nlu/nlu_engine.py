@@ -21,12 +21,14 @@ class NLU_Engine:
         self.context = {
             'current_vm': None,
             'current_node': None,
+            'current_container': None,
             'last_intent': None,
             'last_entities': None
         }
         
         # Command patterns
         self.patterns = {
+            # VM related patterns
             'list_vms': [r'list\s+(?:all\s+)?(?:virtual\s+)?(?:machines|vms)', 
                          r'show\s+(?:all\s+)?(?:virtual\s+)?(?:machines|vms)', 
                          r'get\s+(?:all\s+)?(?:virtual\s+)?(?:machines|vms)'],
@@ -42,14 +44,46 @@ class NLU_Engine:
             'create_vm': [r'create\s+(?:a\s+)?(?:new\s+)?(?:vm|virtual\s+machine)(?:\s+with\s+(.+))?'],
             'delete_vm': [r'delete\s+(?:vm|virtual\s+machine)\s+(\w+)', 
                          r'remove\s+(?:vm|virtual\s+machine)\s+(\w+)'],
+            
+            # Container related patterns
             'list_containers': [r'list\s+(?:all\s+)?(?:containers|cts|lxc)', 
                               r'show\s+(?:all\s+)?(?:containers|cts|lxc)'],
+            
+            # Cluster related patterns
             'cluster_status': [r'(?:show|get)\s+cluster\s+status', 
                              r'(?:how|what)\s+is\s+(?:the\s+)?cluster(?:\s+doing)?'],
             'node_status': [r'(?:show|get)\s+(?:status\s+of\s+)?node\s+(\w+)', 
                           r'(?:how|what)\s+is\s+node\s+(\w+)(?:\s+doing)?'],
             'storage_info': [r'(?:show|get)\s+storage\s+info(?:rmation)?', 
                            r'(?:how|what)\s+(?:is|about)\s+(?:the\s+)?storage'],
+            
+            # New Docker related patterns
+            'list_docker_containers': [r'list\s+(?:all\s+)?docker\s+containers(?:\s+on\s+(?:vm|virtual\s+machine)\s+(\w+))?',
+                                     r'show\s+(?:all\s+)?docker\s+containers(?:\s+on\s+(?:vm|virtual\s+machine)\s+(\w+))?'],
+            'start_docker_container': [r'start\s+docker\s+container\s+(\w+)(?:\s+on\s+(?:vm|virtual\s+machine)\s+(\w+))?',
+                                     r'run\s+docker\s+container\s+(\w+)(?:\s+on\s+(?:vm|virtual\s+machine)\s+(\w+))?'],
+            'stop_docker_container': [r'stop\s+docker\s+container\s+(\w+)(?:\s+on\s+(?:vm|virtual\s+machine)\s+(\w+))?',
+                                    r'halt\s+docker\s+container\s+(\w+)(?:\s+on\s+(?:vm|virtual\s+machine)\s+(\w+))?'],
+            'docker_container_logs': [r'(?:show|get|display)\s+(?:logs|log)\s+(?:for|from)\s+docker\s+container\s+(\w+)(?:\s+on\s+(?:vm|virtual\s+machine)\s+(\w+))?',
+                                    r'docker\s+container\s+(\w+)\s+logs(?:\s+on\s+(?:vm|virtual\s+machine)\s+(\w+))?'],
+            'list_docker_images': [r'list\s+(?:all\s+)?docker\s+images(?:\s+on\s+(?:vm|virtual\s+machine)\s+(\w+))?',
+                                 r'show\s+(?:all\s+)?docker\s+images(?:\s+on\s+(?:vm|virtual\s+machine)\s+(\w+))?'],
+            'pull_docker_image': [r'pull\s+docker\s+image\s+(\S+)(?:\s+on\s+(?:vm|virtual\s+machine)\s+(\w+))?',
+                                r'download\s+docker\s+image\s+(\S+)(?:\s+on\s+(?:vm|virtual\s+machine)\s+(\w+))?'],
+            'run_docker_container': [r'run\s+(?:a\s+)?(?:new\s+)?docker\s+container(?:\s+with|using)\s+image\s+(\S+)(?:\s+on\s+(?:vm|virtual\s+machine)\s+(\w+))?',
+                                   r'create\s+(?:a\s+)?(?:new\s+)?docker\s+container(?:\s+with|using)\s+image\s+(\S+)(?:\s+on\s+(?:vm|virtual\s+machine)\s+(\w+))?'],
+            
+            # CLI command execution pattern
+            'run_cli_command': [r'run\s+command\s+"([^"]+)"(?:\s+on\s+(?:vm|virtual\s+machine)\s+(\w+))?',
+                              r'execute\s+command\s+"([^"]+)"(?:\s+on\s+(?:vm|virtual\s+machine)\s+(\w+))?',
+                              r'run\s+command\s+\'([^\']+)\'(?:\s+on\s+(?:vm|virtual\s+machine)\s+(\w+))?',
+                              r'execute\s+command\s+\'([^\']+)\'(?:\s+on\s+(?:vm|virtual\s+machine)\s+(\w+))?',
+                              r'run\s+\'([^\']+)\'(?:\s+on\s+(?:vm|virtual\s+machine)\s+(\w+))?',
+                              r'execute\s+\'([^\']+)\'(?:\s+on\s+(?:vm|virtual\s+machine)\s+(\w+))?',
+                              r'run\s+"([^"]+)"(?:\s+on\s+(?:vm|virtual\s+machine)\s+(\w+))?',
+                              r'execute\s+"([^"]+)"(?:\s+on\s+(?:vm|virtual\s+machine)\s+(\w+))?'],
+            
+            # Help pattern
             'help': [r'help', r'commands', r'what\s+can\s+you\s+do', r'usage']
         }
     
@@ -82,6 +116,8 @@ class NLU_Engine:
             self.context['current_vm'] = entities['VM_ID']
         if 'NODE' in entities:
             self.context['current_node'] = entities['NODE']
+        if 'CONTAINER_NAME' in entities:
+            self.context['current_container'] = entities['CONTAINER_NAME']
 
         # Add to conversation history
         self.conversation_history.append({
@@ -103,6 +139,10 @@ class NLU_Engine:
         if has_contextual_ref and self.context['current_vm'] and 'VM_ID' not in entities:
             # If query has contextual reference and we have a VM in context, use it
             entities['VM_ID'] = self.context['current_vm']
+        
+        if has_contextual_ref and self.context['current_container'] and 'CONTAINER_NAME' not in entities:
+            # If query has contextual reference and we have a container in context, use it
+            entities['CONTAINER_NAME'] = self.context['current_container']
         
         if 'there' in query_lower and self.context['current_node'] and 'NODE' not in entities:
             # Resolve location references
@@ -127,6 +167,21 @@ class NLU_Engine:
         node_match = re.search(r'node\s+(\w+)', query)
         if node_match:
             entities['NODE'] = node_match.group(1)
+        
+        # Extract Docker container names
+        container_match = re.search(r'container\s+([a-zA-Z0-9_-]+)', query)
+        if container_match:
+            entities['CONTAINER_NAME'] = container_match.group(1)
+        
+        # Extract Docker image names
+        image_match = re.search(r'image\s+([a-zA-Z0-9_/.-]+(?::[a-zA-Z0-9_.-]+)?)', query)
+        if image_match:
+            entities['IMAGE_NAME'] = image_match.group(1)
+        
+        # Extract CLI command
+        command_match = re.search(r'(?:run|execute)\s+(?:command\s+)?[\'"]([^\'"]+)[\'"]', query)
+        if command_match:
+            entities['COMMAND'] = command_match.group(1)
         
         # Extract parameters for VM creation
         if 'create' in query and ('vm' in query or 'virtual machine' in query):
@@ -160,6 +215,45 @@ class NLU_Engine:
             if params:
                 entities['PARAMS'] = params
         
+        # Extract parameters for Docker container run
+        if ('run' in query or 'create' in query) and 'docker' in query and 'container' in query:
+            params = {}
+            
+            # Extract ports
+            ports = []
+            ports_match = re.findall(r'port\s+(\d+:\d+)', query)
+            for port in ports_match:
+                ports.append(port)
+            
+            if ports:
+                params['ports'] = ports
+            
+            # Extract volumes
+            volumes = []
+            volumes_match = re.findall(r'volume\s+([a-zA-Z0-9_/.-]+:[a-zA-Z0-9_/.-]+)', query)
+            for volume in volumes_match:
+                volumes.append(volume)
+            
+            if volumes:
+                params['volumes'] = volumes
+            
+            # Extract environment variables
+            env_vars = []
+            env_match = re.findall(r'env\s+([a-zA-Z0-9_]+=[a-zA-Z0-9_.-]+)', query)
+            for env in env_match:
+                env_vars.append(env)
+            
+            if env_vars:
+                params['environment'] = env_vars
+            
+            # Extract container name
+            container_name_match = re.search(r'name\s+([a-zA-Z0-9_-]+)', query)
+            if container_name_match:
+                params['container_name'] = container_name_match.group(1)
+            
+            if params:
+                entities['DOCKER_PARAMS'] = params
+        
         # Resolve contextual references
         entities = self.resolve_contextual_references(query, entities)
         
@@ -177,6 +271,7 @@ class NLU_Engine:
         # If no pattern matches, try a more flexible approach using keywords
         tokens = set(word_tokenize(preprocessed_query))
         
+        # VM related intents
         if 'list' in tokens and ('vm' in tokens or 'machine' in tokens):
             return 'list_vms', []
         
@@ -184,6 +279,25 @@ class NLU_Engine:
             # Try to extract VM ID
             vm_match = re.search(r'(\w+)', preprocessed_query.split('machine')[-1] if 'machine' in preprocessed_query else preprocessed_query.split('vm')[-1])
             return 'start_vm', [vm_match.group(1) if vm_match else None]
+        
+        # Docker related intents
+        if 'list' in tokens and 'docker' in tokens and 'container' in tokens:
+            return 'list_docker_containers', []
+        
+        if 'list' in tokens and 'docker' in tokens and 'image' in tokens:
+            return 'list_docker_images', []
+        
+        if ('start' in tokens or 'run' in tokens) and 'docker' in tokens and 'container' in tokens:
+            # Try to extract container name
+            container_match = re.search(r'container\s+(\w+)', preprocessed_query)
+            vm_match = re.search(r'vm\s+(\w+)', preprocessed_query)
+            return 'start_docker_container', [container_match.group(1) if container_match else None, vm_match.group(1) if vm_match else None]
+        
+        # CLI command execution
+        if ('run' in tokens or 'execute' in tokens) and ('command' in tokens or '"' in preprocessed_query or "'" in preprocessed_query):
+            command_match = re.search(r'(?:run|execute)\s+(?:command\s+)?[\'"]([^\'"]+)[\'"]', preprocessed_query)
+            vm_match = re.search(r'vm\s+(\w+)', preprocessed_query)
+            return 'run_cli_command', [command_match.group(1) if command_match else None, vm_match.group(1) if vm_match else None]
         
         # Handle contextual commands like "start it" or "check its status"
         if self.context['current_vm']:
@@ -195,6 +309,15 @@ class NLU_Engine:
                 return 'restart_vm', [self.context['current_vm']]
             elif any(word in tokens for word in ['status', 'check']):
                 return 'vm_status', [self.context['current_vm']]
+        
+        # Handle contextual commands for Docker containers
+        if self.context['current_container'] and self.context['current_vm']:
+            if any(word in tokens for word in ['start', 'run']):
+                return 'start_docker_container', [self.context['current_container'], self.context['current_vm']]
+            elif any(word in tokens for word in ['stop', 'halt']):
+                return 'stop_docker_container', [self.context['current_container'], self.context['current_vm']]
+            elif any(word in tokens for word in ['logs', 'log']):
+                return 'docker_container_logs', [self.context['current_container'], self.context['current_vm']]
         
         # Default if no intent is identified
         return 'unknown', []

@@ -1,0 +1,40 @@
+Restructuring Plan for Proxmox NLI Project
+
+New Directory Structure:
+/proxmox-nli
+    /proxmox_nli
+        __init__.py
+        /api
+            __init__.py
+            proxmox_api.py
+        /nlu
+            __init__.py
+            nlu_engine.py
+        /commands
+            __init__.py
+            proxmox_commands.py
+            docker_commands.py
+            vm_command.py
+        /core
+            __init__.py
+            proxmox_nli.py
+    /templates
+        index.html
+    app.py
+    requirements.txt
+    setup.py
+    README.md
+
+This structure organizes the code into logical components:
+- api: Contains code for interacting with the Proxmox API
+- nlu: Natural language understanding components
+- commands: Implementation of various commands (VM, Docker, etc.)
+- core: Core functionality that ties everything together
+
+Steps to implement:
+1. Create the directory structure
+2. Move existing files to their new locations
+3. Create __init__.py files for proper package imports
+4. Update imports in all files to reflect the new structure
+5. Create a setup.py file for proper installation
+6. Update the main app.py script to use the new structure
