@@ -1,0 +1,40 @@
+id: pihole
+name: Pi-hole
+description: Pi-hole is a network-wide ad blocker that acts as a DNS sinkhole to block unwanted content without installing any client-side software.
+keywords:
+  - adblocker
+  - adblock
+  - ad blocker
+  - dns
+  - pi-hole
+  - block ads
+  - home network
+  - privacy
+vm_requirements:
+  memory: 1024
+  cores: 1
+  disk: 10
+  os_template: ubuntu-22.04
+deployment:
+  method: docker
+  docker_image: pihole/pihole:latest
+  port_mappings: "-p 53:53/tcp -p 53:53/udp -p 80:80"
+  environment_vars: "-e TZ=America/New_York -e WEBPASSWORD=changeme -e DNSSEC=true"
+  volume_mappings: "-v pihole_etc:/etc/pihole -v pihole_dnsmasq:/etc/dnsmasq.d"
+  docker_run_args: "--restart=unless-stopped"
+  post_install_steps:
+    - "echo 'Please configure your router to use this server as your DNS server'"
+access_info: |
+  Pi-hole has been successfully deployed!
+  
+  Admin interface: http://<VM_IP>/admin
+  Default password: changeme
+  
+  To complete setup:
+  1. Change the default password
+  2. Configure your router to use the VM's IP address as the DNS server
+  3. For more information, visit https://docs.pi-hole.net
+notes: |
+  Pi-hole blocks advertisements at the network level, before they reach your devices.
+  It's compatible with most home networks and can protect all your devices including
+  smartphones, smart TVs, and other IoT devices that don't support traditional ad blockers.

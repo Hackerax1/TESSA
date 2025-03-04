@@ -19,6 +19,10 @@ class ResponseGenerator:
 
     def generate_response(self, query, intent, result):
         """Generate a natural language response"""
+        # Check if this is a confirmation request
+        if result.get('requires_confirmation', False):
+            return result['message']
+        
         # Try to use Ollama for response enhancement if available
         if self.use_ollama and self.ollama_client:
             try:

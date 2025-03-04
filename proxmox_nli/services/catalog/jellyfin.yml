@@ -1,0 +1,51 @@
+id: jellyfin
+name: Jellyfin Media Server
+description: Jellyfin is a Free Software Media System that puts you in control of managing and streaming your media.
+keywords:
+  - media server
+  - movie server
+  - netflix
+  - plex alternative
+  - streaming
+  - media streaming
+  - movies
+  - tv
+  - shows
+  - personal netflix
+vm_requirements:
+  memory: 2048
+  cores: 2
+  disk: 50
+  os_template: ubuntu-22.04
+deployment:
+  method: docker
+  docker_image: jellyfin/jellyfin:latest
+  port_mappings: "-p 8096:8096 -p 8920:8920 -p 7359:7359/udp -p 1900:1900/udp"
+  environment_vars: "-e PUID=1000 -e PGID=1000 -e TZ=America/New_York"
+  volume_mappings: "-v jellyfin_config:/config -v /path/to/media:/media"
+  docker_run_args: "--restart=unless-stopped --device=/dev/dri:/dev/dri"
+  post_install_steps:
+    - "echo 'Please make your media files available to Jellyfin by adding them to the appropriate folders'"
+access_info: |
+  Jellyfin Media Server has been successfully deployed!
+  
+  Web interface: http://<VM_IP>:8096
+  
+  To complete setup:
+  1. Visit the web interface and complete the initial setup wizard
+  2. Add media libraries pointing to your content folders
+  3. Create user accounts for family members
+  4. Install Jellyfin clients on your devices (available for Android, iOS, smart TVs, etc.)
+  5. For more information, visit https://jellyfin.org/docs
+notes: |
+  Jellyfin is an open-source alternative to services like Plex, Emby, and Netflix.
+  It allows you to organize and stream your personal media collection including:
+  - Movies
+  - TV Shows
+  - Music
+  - Photos
+  
+  For optimal performance:
+  - Consider mounting a large storage volume for your media
+  - Hardware acceleration can be enabled for better transcoding performance
+  - Regular updates are recommended for security and new features

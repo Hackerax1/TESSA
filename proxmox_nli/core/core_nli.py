@@ -7,6 +7,8 @@ from ..nlu.nlu_engine import NLU_Engine
 from ..commands.proxmox_commands import ProxmoxCommands
 from ..commands.docker_commands import DockerCommands
 from ..commands.vm_command import VMCommand
+from ..services.service_catalog import ServiceCatalog
+from ..services.service_manager import ServiceManager
 from .response_generator import ResponseGenerator
 from .audit_logger import AuditLogger
 from prometheus_client import start_http_server, Summary
@@ -36,6 +38,10 @@ class ProxmoxNLI:
         self.vm_command = VMCommand(self.api)
         self.response_generator = ResponseGenerator()
         
+        # Initialize services
+        self.service_catalog = ServiceCatalog()
+        self.service_manager = ServiceManager(self.api, self.service_catalog)
+        
         # Initialize audit logger
         self.audit_logger = AuditLogger()
         
@@ -45,6 +51,12 @@ class ProxmoxNLI:
         
         start_http_server(8000)
         self.load_custom_commands()
+        
+        # Add confirmation required flag and pending command storage
+        self.require_confirmation = True
+        self.pending_command = None
+        self.pending_args = None
+        self.pending_entities = None
     
     def load_custom_commands(self):
         """Load custom commands from the custom_commands directory"""
@@ -64,7 +76,47 @@ class ProxmoxNLI:
     
     def execute_intent(self, intent, args, entities):
         """Execute the identified intent"""
-        # VM management intents
+        # Skip confirmation for safe read-only operations
+        safe_intents = ['list_vms', 'list_containers', 'cluster_status', 'node_status', 
+                       'storage_info', 'list_docker_containers', 'list_docker_images', 
+                       'docker_container_logs', 'vm_status', 'help', 'list_available_services',
+                       'list_deployed_services', 'find_service', 'service_status']
+        
+        if self.require_confirmation and intent not in safe_intents:
+            # Store command for later execution
+            self.pending_command = intent
+            self.pending_args = args
+            self.pending_entities = entities
+            
+            # Generate confirmation message
+            confirmation_msg = self._get_confirmation_message(intent, args, entities)
+            return {"success": True, "requires_confirmation": True, "message": confirmation_msg}
+        
+        return self._execute_command(intent, args, entities)
+    
+    def confirm_command(self, confirmed=True):
+        """Handle command confirmation"""
+        if not self.pending_command:
+            return {"success": False, "message": "No pending command to confirm"}
+        
+        if confirmed:
+            # Execute the pending command
+            result = self._execute_command(self.pending_command, self.pending_args, self.pending_entities)
+            # Clear pending command
+            self.pending_command = None
+            self.pending_args = None
+            self.pending_entities = None
+            return result
+        else:
+            # Command was rejected
+            self.pending_command = None
+            self.pending_args = None
+            self.pending_entities = None
+            return {"success": True, "message": "Command cancelled"}
+    
+    def _execute_command(self, intent, args, entities):
+        """Internal method to actually execute the command"""
+        # Move original execute_intent logic here
         if intent == 'list_vms':
             return self.commands.list_vms()
         elif intent == 'start_vm':
@@ -182,6 +234,95 @@ class ProxmoxNLI:
                 return self.vm_command.run_cli_command(vm_id, command)
             else:
                 return {"success": False, "message": "Please specify a command and VM ID"}
+        
+        # Service management intents
+        elif intent == 'list_available_services':
+            services = self.service_catalog.get_all_services()
+            service_list = "\n".join([f"- {s['name']}: {s['description']}" for s in services])
+            return {
+                "success": True,
+                "message": f"Available services:\n\n{service_list if service_list else 'No services available'}"
+            }
+        
+        elif intent == 'list_deployed_services':
+            result = self.service_manager.list_deployed_services()
+            if result["success"] and result["services"]:
+                service_list = "\n".join([f"- {s['name']} (ID: {s['service_id']}) on VM {s['vm_id']}" for s in result["services"]])
+                return {
+                    "success": True,
+                    "message": f"Deployed services:\n\n{service_list}"
+                }
+            else:
+                return {
+                    "success": True,
+                    "message": "No services are currently deployed"
+                }
+        
+        elif intent == 'find_service':
+            query = args[0] if args and args[0] else entities.get('QUERY')
+            if not query:
+                return {"success": False, "message": "Please specify what kind of service you're looking for"}
+                
+            matching_services = self.service_manager.find_service(query)
+            
+            if matching_services:
+                service_list = "\n".join([f"- {s['name']} (ID: {s['id']}): {s['description']}" for s in matching_services])
+                return {
+                    "success": True,
+                    "message": f"Found these services matching '{query}':\n\n{service_list}\n\nTo deploy one, use 'deploy SERVICE_ID'"
+                }
+            else:
+                return {
+                    "success": True,
+                    "message": f"No services found matching '{query}'. Please check our available services with 'list services'."
+                }
+        
+        elif intent == 'deploy_service':
+            service_id = args[0] if args and args[0] else entities.get('SERVICE_ID')
+            vm_id = args[1] if args and len(args) > 1 and args[1] else entities.get('VM_ID')
+            custom_params = entities.get('SERVICE_PARAMS', {})
+            
+            if not service_id:
+                return {"success": False, "message": "Please specify which service you want to deploy"}
+                
+            result = self.service_manager.deploy_service(service_id, vm_id, custom_params)
+            
+            if result["success"]:
+                # Save context for follow-up commands
+                self.nlu.context_manager.set_context({
+                    'current_service': service_id,
+                    'current_service_vm': result.get('vm_id')
+                })
+                
+            return result
+        
+        elif intent == 'service_status':
+            service_id = args[0] if args and args[0] else entities.get('SERVICE_ID')
+            vm_id = args[1] if args and len(args) > 1 and args[1] else entities.get('VM_ID')
+            
+            if not service_id or not vm_id:
+                return {"success": False, "message": "Please specify the service ID and VM ID"}
+                
+            return self.service_manager.get_service_status(service_id, vm_id)
+        
+        elif intent == 'stop_service':
+            service_id = args[0] if args and args[0] else entities.get('SERVICE_ID')
+            vm_id = args[1] if args and len(args) > 1 and args[1] else entities.get('VM_ID')
+            
+            if not service_id or not vm_id:
+                return {"success": False, "message": "Please specify the service ID and VM ID"}
+                
+            return self.service_manager.stop_service(service_id, vm_id)
+        
+        elif intent == 'remove_service':
+            service_id = args[0] if args and args[0] else entities.get('SERVICE_ID')
+            vm_id = args[1] if args and len(args) > 1 and args[1] else entities.get('VM_ID')
+            remove_vm = entities.get('REMOVE_VM', False)
+            
+            if not service_id or not vm_id:
+                return {"success": False, "message": "Please specify the service ID and VM ID"}
+                
+            return self.service_manager.remove_service(service_id, vm_id, remove_vm)
                 
         # Help intent
         elif intent == 'help':
@@ -189,11 +330,30 @@ class ProxmoxNLI:
         else:
             return {"success": False, "message": "I don't understand what you want me to do. Try asking for 'help' to see available commands."}
     
+    def _get_confirmation_message(self, intent, args, entities):
+        """Generate a confirmation message for the pending command"""
+        messages = {
+            'start_vm': f"Are you sure you want to start VM {args[0] if args else entities.get('VM_ID')}?",
+            'stop_vm': f"Are you sure you want to stop VM {args[0] if args else entities.get('VM_ID')}?",
+            'restart_vm': f"Are you sure you want to restart VM {args[0] if args else entities.get('VM_ID')}?",
+            'delete_vm': f"Are you sure you want to DELETE VM {args[0] if args else entities.get('VM_ID')}? This cannot be undone!",
+            'create_vm': "Are you sure you want to create a new VM with these parameters?",
+            'start_docker_container': f"Are you sure you want to start Docker container {entities.get('CONTAINER_NAME')} on VM {entities.get('VM_ID')}?",
+            'stop_docker_container': f"Are you sure you want to stop Docker container {entities.get('CONTAINER_NAME')} on VM {entities.get('VM_ID')}?",
+            'run_docker_container': f"Are you sure you want to run a new Docker container from image {entities.get('IMAGE_NAME')} on VM {entities.get('VM_ID')}?",
+            'run_cli_command': f"Are you sure you want to execute command '{entities.get('COMMAND')}' on VM {entities.get('VM_ID')}?",
+            'deploy_service': f"Are you sure you want to deploy {args[0] if args else entities.get('SERVICE_ID')} service{' on VM ' + args[1] if args and len(args) > 1 else ''}?",
+            'stop_service': f"Are you sure you want to stop {args[0] if args else entities.get('SERVICE_ID')} service on VM {args[1] if args and len(args) > 1 else entities.get('VM_ID')}?",
+            'remove_service': f"Are you sure you want to remove {args[0] if args else entities.get('SERVICE_ID')} service from VM {args[1] if args and len(args) > 1 else entities.get('VM_ID')}?",
+        }
+        
+        return messages.get(intent, "Are you sure you want to execute this command?") + "\nReply with 'yes' to confirm or 'no' to cancel."
+    
     def get_help(self):
         """Get help information"""
-        return {"success": True, "message": "Available commands"}
+        help_text = self.get_help_text()
+        return {"success": True, "message": help_text}
     
-    @staticmethod
     def get_help_text(self):
         """Get the help text with all available commands"""
         commands = [
@@ -222,6 +382,16 @@ class ProxmoxNLI:
             "- list docker images on vm <id> - List Docker images on a VM",
             "- pull docker image <n> on vm <id> - Pull a Docker image on a VM",
             "- run docker container using image <n> on vm <id> - Run a new Docker container",
+            "",
+            "Service Management:",
+            "- list services - List all available services",
+            "- list deployed services - List all deployed services",
+            "- find service for <description> - Find services matching description",
+            "- I want a home network adblocker - Find services matching description",
+            "- deploy <service_id> on vm <id> - Deploy a service",
+            "- status of service <id> on vm <id> - Check service status",
+            "- stop service <id> on vm <id> - Stop a service",
+            "- remove service <id> on vm <id> - Remove a service",
             "",
             "CLI Command Execution:",
             "- run command \"<command>\" on vm <id> - Execute a command on a VM",

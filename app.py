@@ -50,7 +50,7 @@ def home():
 @app.route('/query', methods=['POST'])
 def process_query():
     """Process a natural language query"""
-    query = request.json.get('query', '')
+    query = request.json.get('query', '').strip()
     if not query:
         logger.error('No query provided')
         return jsonify({'error': 'No query provided'})
@@ -59,6 +59,17 @@ def process_query():
     user = request.json.get('user', 'anonymous')
     ip_address = request.remote_addr
     
+    # Handle command confirmation
+    if proxmox_nli.pending_command:
+        if query.lower() in ['y', 'yes']:
+            response = proxmox_nli.confirm_command(True)
+        elif query.lower() in ['n', 'no']:
+            response = proxmox_nli.confirm_command(False)
+        else:
+            return jsonify({'response': "Please respond with 'yes' or 'no'"})
+        return jsonify({'response': response})
+    
+    # Normal command processing
     response = proxmox_nli.process_query(query, user=user, source='web', ip_address=ip_address)
     return jsonify({'response': response})
 

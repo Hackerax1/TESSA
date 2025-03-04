@@ -18,9 +18,28 @@ def cli_mode(args):
     print("Type 'help' to see available commands")
     
     while True:
-        query = input("\n> ")
-        if query.lower() in ['exit', 'quit']:
-            break
-        
-        response = proxmox_nli.process_query(query)
-        print(response)
+        try:
+            query = input("\n> ").strip()
+            if query.lower() in ['exit', 'quit']:
+                break
+            
+            # For pending command confirmation
+            if proxmox_nli.pending_command:
+                if query.lower() in ['y', 'yes']:
+                    response = proxmox_nli.confirm_command(True)
+                    print(response)
+                elif query.lower() in ['n', 'no']:
+                    response = proxmox_nli.confirm_command(False)
+                    print(response)
+                else:
+                    print("Please respond with 'yes' or 'no'")
+                continue
+            
+            # Normal command processing
+            response = proxmox_nli.process_query(query)
+            print(response)
+            
+        except KeyboardInterrupt:
+            print("\nCommand cancelled. Use 'exit' to quit.")
+        except Exception as e:
+            print(f"Error: {str(e)}")

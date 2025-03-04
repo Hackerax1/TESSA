@@ -34,7 +34,7 @@ class IntentIdentifier:
             'storage_info': [r'(?:show|get)\s+storage\s+info(?:rmation)?', 
                            r'(?:how|what)\s+(?:is|about)\s+(?:the\s+)?storage'],
             
-            # New Docker related patterns
+            # Docker related patterns
             'list_docker_containers': [r'list\s+(?:all\s+)?docker\s+containers(?:\s+on\s+(?:vm|virtual\s+machine)\s+(\w+))?',
                                      r'show\s+(?:all\s+)?docker\s+containers(?:\s+on\s+(?:vm|virtual\s+machine)\s+(\w+))?'],
             'start_docker_container': [r'start\s+docker\s+container\s+(\w+)(?:\s+on\s+(?:vm|virtual\s+machine)\s+(\w+))?',
@@ -59,6 +59,29 @@ class IntentIdentifier:
                               r'execute\s+\'([^\']+)\'(?:\s+on\s+(?:vm|virtual\s+machine)\s+(\w+))?',
                               r'run\s+"([^"]+)"(?:\s+on\s+(?:vm|virtual\s+machine)\s+(\w+))?',
                               r'execute\s+"([^"]+)"(?:\s+on\s+(?:vm|virtual\s+machine)\s+(\w+))?'],
+            
+            # New service-related patterns
+            'list_available_services': [r'list\s+(?:all\s+)?(?:available\s+)?services',
+                                      r'show\s+(?:all\s+)?(?:available\s+)?services',
+                                      r'what\s+services\s+(?:are|can\s+you)\s+(?:available|install|deploy)',
+                                      r'what\s+can\s+(?:I|you)\s+install'],
+            'find_service': [r'find\s+(?:a\s+)?service\s+(?:for|to)\s+(.+)',
+                           r'search\s+(?:for\s+)?(?:a\s+)?service\s+(?:for|to)\s+(.+)',
+                           r'(?:I\s+want|I\'d\s+like)\s+(?:a\s+)?(?:service\s+)?(?:for|to)\s+(.+)',
+                           r'(?:I\s+want|I\'d\s+like|I\s+need)\s+(?:to\s+)?(?:install|setup|deploy)\s+(?:a\s+)?(.+)',
+                           r'help\s+me\s+(?:setup|install|deploy)\s+(?:a\s+)?(.+)'],
+            'deploy_service': [r'deploy\s+(?:service\s+)?(\w+)(?:\s+(?:on|to)\s+(?:vm|virtual\s+machine)\s+(\w+))?',
+                             r'install\s+(?:service\s+)?(\w+)(?:\s+(?:on|to)\s+(?:vm|virtual\s+machine)\s+(\w+))?',
+                             r'setup\s+(?:service\s+)?(\w+)(?:\s+(?:on|to)\s+(?:vm|virtual\s+machine)\s+(\w+))?'],
+            'service_status': [r'(?:show|get|what\s+is)\s+(?:the\s+)?status\s+(?:of\s+)?(?:service\s+)?(\w+)(?:\s+(?:on|to)\s+(?:vm|virtual\s+machine)\s+(\w+))?'],
+            'stop_service': [r'stop\s+(?:service\s+)?(\w+)(?:\s+(?:on|to)\s+(?:vm|virtual\s+machine)\s+(\w+))?',
+                           r'halt\s+(?:service\s+)?(\w+)(?:\s+(?:on|to)\s+(?:vm|virtual\s+machine)\s+(\w+))?'],
+            'remove_service': [r'remove\s+(?:service\s+)?(\w+)(?:\s+(?:on|to)\s+(?:vm|virtual\s+machine)\s+(\w+))?',
+                             r'uninstall\s+(?:service\s+)?(\w+)(?:\s+(?:on|to)\s+(?:vm|virtual\s+machine)\s+(\w+))?',
+                             r'delete\s+(?:service\s+)?(\w+)(?:\s+(?:on|to)\s+(?:vm|virtual\s+machine)\s+(\w+))?'],
+            'list_deployed_services': [r'list\s+(?:all\s+)?(?:my\s+)?(?:deployed|installed)\s+services',
+                                     r'show\s+(?:all\s+)?(?:my\s+)?(?:deployed|installed)\s+services',
+                                     r'what\s+services\s+(?:are|do\s+I\s+have)\s+(?:running|deployed|installed)'],
             
             # Help pattern
             'help': [r'help', r'commands', r'what\s+can\s+you\s+do', r'usage']
@@ -104,6 +127,30 @@ class IntentIdentifier:
             vm_match = re.search(r'vm\s+(\w+)', preprocessed_query)
             return 'run_cli_command', [command_match.group(1) if command_match else None, vm_match.group(1) if vm_match else None]
         
+        # Service related intents
+        if ('list' in tokens or 'show' in tokens) and 'service' in tokens and not ('deployed' in tokens or 'installed' in tokens):
+            return 'list_available_services', []
+            
+        if ('list' in tokens or 'show' in tokens) and 'service' in tokens and ('deployed' in tokens or 'installed' in tokens):
+            return 'list_deployed_services', []
+            
+        if ('find' in tokens or 'search' in tokens) and 'service' in tokens:
+            service_match = re.search(r'(?:for|to)\s+(.+)$', preprocessed_query)
+            return 'find_service', [service_match.group(1) if service_match else None]
+            
+        if any(word in tokens for word in ['want', 'need', 'like', 'looking']):
+            if any(word in tokens for word in ['install', 'setup', 'deploy']):
+                return 'find_service', [preprocessed_query]
+            else:
+                # This is a more generic "I want X" request that might be service-related
+                return 'find_service', [preprocessed_query]
+                
+        if ('deploy' in tokens or 'install' in tokens or 'setup' in tokens) and not ('docker' in tokens):
+            # Try to extract service ID
+            service_match = re.search(r'(?:deploy|install|setup)\s+(?:service\s+)?(\w+)', preprocessed_query)
+            vm_match = re.search(r'(?:on|to)\s+(?:vm|virtual\s+machine)\s+(\w+)', preprocessed_query)
+            return 'deploy_service', [service_match.group(1) if service_match else None, vm_match.group(1) if vm_match else None]
+        
         # Handle contextual commands like "start it" or "check its status"
         if self.context['current_vm']:
             if any(word in tokens for word in ['start', 'boot', 'power']):
@@ -123,6 +170,15 @@ class IntentIdentifier:
                 return 'stop_docker_container', [self.context['current_container'], self.context['current_vm']]
             elif any(word in tokens for word in ['logs', 'log']):
                 return 'docker_container_logs', [self.context['current_container'], self.context['current_vm']]
+                
+        # Handle contextual commands for services
+        if self.context.get('current_service') and self.context.get('current_service_vm'):
+            if any(word in tokens for word in ['status', 'running']):
+                return 'service_status', [self.context['current_service'], self.context['current_service_vm']]
+            elif any(word in tokens for word in ['stop', 'halt']):
+                return 'stop_service', [self.context['current_service'], self.context['current_service_vm']]
+            elif any(word in tokens for word in ['remove', 'uninstall', 'delete']):
+                return 'remove_service', [self.context['current_service'], self.context['current_service_vm']]
         
         # Default if no intent is identified
         return 'unknown', []
