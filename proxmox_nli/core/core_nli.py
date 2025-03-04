@@ -1,6 +1,7 @@
 """
 Core NLI module providing the main interface for Proxmox natural language processing.
 """
+import os
 from ..api.proxmox_api import ProxmoxAPI
 from ..nlu.nlu_engine import NLU_Engine
 from ..commands.proxmox_commands import ProxmoxCommands
@@ -12,11 +13,26 @@ class ProxmoxNLI:
     def __init__(self, host, user, password, realm='pam', verify_ssl=False):
         """Initialize the Proxmox Natural Language Interface"""
         self.api = ProxmoxAPI(host, user, password, realm, verify_ssl)
-        self.nlu = NLU_Engine()
+        
+        # Initialize NLU with Ollama integration
+        use_ollama = os.getenv("DISABLE_OLLAMA", "").lower() != "true"
+        ollama_model = os.getenv("OLLAMA_MODEL", "llama3")
+        ollama_url = os.getenv("OLLAMA_API_URL", "http://localhost:11434")
+        
+        self.nlu = NLU_Engine(
+            use_ollama=use_ollama, 
+            ollama_model=ollama_model,
+            ollama_url=ollama_url
+        )
+        
         self.commands = ProxmoxCommands(self.api)
         self.docker_commands = DockerCommands(self.api)
         self.vm_command = VMCommand(self.api)
         self.response_generator = ResponseGenerator()
+        
+        # Connect response generator to Ollama client if available
+        if use_ollama and self.nlu.ollama_client:
+            self.response_generator.set_ollama_client(self.nlu.ollama_client)
     
     def execute_intent(self, intent, args, entities):
         """Execute the identified intent"""
@@ -149,6 +165,7 @@ class ProxmoxNLI:
         """Get help information"""
         return {"success": True, "message": "Available commands"}
     
+    @staticmethod
     def get_help_text(self):
         """Get the help text with all available commands"""
         commands = [

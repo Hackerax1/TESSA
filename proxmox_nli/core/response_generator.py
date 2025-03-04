@@ -1,10 +1,35 @@
 """
 Response generator module for producing natural language responses.
 """
+import os
 
 class ResponseGenerator:
+    def __init__(self):
+        """Initialize the response generator with optional Ollama integration"""
+        self.use_ollama = os.getenv("DISABLE_OLLAMA_RESPONSE", "").lower() != "true"
+        self.ollama_client = None
+        
+        # Ollama client will be set later if needed to avoid circular imports
+    
+    def set_ollama_client(self, ollama_client):
+        """Set the Ollama client for enhanced responses"""
+        self.ollama_client = ollama_client
+        if ollama_client:
+            print("Response generator will use Ollama for enhanced responses")
+
     def generate_response(self, query, intent, result):
         """Generate a natural language response"""
+        # Try to use Ollama for response enhancement if available
+        if self.use_ollama and self.ollama_client:
+            try:
+                enhanced_response = self.ollama_client.enhance_response(query, intent, result)
+                if enhanced_response:
+                    return enhanced_response
+            except Exception as e:
+                print(f"Warning: Failed to generate enhanced response: {str(e)}")
+                print("Falling back to template-based response generation")
+        
+        # Fallback to standard response generation
         if not result['success']:
             return f"Sorry, there was an error: {result['message']}"
         

@@ -3,6 +3,7 @@ import nltk
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
+import os
 
 # Try to download required NLTK resources (minimal required set)
 try:
@@ -16,13 +17,31 @@ from .preprocessing import Preprocessor
 from .context_management import ContextManager
 from .entity_extraction import EntityExtractor
 from .intent_identification import IntentIdentifier
+from .ollama_client import OllamaClient
 
 class NLU_Engine:
-    def __init__(self):
+    def __init__(self, use_ollama=True, ollama_model="llama3", ollama_url=None):
+        """Initialize the NLU Engine with optional Ollama integration"""
         self.preprocessor = Preprocessor()
         self.context_manager = ContextManager()
         self.entity_extractor = EntityExtractor()
         self.intent_identifier = IntentIdentifier()
+        
+        # Initialize Ollama client if requested
+        self.use_ollama = use_ollama and os.getenv("DISABLE_OLLAMA", "").lower() != "true"
+        self.ollama_client = None
+        
+        if self.use_ollama:
+            try:
+                self.ollama_client = OllamaClient(
+                    model_name=os.getenv("OLLAMA_MODEL", ollama_model),
+                    base_url=os.getenv("OLLAMA_API_URL", ollama_url)
+                )
+                print(f"Ollama integration activated with model: {self.ollama_client.model_name}")
+            except Exception as e:
+                print(f"Warning: Failed to initialize Ollama client: {str(e)}")
+                print("NLU will fall back to basic pattern matching")
+                self.use_ollama = False
 
     def process_query(self, query):
         """Process a natural language query"""
@@ -30,6 +49,25 @@ class NLU_Engine:
             # Preprocess the query
             preprocessed_query = self.preprocessor.preprocess_query(query)
             
+            # Try Ollama for intent recognition and entity extraction if available
+            if self.use_ollama and self.ollama_client:
+                try:
+                    intent, args, entities = self.ollama_client.get_intent_and_entities(query)
+                    
+                    # If Ollama returned a valid intent, use it
+                    if intent and intent != "unknown":
+                        # Update conversation context
+                        self.context_manager.update_context(intent, entities)
+                        
+                        # Resolve contextual references
+                        entities = self.context_manager.resolve_contextual_references(query, entities)
+                        
+                        return intent, args, entities
+                except Exception as e:
+                    print(f"Warning: Error using Ollama for NLU: {str(e)}")
+                    print("Falling back to traditional NLU pipeline")
+            
+            # Fallback to traditional NLU pipeline
             # Extract entities
             entities = self.entity_extractor.extract_entities(query)
             
@@ -38,6 +76,9 @@ class NLU_Engine:
             
             # Update conversation context
             self.context_manager.update_context(intent, entities)
+            
+            # Resolve contextual references
+            entities = self.context_manager.resolve_contextual_references(query, entities)
             
             return intent, args, entities
         except Exception as e:
