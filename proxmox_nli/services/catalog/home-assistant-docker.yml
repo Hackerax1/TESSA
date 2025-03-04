@@ -1,0 +1,70 @@
+id: home-assistant-docker
+name: Home Assistant Docker
+description: Containerized home automation platform for managing smart devices and automations
+keywords:
+  - home automation
+  - smart home
+  - iot
+  - automation
+  - sensors
+  - smart devices
+  - home assistant
+  - hass
+  - docker
+vm_requirements:
+  memory: 2048
+  cores: 2
+  disk: 20
+  os_template: ubuntu-22.04
+deployment:
+  method: docker
+  docker_compose: |
+    version: '3'
+    services:
+      homeassistant:
+        container_name: homeassistant
+        image: ghcr.io/home-assistant/home-assistant:stable
+        volumes:
+          - home_assistant_config:/config
+          - /etc/localtime:/etc/localtime:ro
+        environment:
+          - TZ=America/New_York
+        restart: unless-stopped
+        privileged: true  # Required for some integrations
+        network_mode: host  # Better for device discovery
+        ports:
+          - 8123:8123  # Only needed if not using host network
+
+    volumes:
+      home_assistant_config:
+
+access_info: |
+  Home Assistant Docker has been successfully deployed!
+  
+  Initial Access:
+  - Web Interface: http://<VM_IP>:8123
+  - First-time setup will create admin credentials
+  
+  Initial Setup Steps:
+  1. Complete the onboarding wizard
+  2. Configure your location and time zone
+  3. Add your smart home devices and integrations
+  4. Set up users and access control
+  5. Configure backups
+  
+notes: |
+  Docker-based Home Assistant provides flexibility and ease of maintenance:
+  - Easy updates through container replacement
+  - Integration with other Docker services
+  - Simplified backup process (volume backup)
+  - Lower resource requirements than full OS
+  - Easy integration with existing infrastructure
+  
+  Configuration Tips:
+  - Store sensitive data in secrets.yaml
+  - Use docker-compose for easier management
+  - Regular configuration backups
+  - Monitor container logs
+  - Consider external MQTT broker for better reliability
+  - Use hardware passthrough for USB devices if needed
+  - Configure proper networking for device discovery

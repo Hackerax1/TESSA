@@ -1,0 +1,62 @@
+id: home-assistant-os
+name: Home Assistant OS
+description: Complete home automation operating system with built-in management and application support
+keywords:
+  - home automation
+  - smart home
+  - iot
+  - automation
+  - sensors
+  - smart devices
+  - home assistant
+  - hass
+  - hassos
+vm_requirements:
+  memory: 4096
+  cores: 2
+  disk: 32
+  os_template: debian-11
+deployment:
+  method: script
+  script: |
+    # Download Home Assistant OS image
+    wget https://github.com/home-assistant/operating-system/releases/download/10.5/haos_ova-10.5.qcow2.xz
+    unxz haos_ova-10.5.qcow2.xz
+    
+    # Note: VM creation and network configuration will be handled by Proxmox
+    
+  post_install_steps:
+    - "echo 'Please complete Home Assistant initial setup through the web interface'"
+
+access_info: |
+  Home Assistant OS has been successfully deployed!
+  
+  Initial Access:
+  - Web Interface: http://<VM_IP>:8123
+  - First-time setup will create admin credentials
+  
+  Initial Setup Steps:
+  1. Complete the onboarding wizard
+  2. Configure your location and time zone
+  3. Add your smart home devices and integrations
+  4. Set up users and access control
+  5. Configure backups
+  
+notes: |
+  Home Assistant OS provides a complete smart home solution:
+  - Dedicated operating system for optimal performance
+  - Built-in update management
+  - Supervisor for add-on management
+  - Automatic backup system
+  - Direct hardware access for better device compatibility
+  - Full container management
+  - Integrated security features
+  
+  Best Practices:
+  - Use a wired network connection when possible
+  - Consider a USB Zigbee/Z-Wave coordinator for direct device control
+  - Regular backups of configuration
+  - Monitor system resources
+  - Use separate VLANs for IoT devices
+  - Enable advanced security features
+  - Consider UPS for power protection

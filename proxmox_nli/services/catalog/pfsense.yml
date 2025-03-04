@@ -1,0 +1,64 @@
+id: pfsense
+name: PFSense
+description: Open source firewall and router platform based on FreeBSD with advanced networking features
+keywords:
+  - firewall
+  - router
+  - network
+  - vpn
+  - proxy
+  - dns
+  - dhcp
+  - networking
+  - security
+vm_requirements:
+  memory: 2048
+  cores: 2
+  disk: 20
+  os_template: debian-11
+deployment:
+  method: script
+  script: |
+    # Download PFSense ISO
+    wget https://atxfiles.netgate.com/mirror/downloads/pfSense-CE-2.7.0-RELEASE-amd64.iso.gz
+    gunzip pfSense-CE-2.7.0-RELEASE-amd64.iso.gz
+    
+    # Note: VM creation and network configuration will be handled by Proxmox
+    
+  post_install_steps:
+    - "echo 'Please complete PFSense initial setup through the web interface'"
+
+access_info: |
+  PFSense has been successfully deployed!
+  
+  Initial Access:
+  - Web Interface: https://<VM_IP>
+  - Default Username: admin
+  - Default Password: pfsense
+  
+  Initial Setup Steps:
+  1. Complete the setup wizard
+  2. Change the default password
+  3. Configure WAN and LAN interfaces
+  4. Set up DHCP server for LAN
+  5. Configure firewall rules
+  6. Set up any additional services (VPN, proxy, etc.)
+  
+notes: |
+  PFSense provides enterprise-grade network security features:
+  - Stateful packet filtering
+  - VPN capabilities (OpenVPN, IPsec)
+  - Traffic shaping and QoS
+  - Web content filtering
+  - High availability options
+  - Detailed logging and monitoring
+  - DNS and DHCP services
+  - Captive portal
+  
+  Network Configuration Tips:
+  - Use at least 2 network interfaces (WAN/LAN)
+  - Consider VLAN support for network segmentation
+  - Enable HTTPS for web interface
+  - Regular backups of configuration
+  - Monitor system resources
+  - Plan network subnets carefully

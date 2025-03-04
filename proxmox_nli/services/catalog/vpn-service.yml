@@ -1,0 +1,91 @@
+id: vpn-service
+name: VPN Service
+description: Flexible VPN service supporting multiple providers for secure remote access and traffic routing
+keywords:
+  - vpn
+  - openvpn
+  - wireguard
+  - privacy
+  - remote access
+  - security
+  - networking
+vm_requirements:
+  memory: 1024
+  cores: 1
+  disk: 10
+  os_template: ubuntu-22.04
+deployment:
+  method: docker
+  docker_compose: |
+    version: '3'
+    services:
+      gluetun:
+        container_name: vpn
+        image: qmcgaw/gluetun
+        cap_add:
+          - NET_ADMIN
+        devices:
+          - /dev/net/tun:/dev/net/tun
+        environment:
+          - VPN_SERVICE_PROVIDER=${VPN_SERVICE_PROVIDER:-mullvad}
+          - VPN_TYPE=${VPN_TYPE:-wireguard}
+          - SERVER_COUNTRIES=${SERVER_COUNTRIES:-usa}
+          - WIREGUARD_PRIVATE_KEY=${WIREGUARD_PRIVATE_KEY}
+          - WIREGUARD_ADDRESSES=${WIREGUARD_ADDRESSES}
+          - OPENVPN_USER=${OPENVPN_USER}
+          - OPENVPN_PASSWORD=${OPENVPN_PASSWORD}
+        ports:
+          - 8888:8888  # HTTP proxy port
+          - 8388:8388  # SOCKS proxy port
+        volumes:
+          - gluetun_config:/gluetun
+        restart: unless-stopped
+        
+    volumes:
+      gluetun_config:
+
+access_info: |
+  VPN Service has been successfully deployed!
+  
+  Configuration:
+  1. Set your VPN provider credentials in the environment variables:
+     - For WireGuard:
+       VPN_SERVICE_PROVIDER=your_provider
+       VPN_TYPE=wireguard
+       WIREGUARD_PRIVATE_KEY=your_private_key
+       WIREGUARD_ADDRESSES=your_allowed_ips
+     - For OpenVPN:
+       VPN_SERVICE_PROVIDER=your_provider
+       VPN_TYPE=openvpn
+       OPENVPN_USER=your_username
+       OPENVPN_PASSWORD=your_password
+       
+  2. To route other containers through the VPN:
+     Add these to your container configuration:
+     network_mode: "service:vpn"
+     
+  3. Available proxy ports for other services:
+     - HTTP proxy: 8888
+     - SOCKS proxy: 8388
+
+notes: |
+  This VPN service uses Gluetun which supports many providers:
+  - Mullvad
+  - NordVPN
+  - Private Internet Access
+  - ProtonVPN
+  - And many others
+  
+  Features:
+  - Automatic reconnection
+  - Kill switch included
+  - Port forwarding support (provider dependent)
+  - Built-in proxies
+  - Connection monitoring
+  
+  Usage Tips:
+  - Use WireGuard when possible (faster, more reliable)
+  - Configure your provider's closest server
+  - Monitor logs for connection issues
+  - Use the proxy ports for selective routing
+  - Test the connection before relying on it
