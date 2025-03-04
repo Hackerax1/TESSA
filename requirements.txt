@@ -9,3 +9,4 @@ requests>=2.28.0
 python-dotenv>=0.20.0
 setuptools
 ollama>=0.1.0
+prometheus_client

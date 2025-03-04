@@ -3,9 +3,14 @@ from flask import Flask, render_template, request, jsonify
 import os
 from proxmox_nli.core import ProxmoxNLI
 from dotenv import load_dotenv
+import logging
 
 # Load environment variables from .env file
 load_dotenv()
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
@@ -22,6 +27,7 @@ def process_query():
     """Process a natural language query"""
     query = request.json.get('query', '')
     if not query:
+        logger.error('No query provided')
         return jsonify({'error': 'No query provided'})
     
     response = proxmox_nli.process_query(query)
@@ -44,6 +50,34 @@ def speech_to_text():
     # In a real implementation, you would process audio data here
     # For now, we'll just return an empty string
     return jsonify({'text': ''})
+
+@app.route('/backup', methods=['POST'])
+def backup_vm():
+    """Backup a VM"""
+    vm_id = request.json.get('vm_id')
+    backup_dir = request.json.get('backup_dir')
+    if not vm_id or not backup_dir:
+        return jsonify({'error': 'VM ID and backup directory are required'}), 400
+    try:
+        backup_file = proxmox_nli.backup_vm(vm_id, backup_dir)
+        return jsonify({'backup_file': backup_file})
+    except Exception as e:
+        logger.error(f'Error backing up VM: {e}')
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/restore', methods=['POST'])
+def restore_vm():
+    """Restore a VM"""
+    backup_file = request.json.get('backup_file')
+    vm_id = request.json.get('vm_id')
+    if not backup_file or not vm_id:
+        return jsonify({'error': 'Backup file and VM ID are required'}), 400
+    try:
+        proxmox_nli.restore_vm(backup_file, vm_id)
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        logger.error(f'Error restoring VM: {e}')
+        return jsonify({'error': str(e)}), 500
 
 def start_app(host, user, password, realm='pam', verify_ssl=False, debug=False):
     """Start the Flask application with the given Proxmox credentials"""

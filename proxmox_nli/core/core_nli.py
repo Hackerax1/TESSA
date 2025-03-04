@@ -8,6 +8,11 @@ from ..commands.proxmox_commands import ProxmoxCommands
 from ..commands.docker_commands import DockerCommands
 from ..commands.vm_command import VMCommand
 from .response_generator import ResponseGenerator
+from prometheus_client import start_http_server, Summary
+import importlib.util
+import sys
+
+REQUEST_TIME = Summary('request_processing_seconds', 'Time spent processing request')
 
 class ProxmoxNLI:
     def __init__(self, host, user, password, realm='pam', verify_ssl=False):
@@ -33,6 +38,25 @@ class ProxmoxNLI:
         # Connect response generator to Ollama client if available
         if use_ollama and self.nlu.ollama_client:
             self.response_generator.set_ollama_client(self.nlu.ollama_client)
+        
+        start_http_server(8000)
+        self.load_custom_commands()
+    
+    def load_custom_commands(self):
+        """Load custom commands from the custom_commands directory"""
+        custom_commands_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'custom_commands')
+        if not os.path.exists(custom_commands_dir):
+            return
+        for filename in os.listdir(custom_commands_dir):
+            if filename.endswith('.py'):
+                module_name = filename[:-3]
+                file_path = os.path.join(custom_commands_dir, filename)
+                spec = importlib.util.spec_from_file_location(module_name, file_path)
+                module = importlib.util.module_from_spec(spec)
+                sys.modules[module_name] = module
+                spec.loader.exec_module(module)
+                if hasattr(module, 'register_commands'):
+                    module.register_commands(self)
     
     def execute_intent(self, intent, args, entities):
         """Execute the identified intent"""
@@ -204,6 +228,7 @@ class ProxmoxNLI:
         ]
         return "\n".join(commands)
     
+    @REQUEST_TIME.time()
     def process_query(self, query):
         """Process a natural language query"""
         # Process the query using NLU engine
@@ -214,3 +239,11 @@ class ProxmoxNLI:
         
         # Generate response
         return self.response_generator.generate_response(query, intent, result)
+
+    def backup_vm(self, vm_id, backup_dir):
+        """Backup a VM to the specified directory"""
+        return self.commands.backup_vm(vm_id, backup_dir)
+
+    def restore_vm(self, backup_file, vm_id):
+        """Restore a VM from the specified backup file"""
+        self.commands.restore_vm(backup_file, vm_id)

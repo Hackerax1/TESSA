@@ -1,3 +1,7 @@
+import os
+import subprocess
+from datetime import datetime
+
 class ProxmoxCommands:
     def __init__(self, api):
         self.api = api
@@ -13,7 +17,7 @@ class ProxmoxCommands:
                     'name': vm.get('name', f"VM {vm['vmid']}"),
                     'status': vm['status'],
                     'node': vm['node'],
-                    'cpu': vm.get('cpu', 0),
+                    'cpu': int(vm.get('cpu', 0)),  # Convert to integer
                     'memory': vm.get('maxmem', 0) / (1024*1024),  # Convert to MB
                     'disk': vm.get('maxdisk', 0) / (1024*1024*1024)  # Convert to GB
                 })
@@ -216,3 +220,26 @@ class ProxmoxCommands:
             "help - Show this help message"
         ]
         return {"success": True, "message": "Available commands", "commands": commands}
+
+    def backup_vm(self, vm_id, backup_dir):
+        """Backup a VM to the specified directory"""
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        backup_file = os.path.join(backup_dir, f'vm_{vm_id}_backup_{timestamp}.tar.gz')
+        command = [
+            'vzdump',
+            '--dumpdir', backup_dir,
+            '--compress', 'gzip',
+            '--mode', 'snapshot',
+            str(vm_id)
+        ]
+        subprocess.run(command, check=True)
+        return backup_file
+
+    def restore_vm(self, backup_file, vm_id):
+        """Restore a VM from the specified backup file"""
+        command = [
+            'qmrestore',
+            backup_file,
+            str(vm_id)
+        ]
+        subprocess.run(command, check=True)

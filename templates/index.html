@@ -86,12 +86,14 @@
             <div class="chat-body" id="chat-body">
                 <div class="message system">
                     Hello! I'm your Proxmox Natural Language Interface. How can I help you today?
-                    
+                    <br><br>
                     Try commands like:
-                    - list vms
-                    - start vm 100
-                    - get status of node pve
-                    - type 'help' to see all available commands
+                    <ul>
+                        <li>list vms</li>
+                        <li>start vm 100</li>
+                        <li>get status of node pve</li>
+                        <li>type 'help' to see all available commands</li>
+                    </ul>
                 </div>
             </div>
             <div class="chat-footer">
@@ -106,6 +108,11 @@
                 </form>
             </div>
         </div>
+        <div class="mt-4">
+            <h3>Monitoring and Metrics</h3>
+            <p>View detailed metrics and graphs on the <a href="http://localhost:3000">Grafana Dashboard</a>.</p>
+            <iframe src="http://localhost:3000/d-solo/your-dashboard-id/your-panel-id?orgId=1&refresh=5m" width="450" height="200" frameborder="0"></iframe>
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
@@ -115,16 +122,17 @@
             const userInput = document.getElementById('user-input');
             const chatBody = document.getElementById('chat-body');
             const micButton = document.getElementById('mic-button');
-            
+            let isRecording = false;
+
             chatForm.addEventListener('submit', function(e) {
                 e.preventDefault();
                 const query = userInput.value.trim();
                 if (!query) return;
-                
+
                 // Add user message to chat
                 addMessage(query, 'user');
                 userInput.value = '';
-                
+
                 // Send query to server
                 fetch('/query', {
                     method: 'POST',
@@ -147,9 +155,8 @@
                     addMessage('Sorry, there was an error processing your request.', 'system');
                 });
             });
-            
+
             // Handle microphone button (placeholder for voice functionality)
-            let isRecording = false;
             micButton.addEventListener('click', function() {
                 if (isRecording) {
                     // Stop recording
@@ -162,7 +169,7 @@
                 }
                 isRecording = !isRecording;
             });
-            
+
             function addMessage(text, type) {
                 const messageDiv = document.createElement('div');
                 messageDiv.className = `message ${type}`;

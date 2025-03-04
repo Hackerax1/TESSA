@@ -32,3 +32,7 @@ ENV/
 env/
 
 .venv
+
+todo.txt
+todo
+

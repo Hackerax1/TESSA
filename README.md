@@ -103,6 +103,9 @@ OLLAMA_API_URL=http://localhost:11434
 OLLAMA_MODEL=llama3
 DISABLE_OLLAMA=false
 DISABLE_OLLAMA_RESPONSE=false
+
+# Backup Configuration
+BACKUP_DIR=/backups
 ```
 
 ## Usage
@@ -130,6 +133,36 @@ Or run directly with app.py:
 ```
 python app.py --host <proxmox-host> --user <username> --password <password>
 ```
+
+## Docker Deployment
+
+### Build and Run with Docker
+
+1. Build the Docker image:
+   ```sh
+   docker build -t proxmox-nli .
+   ```
+
+2. Run the Docker container:
+   ```sh
+   docker run -d -p 5000:5000 --env-file .env proxmox-nli
+   ```
+
+### Using Docker Compose
+
+1. Build and start the services:
+   ```sh
+   docker-compose up --build
+   ```
+
+2. Stop the services:
+   ```sh
+   docker-compose down
+   ```
+
+### Environment Configuration
+
+Ensure you have a `.env` file in the root directory with the necessary configuration. You can use the provided `.env.example` as a template.
 
 ## Example Commands
 
@@ -177,6 +210,35 @@ Any Ollama-compatible model can be used, but these are recommended:
 
 ### Fallback Mechanism
 If Ollama is unavailable or encounters an error, the system will automatically fall back to traditional pattern-based NLU methods.
+
+## Custom Commands and Plugin System
+
+### Adding Custom Commands
+
+1. Create a new Python file in the `custom_commands` directory.
+2. Define your custom commands in the file and register them with the `ProxmoxNLI` instance.
+
+Example:
+
+```python
+# custom_commands/my_custom_command.py
+
+def register_commands(proxmox_nli):
+    def my_custom_command():
+        return {"success": True, "message": "This is a custom command"}
+    
+    proxmox_nli.custom_commands['my_custom_command'] = my_custom_command
+```
+
+### Using Custom Commands
+
+You can use custom commands just like any other command in the NLI.
+
+Example:
+
+```
+my_custom_command
+```
 
 ## License
 
