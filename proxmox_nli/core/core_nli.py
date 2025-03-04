@@ -11,6 +11,7 @@ from ..services.service_catalog import ServiceCatalog
 from ..services.service_manager import ServiceManager
 from .response_generator import ResponseGenerator
 from .audit_logger import AuditLogger
+from .user_preferences import UserPreferencesManager
 from prometheus_client import start_http_server, Summary
 import importlib.util
 import sys
@@ -44,6 +45,9 @@ class ProxmoxNLI:
         
         # Initialize audit logger
         self.audit_logger = AuditLogger()
+        
+        # Initialize user preferences manager
+        self.user_preferences = UserPreferencesManager()
         
         # Connect response generator to Ollama client if available
         if use_ollama and self.nlu.ollama_client:
@@ -408,6 +412,28 @@ class ProxmoxNLI:
         # Process the query using NLU engine
         intent, args, entities = self.nlu.process_query(query)
         
+        # Update user preferences with context
+        if user:
+            # Track command usage for this user
+            self.user_preferences.track_command_usage(user, query, intent)
+            
+            # Auto-add favorites for frequently accessed resources
+            if intent in ['vm_status', 'start_vm', 'stop_vm', 'restart_vm'] and 'VM_ID' in entities:
+                vm_id = entities['VM_ID']
+                self.user_preferences.add_favorite_vm(user, vm_id)
+            
+            if intent in ['node_status'] and 'NODE' in entities:
+                node_name = entities['NODE']
+                self.user_preferences.add_favorite_node(user, node_name)
+                
+            if intent in ['deploy_service'] and 'SERVICE_ID' in entities:
+                service_id = entities['SERVICE_ID']
+                vm_id = entities.get('VM_ID')
+                self.user_preferences.add_quick_access_service(user, service_id, vm_id)
+                
+            # Load user preferences into context for smarter responses
+            self._load_user_context(user)
+        
         # Execute intent
         result = self.execute_intent(intent, args, entities)
         
@@ -424,6 +450,101 @@ class ProxmoxNLI:
         
         # Generate response
         return self.response_generator.generate_response(query, intent, result)
+        
+    def _load_user_context(self, user_id):
+        """Load user preferences into the context manager"""
+        if not user_id:
+            return
+            
+        try:
+            # Load favorite VMs
+            favorite_vms = self.user_preferences.get_favorite_vms(user_id)
+            if favorite_vms:
+                self.nlu.context_manager.set_context({'favorite_vms': favorite_vms})
+                
+            # Load favorite nodes
+            favorite_nodes = self.user_preferences.get_favorite_nodes(user_id)
+            if favorite_nodes:
+                self.nlu.context_manager.set_context({'favorite_nodes': favorite_nodes})
+                
+            # Load quick access services
+            quick_services = self.user_preferences.get_quick_access_services(user_id)
+            if quick_services:
+                self.nlu.context_manager.set_context({'quick_services': quick_services})
+                
+            # Load general preferences
+            all_prefs = self.user_preferences.get_all_preferences(user_id)
+            if all_prefs:
+                self.nlu.context_manager.set_context({'user_preferences': all_prefs})
+        except Exception as e:
+            import logging
+            logging.error(f"Error loading user preferences: {e}")
+    
+    def set_user_preference(self, user_id, key, value):
+        """Set a user preference
+        
+        Args:
+            user_id: The user identifier
+            key: Preference key
+            value: Preference value
+            
+        Returns:
+            Dict: Result of the operation
+        """
+        if not user_id:
+            return {"success": False, "message": "User ID is required to set preferences"}
+            
+        success = self.user_preferences.set_preference(user_id, key, value)
+        if success:
+            return {"success": True, "message": f"Preference '{key}' has been set successfully"}
+        else:
+            return {"success": False, "message": f"Failed to set preference '{key}'"}
+    
+    def get_user_preferences(self, user_id):
+        """Get all preferences for a user
+        
+        Args:
+            user_id: The user identifier
+            
+        Returns:
+            Dict: All user preferences
+        """
+        if not user_id:
+            return {"success": False, "message": "User ID is required to get preferences"}
+            
+        prefs = self.user_preferences.get_all_preferences(user_id)
+        return {"success": True, "preferences": prefs}
+    
+    def get_user_statistics(self, user_id):
+        """Get usage statistics for a user
+        
+        Args:
+            user_id: The user identifier
+            
+        Returns:
+            Dict: Usage statistics
+        """
+        if not user_id:
+            return {"success": False, "message": "User ID is required to get statistics"}
+            
+        favorite_vms = self.user_preferences.get_favorite_vms(user_id)
+        favorite_nodes = self.user_preferences.get_favorite_nodes(user_id)
+        frequent_commands = self.user_preferences.get_frequent_commands(user_id)
+        quick_services = self.user_preferences.get_quick_access_services(user_id)
+        
+        return {
+            "success": True,
+            "stats": {
+                "favorite_vms_count": len(favorite_vms),
+                "favorite_nodes_count": len(favorite_nodes),
+                "frequent_commands_count": len(frequent_commands),
+                "quick_services_count": len(quick_services),
+                "favorite_vms": favorite_vms,
+                "favorite_nodes": favorite_nodes,
+                "frequent_commands": frequent_commands,
+                "quick_services": quick_services
+            }
+        }
 
     def get_recent_activity(self, limit=100):
         """Get recent command executions"""

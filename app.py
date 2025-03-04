@@ -73,6 +73,40 @@ def process_query():
     response = proxmox_nli.process_query(query, user=user, source='web', ip_address=ip_address)
     return jsonify({'response': response})
 
+# User preferences endpoints
+@app.route('/user-preferences/<user_id>', methods=['GET'])
+def get_user_preferences(user_id):
+    """Get all preferences for a user"""
+    if not proxmox_nli:
+        return jsonify({'error': 'System not initialized'}), 500
+    
+    result = proxmox_nli.get_user_preferences(user_id)
+    return jsonify(result)
+
+@app.route('/user-preferences/<user_id>', methods=['POST'])
+def set_user_preference(user_id):
+    """Set a user preference"""
+    if not proxmox_nli:
+        return jsonify({'error': 'System not initialized'}), 500
+        
+    key = request.json.get('key')
+    value = request.json.get('value')
+    
+    if not key:
+        return jsonify({'error': 'Preference key is required'}), 400
+        
+    result = proxmox_nli.set_user_preference(user_id, key, value)
+    return jsonify(result)
+
+@app.route('/user-statistics/<user_id>', methods=['GET'])
+def get_user_statistics(user_id):
+    """Get usage statistics for a user"""
+    if not proxmox_nli:
+        return jsonify({'error': 'System not initialized'}), 500
+        
+    result = proxmox_nli.get_user_statistics(user_id)
+    return jsonify(result)
+
 @app.route('/tts', methods=['POST'])
 def text_to_speech():
     """Convert text to speech"""
