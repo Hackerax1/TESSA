@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from flask import Flask, render_template, request, jsonify
 import os
-from proxmox_nli.core.proxmox_nli import ProxmoxNLI
+from proxmox_nli.core import ProxmoxNLI
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
