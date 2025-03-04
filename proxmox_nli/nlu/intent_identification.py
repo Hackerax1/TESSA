@@ -84,7 +84,16 @@ class IntentIdentifier:
                                      r'what\s+services\s+(?:are|do\s+I\s+have)\s+(?:running|deployed|installed)'],
             
             # Help pattern
-            'help': [r'help', r'commands', r'what\s+can\s+you\s+do', r'usage']
+            'help': [r'help', r'commands', r'what\s+can\s+you\s+do', r'usage'],
+
+            # ZFS Storage Intents
+            'create_zfs_pool': [r'create\s+pool', r'make\s+pool', r'new\s+pool', r'setup\s+pool'],
+            'list_zfs_pools': [r'list\s+pools', r'show\s+pools', r'get\s+pools'],
+            'create_zfs_dataset': [r'create\s+dataset', r'new\s+dataset', r'make\s+dataset'],
+            'list_zfs_datasets': [r'list\s+datasets', r'show\s+datasets', r'get\s+datasets'],
+            'set_zfs_properties': [r'set\s+(?:property|properties|option|options)'],
+            'create_zfs_snapshot': [r'create\s+snapshot', r'take\s+snapshot', r'make\s+snapshot'],
+            'setup_zfs_auto_snapshots': [r'setup\s+auto\s+snapshot', r'configure\s+snapshot', r'enable\s+snapshots']
         }
 
     def identify_intent(self, preprocessed_query):

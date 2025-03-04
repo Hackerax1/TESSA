@@ -1,6 +1,6 @@
 id: jellyfin
 name: Jellyfin Media Server
-description: Jellyfin is a Free Software Media System that puts you in control of managing and streaming your media.
+description: Free Software Media System with robust ZFS storage integration for optimal media streaming
 keywords:
   - media server
   - movie server
@@ -12,40 +12,84 @@ keywords:
   - tv
   - shows
   - personal netflix
+  - zfs storage
 vm_requirements:
-  memory: 2048
+  memory: 4096
   cores: 2
-  disk: 50
+  disk: 20
   os_template: ubuntu-22.04
 deployment:
   method: docker
   docker_image: jellyfin/jellyfin:latest
   port_mappings: "-p 8096:8096 -p 8920:8920 -p 7359:7359/udp -p 1900:1900/udp"
   environment_vars: "-e PUID=1000 -e PGID=1000 -e TZ=America/New_York"
-  volume_mappings: "-v jellyfin_config:/config -v /path/to/media:/media"
+  volume_mappings: "-v jellyfin_config:/config -v /mnt/media/movies:/movies -v /mnt/media/tv:/tv -v /mnt/media/music:/music"
   docker_run_args: "--restart=unless-stopped --device=/dev/dri:/dev/dri"
   post_install_steps:
-    - "echo 'Please make your media files available to Jellyfin by adding them to the appropriate folders'"
+    - "echo 'Setting up ZFS storage...'"
+    - "zfs create -o mountpoint=/mnt/media tank/media"
+    - "zfs create tank/media/movies"
+    - "zfs create tank/media/tv"
+    - "zfs create tank/media/music"
+    - "zfs set compression=lz4 tank/media"
+    - "zfs set recordsize=1M tank/media"
+    - "zfs set atime=off tank/media"
+    - "chown -R 1000:1000 /mnt/media"
+    - "chmod -R 775 /mnt/media"
 access_info: |
-  Jellyfin Media Server has been successfully deployed!
+  Jellyfin Media Server has been successfully deployed with ZFS storage!
   
   Web interface: http://<VM_IP>:8096
   
+  Storage Configuration:
+  ZFS datasets have been created at:
+  - tank/media/movies: for your movie collection
+  - tank/media/tv: for TV shows
+  - tank/media/music: for music files
+  
+  ZFS has been optimized with:
+  - LZ4 compression for better storage efficiency
+  - 1M recordsize for optimal media streaming
+  - Disabled atime to improve performance
+  
   To complete setup:
   1. Visit the web interface and complete the initial setup wizard
-  2. Add media libraries pointing to your content folders
+  2. Add media libraries pointing to:
+     - Movies: /movies
+     - TV Shows: /tv
+     - Music: /music
   3. Create user accounts for family members
-  4. Install Jellyfin clients on your devices (available for Android, iOS, smart TVs, etc.)
-  5. For more information, visit https://jellyfin.org/docs
+  4. Install Jellyfin clients on your devices
+  5. Consider enabling hardware transcoding
+  6. Set up regular ZFS snapshots for backup:
+     zfs snapshot -r tank/media@weekly
+
 notes: |
-  Jellyfin is an open-source alternative to services like Plex, Emby, and Netflix.
-  It allows you to organize and stream your personal media collection including:
-  - Movies
-  - TV Shows
-  - Music
-  - Photos
+  Jellyfin with ZFS provides an optimal media streaming solution:
   
-  For optimal performance:
-  - Consider mounting a large storage volume for your media
-  - Hardware acceleration can be enabled for better transcoding performance
-  - Regular updates are recommended for security and new features
+  Features:
+  - Stream movies, TV shows, music, and photos
+  - Hardware-accelerated transcoding
+  - Multi-user support with profiles
+  - Mobile and smart TV apps
+  
+  ZFS Benefits:
+  - Data integrity protection
+  - Efficient compression
+  - Snapshots for backup
+  - Easy expansion
+  - Performance optimization
+  
+  Storage Maintenance:
+  - Monitor ZFS health with 'zpool status'
+  - Run regular scrubs: 'zpool scrub tank'
+  - Check compression ratios: 'zfs get compressratio tank/media'
+  - Monitor space usage: 'zfs list'
+  - Configure ZFS email alerts
+  
+  Performance Tips:
+  - Use SSDs for ZFS Intent Log (ZIL) if possible
+  - Consider L2ARC for frequently accessed media
+  - Monitor system memory for ZFS ARC cache
+  - Adjust recordsize based on media types
+  - Use zfs send/receive for backups

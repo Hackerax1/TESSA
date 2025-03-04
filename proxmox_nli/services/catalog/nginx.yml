@@ -1,0 +1,45 @@
+id: nginx-proxy
+name: NGINX Reverse Proxy
+description: NGINX web server configured as a reverse proxy, providing SSL termination and routing for your web services
+keywords:
+  - reverse proxy
+  - web server
+  - nginx
+  - proxy
+  - ssl
+  - https
+  - load balancer
+  - web gateway
+vm_requirements:
+  memory: 1024
+  cores: 1
+  disk: 10
+  os_template: ubuntu-22.04
+deployment:
+  method: docker
+  docker_image: nginxproxy/nginx-proxy:latest
+  port_mappings: "-p 80:80 -p 443:443"
+  environment_vars: "-e ENABLE_IPV6=true"
+  volume_mappings: "-v nginx_certs:/etc/nginx/certs -v nginx_vhost:/etc/nginx/vhost.d -v nginx_html:/usr/share/nginx/html -v /var/run/docker.sock:/tmp/docker.sock:ro"
+  docker_run_args: "--restart=unless-stopped"
+  post_install_steps:
+    - "echo 'NGINX proxy is ready for configuration. Add services with VIRTUAL_HOST environment variable'"
+access_info: |
+  NGINX Reverse Proxy has been successfully deployed!
+  
+  To add a service behind the proxy:
+  1. Make sure the service is on the same Docker network
+  2. Set these environment variables on your services:
+     - VIRTUAL_HOST=your.domain.com
+     - VIRTUAL_PORT=container_port
+     - LETSENCRYPT_HOST=your.domain.com (if using SSL)
+  
+  The proxy will automatically detect and route traffic to containers with these variables.
+notes: |
+  This NGINX setup uses the nginx-proxy image which automatically discovers and configures
+  proxied containers. It integrates well with Let's Encrypt for automatic SSL certificates.
+  
+  For optimal security:
+  - Create a dedicated Docker network for proxied services
+  - Configure proper SSL certificates
+  - Set up firewall rules to only allow 80/443 from trusted sources

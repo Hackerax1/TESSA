@@ -1,0 +1,104 @@
+id: nextcloud
+name: NextCloud
+description: Self-hosted productivity platform with file sync, sharing, and collaboration features
+keywords:
+  - cloud storage
+  - file sync
+  - collaboration
+  - personal cloud
+  - dropbox alternative
+  - file sharing
+  - document editing
+  - calendar
+  - contacts
+vm_requirements:
+  memory: 4096
+  cores: 2
+  disk: 20
+  os_template: ubuntu-22.04
+deployment:
+  method: docker
+  docker_compose: |
+    version: '3'
+    services:
+      nextcloud:
+        image: nextcloud:latest
+        container_name: nextcloud
+        environment:
+          - POSTGRES_HOST=db
+          - POSTGRES_DB=nextcloud
+          - POSTGRES_USER=nextcloud
+          - POSTGRES_PASSWORD=${DB_PASSWORD:-nextcloud}
+          - NEXTCLOUD_ADMIN_USER=${ADMIN_USER:-admin}
+          - NEXTCLOUD_ADMIN_PASSWORD=${ADMIN_PASSWORD:-changeme}
+          - PHP_MEMORY_LIMIT=512M
+          - PHP_UPLOAD_LIMIT=10G
+        volumes:
+          - nextcloud:/var/www/html
+          - /mnt/user_data:/data
+        ports:
+          - 8080:80
+        depends_on:
+          - db
+        restart: unless-stopped
+
+      db:
+        image: postgres:13
+        container_name: nextcloud-db
+        environment:
+          - POSTGRES_DB=nextcloud
+          - POSTGRES_USER=nextcloud
+          - POSTGRES_PASSWORD=${DB_PASSWORD:-nextcloud}
+        volumes:
+          - nextcloud_db:/var/lib/postgresql/data
+        restart: unless-stopped
+
+    volumes:
+      nextcloud:
+      nextcloud_db:
+
+  post_install_steps:
+    - "echo 'Creating data directory...'"
+    - "mkdir -p /mnt/user_data"
+    - "chown -R www-data:www-data /mnt/user_data"
+    - "echo 'Please mount your ZFS dataset to /mnt/user_data'"
+
+access_info: |
+  NextCloud has been successfully deployed!
+  
+  Access the web interface at: http://<VM_IP>:8080
+  Default credentials:
+  - Username: admin
+  - Password: changeme
+  
+  Initial Setup:
+  1. Log in and change the default password
+  2. Configure external storage in Settings > Administration > External Storage
+  3. Set up user accounts and sharing policies
+  4. Install recommended apps from the app store
+  5. Configure automated backups of the config and database
+  
+  Storage Setup:
+  1. Create a ZFS dataset for NextCloud data:
+     zfs create tank/nextcloud
+  2. Set compression and other options:
+     zfs set compression=lz4 tank/nextcloud
+     zfs set recordsize=128k tank/nextcloud
+  3. Mount the dataset:
+     zfs set mountpoint=/mnt/user_data tank/nextcloud
+
+notes: |
+  NextCloud provides a complete cloud storage solution:
+  - File sync across devices
+  - File sharing and collaboration
+  - Calendar and contacts sync
+  - Office document editing
+  - Photo/video gallery
+  - Mobile and desktop apps
+  
+  For optimal performance with ZFS:
+  - Use recordsize=128k for general files
+  - Enable compression
+  - Configure regular snapshots
+  - Consider using SSD for cache (L2ARC)
+  - Monitor space usage and quotas

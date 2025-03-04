@@ -1,0 +1,64 @@
+id: truenas-scale
+name: TrueNAS Scale
+description: Enterprise-grade storage operating system with ZFS, supporting file sharing, block storage, and containers
+keywords:
+  - storage
+  - nas
+  - zfs
+  - iscsi
+  - nfs
+  - smb
+  - cifs
+  - storage management
+  - raid
+  - snapshots
+vm_requirements:
+  memory: 8192
+  cores: 4
+  disk: 32
+  os_template: debian-11
+deployment:
+  method: script
+  script: |
+    # Download TrueNAS Scale ISO
+    wget https://download.truenas.com/TrueNAS-SCALE-Bluefin/22.12.3.2/TrueNAS-SCALE-22.12.3.2.iso
+    
+    # Mount additional disks for ZFS storage pool
+    # This will be handled by the VM creation process in Proxmox
+    
+  post_install_steps:
+    - "echo 'Please complete TrueNAS setup through the web interface'"
+    - "echo 'Create ZFS pools and shares as needed'"
+
+access_info: |
+  TrueNAS Scale has been deployed!
+  
+  Access the web interface at: http://<VM_IP>
+  Default credentials:
+  - Username: root
+  - Password: generated during installation
+  
+  Initial Setup Steps:
+  1. Complete the initial setup wizard
+  2. Create ZFS storage pools
+  3. Configure sharing services (SMB, NFS, iSCSI)
+  4. Set up snapshots and replication
+  5. Configure users and permissions
+  
+  Storage Recommendations:
+  - Use mirrored or RAIDZ configurations for data protection
+  - Configure regular snapshots
+  - Enable compression for better storage efficiency
+  - Consider setting up alerts for disk health
+  - Plan backup strategy using replication
+
+notes: |
+  TrueNAS Scale provides enterprise-grade storage features:
+  - ZFS filesystem with snapshots and replication
+  - Various RAID configurations
+  - SMB/CIFS, NFS, and iSCSI sharing
+  - Built-in monitoring and alerting
+  - Docker container support
+  - Virtual machine support
+  - Data protection with snapshots
+  - Easy-to-use web interface

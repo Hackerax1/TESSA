@@ -103,6 +103,74 @@ class CommandExecutor(BaseNLI):
                 )
             return {"success": False, "message": "Please specify an image name and VM ID"}
 
+        # ZFS Management Commands
+        elif intent == 'create_zfs_pool':
+            node = args[0] if args else entities.get('NODE')
+            name = args[1] if len(args) > 1 else entities.get('POOL_NAME')
+            devices = args[2:] if len(args) > 2 else entities.get('DEVICES', [])
+            raid_level = entities.get('RAID_LEVEL', 'mirror')
+            
+            if not all([node, name, devices]):
+                return {"success": False, "message": "Please specify node, pool name, and devices"}
+                
+            return self.commands.create_zfs_pool(node, name, devices, raid_level)
+            
+        elif intent == 'list_zfs_pools':
+            node = args[0] if args else entities.get('NODE')
+            if not node:
+                return {"success": False, "message": "Please specify a node"}
+            return self.commands.get_zfs_pools(node)
+            
+        elif intent == 'create_zfs_dataset':
+            node = args[0] if args else entities.get('NODE')
+            name = args[1] if len(args) > 1 else entities.get('DATASET_NAME')
+            options = entities.get('OPTIONS', {})
+            
+            if not all([node, name]):
+                return {"success": False, "message": "Please specify node and dataset name"}
+                
+            return self.commands.create_zfs_dataset(node, name, options)
+            
+        elif intent == 'list_zfs_datasets':
+            node = args[0] if args else entities.get('NODE')
+            pool = args[1] if len(args) > 1 else entities.get('POOL_NAME')
+            
+            if not node:
+                return {"success": False, "message": "Please specify a node"}
+                
+            return self.commands.get_zfs_datasets(node, pool)
+            
+        elif intent == 'set_zfs_properties':
+            node = args[0] if args else entities.get('NODE')
+            dataset = args[1] if len(args) > 1 else entities.get('DATASET_NAME')
+            properties = entities.get('PROPERTIES', {})
+            
+            if not all([node, dataset, properties]):
+                return {"success": False, "message": "Please specify node, dataset, and properties"}
+                
+            return self.commands.set_zfs_properties(node, dataset, properties)
+            
+        elif intent == 'create_zfs_snapshot':
+            node = args[0] if args else entities.get('NODE')
+            dataset = args[1] if len(args) > 1 else entities.get('DATASET_NAME')
+            snapshot_name = args[2] if len(args) > 2 else entities.get('SNAPSHOT_NAME')
+            recursive = entities.get('RECURSIVE', False)
+            
+            if not all([node, dataset, snapshot_name]):
+                return {"success": False, "message": "Please specify node, dataset, and snapshot name"}
+                
+            return self.commands.create_zfs_snapshot(node, dataset, snapshot_name, recursive)
+            
+        elif intent == 'setup_zfs_auto_snapshots':
+            node = args[0] if args else entities.get('NODE')
+            dataset = args[1] if len(args) > 1 else entities.get('DATASET_NAME')
+            schedule = args[2] if len(args) > 2 else entities.get('SCHEDULE', 'hourly')
+            
+            if not all([node, dataset]):
+                return {"success": False, "message": "Please specify node and dataset"}
+                
+            return self.commands.setup_auto_snapshots(node, dataset, schedule)
+
         # CLI Command Execution
         elif intent == 'run_cli_command':
             command = args[0] if args else entities.get('COMMAND')

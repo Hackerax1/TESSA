@@ -206,6 +206,7 @@ class ProxmoxCommands:
     def get_help(self):
         """Get help information"""
         commands = [
+            # Existing commands
             "list vms - Show all virtual machines",
             "start vm <id> - Start a virtual machine",
             "stop vm <id> - Stop a virtual machine",
@@ -217,6 +218,16 @@ class ProxmoxCommands:
             "get cluster status - Show cluster status",
             "get status of node <n> - Show node status",
             "get storage info - Show storage information",
+            
+            # ZFS Storage Commands
+            "create pool <name> with devices /dev/sda /dev/sdb using mirror - Create a new ZFS pool",
+            "list pools on node <name> - Show all ZFS pools",
+            "create dataset <name> - Create a new ZFS dataset",
+            "list datasets - Show all ZFS datasets",
+            "set compression=lz4 on dataset <name> - Set ZFS dataset properties",
+            "create snapshot <name> of dataset <name> - Create a ZFS snapshot",
+            "setup auto snapshots for dataset <name> - Configure automatic snapshots",
+            
             "help - Show this help message"
         ]
         return {"success": True, "message": "Available commands", "commands": commands}
@@ -243,3 +254,131 @@ class ProxmoxCommands:
             str(vm_id)
         ]
         subprocess.run(command, check=True)
+
+    def create_zfs_pool(self, node: str, name: str, devices: list, raid_level: str = 'mirror') -> dict:
+        """Create a ZFS storage pool on a node.
+        
+        Args:
+            node: Node name
+            name: Pool name
+            devices: List of device paths
+            raid_level: ZFS raid level (mirror, raidz, raidz2, etc.)
+        """
+        # First check if devices exist
+        devices_str = ' '.join(devices)
+        create_cmd = f"zpool create {name} {raid_level} {devices_str}"
+        
+        result = self.api.api_request('POST', f'nodes/{node}/execute', {
+            'command': create_cmd
+        })
+        
+        if result['success']:
+            return {"success": True, "message": f"Created ZFS pool {name} on node {node}"}
+        return result
+
+    def get_zfs_pools(self, node: str) -> dict:
+        """Get ZFS pool information from a node."""
+        result = self.api.api_request('POST', f'nodes/{node}/execute', {
+            'command': 'zpool list -H -o name,size,alloc,free,capacity,health'
+        })
+        
+        if not result['success']:
+            return result
+            
+        pools = []
+        for line in result['data'].splitlines():
+            if line.strip():
+                name, size, alloc, free, cap, health = line.split()
+                pools.append({
+                    'name': name,
+                    'size': size,
+                    'allocated': alloc,
+                    'free': free,
+                    'capacity': cap,
+                    'health': health
+                })
+                
+        return {"success": True, "message": "ZFS pools", "pools": pools}
+
+    def get_zfs_datasets(self, node: str, pool: str = None) -> dict:
+        """Get ZFS dataset information."""
+        cmd = 'zfs list -H -o name,used,avail,refer,mountpoint'
+        if pool:
+            cmd += f' {pool}'
+            
+        result = self.api.api_request('POST', f'nodes/{node}/execute', {
+            'command': cmd
+        })
+        
+        if not result['success']:
+            return result
+            
+        datasets = []
+        for line in result['data'].splitlines():
+            if line.strip():
+                name, used, avail, refer, mount = line.split()
+                datasets.append({
+                    'name': name,
+                    'used': used,
+                    'available': avail,
+                    'referenced': refer,
+                    'mountpoint': mount
+                })
+                
+        return {"success": True, "message": "ZFS datasets", "datasets": datasets}
+
+    def create_zfs_dataset(self, node: str, name: str, options: dict = None) -> dict:
+        """Create a ZFS dataset with options."""
+        create_cmd = f"zfs create"
+        
+        if options:
+            for key, value in options.items():
+                create_cmd += f" -o {key}={value}"
+                
+        create_cmd += f" {name}"
+        
+        result = self.api.api_request('POST', f'nodes/{node}/execute', {
+            'command': create_cmd
+        })
+        
+        if result['success']:
+            return {"success": True, "message": f"Created ZFS dataset {name}"}
+        return result
+
+    def set_zfs_properties(self, node: str, dataset: str, properties: dict) -> dict:
+        """Set ZFS dataset properties."""
+        for prop, value in properties.items():
+            result = self.api.api_request('POST', f'nodes/{node}/execute', {
+                'command': f"zfs set {prop}={value} {dataset}"
+            })
+            
+            if not result['success']:
+                return result
+                
+        return {"success": True, "message": f"Set properties on {dataset}"}
+
+    def create_zfs_snapshot(self, node: str, dataset: str, snapshot_name: str, recursive: bool = False) -> dict:
+        """Create a ZFS snapshot."""
+        cmd = "zfs snapshot"
+        if recursive:
+            cmd += " -r"
+        cmd += f" {dataset}@{snapshot_name}"
+        
+        result = self.api.api_request('POST', f'nodes/{node}/execute', {
+            'command': cmd
+        })
+        
+        if result['success']:
+            return {"success": True, "message": f"Created snapshot {dataset}@{snapshot_name}"}
+        return result
+
+    def setup_auto_snapshots(self, node: str, dataset: str, schedule: str = 'hourly') -> dict:
+        """Configure automatic ZFS snapshots."""
+        # Setup zfs-auto-snapshot or similar tool
+        result = self.api.api_request('POST', f'nodes/{node}/execute', {
+            'command': f"zfs set com.sun:auto-snapshot={schedule} {dataset}"
+        })
+        
+        if result['success']:
+            return {"success": True, "message": f"Configured auto-snapshots for {dataset}"}
+        return result

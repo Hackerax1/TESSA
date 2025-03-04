@@ -1,0 +1,150 @@
+id: arr-stack
+name: arr Media Stack
+description: Complete media automation stack including Sonarr, Radarr, Prowlarr, and Bazarr for managing TV shows, movies, and subtitles
+keywords:
+  - media
+  - sonarr
+  - radarr
+  - prowlarr
+  - bazarr
+  - tv shows
+  - movies
+  - subtitles
+  - media management
+  - media automation
+  - zfs storage
+vm_requirements:
+  memory: 4096
+  cores: 2
+  disk: 20
+  os_template: ubuntu-22.04
+deployment:
+  method: docker
+  docker_compose: |
+    version: '3'
+    services:
+      sonarr:
+        image: linuxserver/sonarr:latest
+        container_name: sonarr
+        environment:
+          - PUID=1000
+          - PGID=1000
+          - TZ=America/New_York
+        volumes:
+          - sonarr_config:/config
+          - /mnt/media/tv:/tv
+          - /mnt/media/downloads:/downloads
+        ports:
+          - 8989:8989
+        restart: unless-stopped
+
+      radarr:
+        image: linuxserver/radarr:latest
+        container_name: radarr
+        environment:
+          - PUID=1000
+          - PGID=1000
+          - TZ=America/New_York
+        volumes:
+          - radarr_config:/config
+          - /mnt/media/movies:/movies
+          - /mnt/media/downloads:/downloads
+        ports:
+          - 7878:7878
+        restart: unless-stopped
+
+      prowlarr:
+        image: linuxserver/prowlarr:latest
+        container_name: prowlarr
+        environment:
+          - PUID=1000
+          - PGID=1000
+          - TZ=America/New_York
+        volumes:
+          - prowlarr_config:/config
+        ports:
+          - 9696:9696
+        restart: unless-stopped
+
+      bazarr:
+        image: linuxserver/bazarr:latest
+        container_name: bazarr
+        environment:
+          - PUID=1000
+          - PGID=1000
+          - TZ=America/New_York
+        volumes:
+          - bazarr_config:/config
+          - /mnt/media/movies:/movies
+          - /mnt/media/tv:/tv
+        ports:
+          - 6767:6767
+        restart: unless-stopped
+
+    volumes:
+      sonarr_config:
+      radarr_config:
+      prowlarr_config:
+      bazarr_config:
+
+  post_install_steps:
+    - "echo 'Setting up ZFS storage...'"
+    - "zfs create -o mountpoint=/mnt/media tank/media"
+    - "zfs create tank/media/tv"
+    - "zfs create tank/media/movies"
+    - "zfs create tank/media/downloads"
+    - "zfs set compression=lz4 tank/media"
+    - "zfs set recordsize=1M tank/media"
+    - "zfs set atime=off tank/media"
+    - "chown -R 1000:1000 /mnt/media"
+    - "chmod -R 775 /mnt/media"
+
+access_info: |
+  *arr Media Stack has been successfully deployed with ZFS storage!
+  
+  Access the services at:
+  - Sonarr (TV Shows): http://<VM_IP>:8989
+  - Radarr (Movies): http://<VM_IP>:7878
+  - Prowlarr (Indexers): http://<VM_IP>:9696
+  - Bazarr (Subtitles): http://<VM_IP>:6767
+  
+  Storage Configuration:
+  The following ZFS datasets have been created:
+  - tank/media/tv: for TV shows
+  - tank/media/movies: for movies
+  - tank/media/downloads: for temporary download storage
+  
+  ZFS has been configured with:
+  - LZ4 compression for better storage efficiency
+  - 1M recordsize for optimal media file performance
+  - Disabled atime to reduce write operations
+  
+  Initial Setup:
+  1. Configure Prowlarr first and add your indexers
+  2. In Prowlarr, configure connections to Sonarr and Radarr
+  3. Set up your media libraries in Sonarr and Radarr
+  4. Configure Bazarr to connect to Sonarr and Radarr
+  5. Consider setting up regular ZFS snapshots:
+     zfs snapshot -r tank/media@weekly
+     
+notes: |
+  This stack provides a complete media automation solution with optimized ZFS storage:
+  
+  Media Management:
+  - Sonarr: TV show automation
+  - Radarr: Movie automation
+  - Prowlarr: Indexer management
+  - Bazarr: Subtitle management
+  
+  Storage Optimization:
+  - ZFS compression saves space while maintaining performance
+  - Recordsize optimized for large media files
+  - Disabled atime improves write performance
+  - Dataset structure allows for granular management
+  
+  Recommended ZFS Maintenance:
+  - Regular scrubs: zpool scrub tank
+  - Monitor health: zpool status
+  - Configure email alerts for ZFS events
+  - Regular snapshots for recovery points
+  - Consider setting up ZFS send/receive for backups
