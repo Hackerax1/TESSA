@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, url_for
+from flask_socketio import SocketIO, emit
 import os
 from proxmox_nli.core import ProxmoxNLI
+from proxmox_nli.core.voice_handler import VoiceHandler
 from dotenv import load_dotenv
 import logging
+import threading
+import time
 
 # Load environment variables from .env file
 load_dotenv()
@@ -12,10 +16,31 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
+app = Flask(__name__, 
+           static_folder='static',
+           static_url_path='/static')
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Initialize the ProxmoxNLI instance (will be properly configured on app start)
 proxmox_nli = None
+voice_handler = VoiceHandler()
+
+def monitor_vm_status():
+    """Background task to monitor VM status and emit updates"""
+    while True:
+        try:
+            if proxmox_nli:
+                result = proxmox_nli.commands.list_vms()
+                if result['success']:
+                    socketio.emit('vm_status_update', {'vms': result['vms']})
+                    
+                # Get cluster status
+                cluster_status = proxmox_nli.commands.get_cluster_status()
+                if cluster_status['success']:
+                    socketio.emit('cluster_status_update', cluster_status)
+        except Exception as e:
+            logger.error(f"Error in status monitor: {str(e)}")
+        time.sleep(5)  # Update every 5 seconds
 
 @app.route('/')
 def home():
@@ -30,7 +55,11 @@ def process_query():
         logger.error('No query provided')
         return jsonify({'error': 'No query provided'})
     
-    response = proxmox_nli.process_query(query)
+    # Get user information from request
+    user = request.json.get('user', 'anonymous')
+    ip_address = request.remote_addr
+    
+    response = proxmox_nli.process_query(query, user=user, source='web', ip_address=ip_address)
     return jsonify({'response': response})
 
 @app.route('/tts', methods=['POST'])
@@ -40,16 +69,24 @@ def text_to_speech():
     if not text:
         return jsonify({'error': 'No text provided'})
     
-    # In a real implementation, you would use a TTS service here
-    # For now, we'll just return the text
-    return jsonify({'audio': 'data:audio/wav;base64,', 'text': text})
+    result = voice_handler.text_to_speech(text)
+    if result['success']:
+        return jsonify(result)
+    else:
+        return jsonify({'error': result['error']}), 400
 
 @app.route('/stt', methods=['POST'])
 def speech_to_text():
     """Convert speech to text"""
-    # In a real implementation, you would process audio data here
-    # For now, we'll just return an empty string
-    return jsonify({'text': ''})
+    audio_data = request.json.get('audio')
+    if not audio_data:
+        return jsonify({'error': 'No audio data provided'})
+    
+    result = voice_handler.speech_to_text(audio_data)
+    if result['success']:
+        return jsonify(result)
+    else:
+        return jsonify({'error': result['error']}), 400
 
 @app.route('/backup', methods=['POST'])
 def backup_vm():
@@ -79,6 +116,37 @@ def restore_vm():
         logger.error(f'Error restoring VM: {e}')
         return jsonify({'error': str(e)}), 500
 
+@app.route('/audit-logs', methods=['GET'])
+def get_audit_logs():
+    """Get recent audit logs"""
+    limit = request.args.get('limit', 100, type=int)
+    logs = proxmox_nli.get_recent_activity(limit)
+    return jsonify({'logs': logs})
+
+@app.route('/user-activity/<user>', methods=['GET'])
+def get_user_activity(user):
+    """Get activity for a specific user"""
+    limit = request.args.get('limit', 100, type=int)
+    logs = proxmox_nli.get_user_activity(user, limit)
+    return jsonify({'logs': logs})
+
+@app.route('/failed-commands', methods=['GET'])
+def get_failed_commands():
+    """Get recent failed commands"""
+    limit = request.args.get('limit', 100, type=int)
+    logs = proxmox_nli.get_failed_commands(limit)
+    return jsonify({'logs': logs})
+
+@socketio.on('connect')
+def handle_connect():
+    """Handle client connection"""
+    logger.info(f"Client connected: {request.sid}")
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    """Handle client disconnection"""
+    logger.info(f"Client disconnected: {request.sid}")
+
 def start_app(host, user, password, realm='pam', verify_ssl=False, debug=False):
     """Start the Flask application with the given Proxmox credentials"""
     global proxmox_nli
@@ -91,8 +159,12 @@ def start_app(host, user, password, realm='pam', verify_ssl=False, debug=False):
     if not os.path.exists(templates_dir):
         os.makedirs(templates_dir)
     
-    # Start the Flask application
-    app.run(host='0.0.0.0', port=5000, debug=debug)
+    # Start the background monitoring thread
+    monitor_thread = threading.Thread(target=monitor_vm_status, daemon=True)
+    monitor_thread.start()
+    
+    # Start the Flask application with SocketIO
+    socketio.run(app, host='0.0.0.0', port=5000, debug=debug)
 
 if __name__ == '__main__':
     import argparse

@@ -5,179 +5,76 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Proxmox Natural Language Interface</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body {
-            background-color: #f8f9fa;
-            padding-top: 20px;
-        }
-        .chat-container {
-            max-width: 800px;
-            margin: 0 auto;
-            background-color: #fff;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
-        }
-        .chat-header {
-            background-color: #6f42c1;
-            color: #fff;
-            padding: 15px;
-            text-align: center;
-        }
-        .chat-body {
-            height: 60vh;
-            overflow-y: auto;
-            padding: 15px;
-            display: flex;
-            flex-direction: column;
-        }
-        .chat-footer {
-            padding: 15px;
-            background-color: #f8f9fa;
-            border-top: 1px solid #dee2e6;
-        }
-        .message {
-            margin-bottom: 15px;
-            max-width: 80%;
-            padding: 10px 15px;
-            border-radius: 10px;
-            white-space: pre-wrap;
-        }
-        .message.user {
-            align-self: flex-end;
-            background-color: #6f42c1;
-            color: #fff;
-        }
-        .message.system {
-            align-self: flex-start;
-            background-color: #e9ecef;
-            color: #212529;
-        }
-        #mic-button {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background-color: #6f42c1;
-            color: #fff;
-            border: none;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            cursor: pointer;
-        }
-        #mic-button.recording {
-            background-color: #dc3545;
-            animation: pulse 1.5s infinite;
-        }
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-            100% { transform: scale(1); }
-        }
-    </style>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="/static/css/styles.css" rel="stylesheet">
 </head>
 <body>
     <div class="container">
-        <div class="chat-container">
-            <div class="chat-header">
-                <h2>Proxmox Natural Language Interface</h2>
-                <p class="mb-0">Ask questions or give commands to manage your Proxmox VE environment</p>
-            </div>
-            <div class="chat-body" id="chat-body">
-                <div class="message system">
-                    Hello! I'm your Proxmox Natural Language Interface. How can I help you today?
-                    <br><br>
-                    Try commands like:
-                    <ul>
-                        <li>list vms</li>
-                        <li>start vm 100</li>
-                        <li>get status of node pve</li>
-                        <li>type 'help' to see all available commands</li>
-                    </ul>
+        <div class="row">
+            <!-- Chat Interface -->
+            <div class="col-md-7">
+                <div class="chat-container">
+                    <div class="chat-header">
+                        <h2>Proxmox Natural Language Interface</h2>
+                        <p class="mb-0">Ask questions or give commands to manage your Proxmox VE environment</p>
+                    </div>
+                    <div class="chat-body" id="chat-body">
+                        <div class="message system">
+                            Hello! I'm your Proxmox Natural Language Interface. How can I help you today?
+                            <br><br>
+                            Try commands like:
+                            <ul>
+                                <li>list vms</li>
+                                <li>start vm 100</li>
+                                <li>get status of node pve</li>
+                                <li>type 'help' to see all available commands</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="chat-footer">
+                        <form id="chat-form">
+                            <div class="input-group">
+                                <input type="text" id="user-input" class="form-control" placeholder="Type your question or command..." autocomplete="off">
+                                <button id="mic-button" type="button">
+                                    <i class="bi bi-mic-fill"></i>
+                                </button>
+                                <button class="btn btn-primary" type="submit">Send</button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             </div>
-            <div class="chat-footer">
-                <form id="chat-form">
-                    <div class="input-group">
-                        <input type="text" id="user-input" class="form-control" placeholder="Type your question or command..." autocomplete="off">
-                        <button id="mic-button" type="button">
-                            <i class="bi bi-mic-fill"></i>📢
-                        </button>
-                        <button class="btn btn-primary" type="submit">Send</button>
+
+            <!-- Status and Monitoring -->
+            <div class="col-md-5">
+                <div class="status-container">
+                    <h3>System Status</h3>
+                    <div id="cluster-status">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
                     </div>
-                </form>
+                </div>
+
+                <div class="status-container">
+                    <h3>Virtual Machines</h3>
+                    <div id="vm-list">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="audit-container">
+                    <h3>Audit Log</h3>
+                    <div id="audit-log"></div>
+                </div>
             </div>
-        </div>
-        <div class="mt-4">
-            <h3>Monitoring and Metrics</h3>
-            <p>View detailed metrics and graphs on the <a href="http://localhost:3000">Grafana Dashboard</a>.</p>
-            <iframe src="http://localhost:3000/d-solo/your-dashboard-id/your-panel-id?orgId=1&refresh=5m" width="450" height="200" frameborder="0"></iframe>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const chatForm = document.getElementById('chat-form');
-            const userInput = document.getElementById('user-input');
-            const chatBody = document.getElementById('chat-body');
-            const micButton = document.getElementById('mic-button');
-            let isRecording = false;
-
-            chatForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                const query = userInput.value.trim();
-                if (!query) return;
-
-                // Add user message to chat
-                addMessage(query, 'user');
-                userInput.value = '';
-
-                // Send query to server
-                fetch('/query', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ query: query })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    // Add response to chat
-                    if (data.error) {
-                        addMessage('Error: ' + data.error, 'system');
-                    } else {
-                        addMessage(data.response, 'system');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    addMessage('Sorry, there was an error processing your request.', 'system');
-                });
-            });
-
-            // Handle microphone button (placeholder for voice functionality)
-            micButton.addEventListener('click', function() {
-                if (isRecording) {
-                    // Stop recording
-                    micButton.classList.remove('recording');
-                    addMessage('Voice recording is not fully implemented yet.', 'system');
-                } else {
-                    // Start recording
-                    micButton.classList.add('recording');
-                    addMessage('Started listening... (Voice functionality is a placeholder)', 'system');
-                }
-                isRecording = !isRecording;
-            });
-
-            function addMessage(text, type) {
-                const messageDiv = document.createElement('div');
-                messageDiv.className = `message ${type}`;
-                messageDiv.textContent = text;
-                chatBody.appendChild(messageDiv);
-                chatBody.scrollTop = chatBody.scrollHeight;
-            }
-        });
-    </script>
+    <script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
+    <script src="/static/js/app.js"></script>
 </body>
 </html>

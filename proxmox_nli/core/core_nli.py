@@ -8,6 +8,7 @@ from ..commands.proxmox_commands import ProxmoxCommands
 from ..commands.docker_commands import DockerCommands
 from ..commands.vm_command import VMCommand
 from .response_generator import ResponseGenerator
+from .audit_logger import AuditLogger
 from prometheus_client import start_http_server, Summary
 import importlib.util
 import sys
@@ -34,6 +35,9 @@ class ProxmoxNLI:
         self.docker_commands = DockerCommands(self.api)
         self.vm_command = VMCommand(self.api)
         self.response_generator = ResponseGenerator()
+        
+        # Initialize audit logger
+        self.audit_logger = AuditLogger()
         
         # Connect response generator to Ollama client if available
         if use_ollama and self.nlu.ollama_client:
@@ -229,7 +233,7 @@ class ProxmoxNLI:
         return "\n".join(commands)
     
     @REQUEST_TIME.time()
-    def process_query(self, query):
+    def process_query(self, query, user=None, source='cli', ip_address=None):
         """Process a natural language query"""
         # Process the query using NLU engine
         intent, args, entities = self.nlu.process_query(query)
@@ -237,8 +241,31 @@ class ProxmoxNLI:
         # Execute intent
         result = self.execute_intent(intent, args, entities)
         
+        # Log the command execution
+        self.audit_logger.log_command(
+            query=query,
+            intent=intent,
+            entities=entities,
+            result=result,
+            user=user,
+            source=source,
+            ip_address=ip_address
+        )
+        
         # Generate response
         return self.response_generator.generate_response(query, intent, result)
+
+    def get_recent_activity(self, limit=100):
+        """Get recent command executions"""
+        return self.audit_logger.get_recent_logs(limit)
+
+    def get_user_activity(self, user, limit=100):
+        """Get recent activity for a specific user"""
+        return self.audit_logger.get_user_activity(user, limit)
+
+    def get_failed_commands(self, limit=100):
+        """Get recent failed command executions"""
+        return self.audit_logger.get_failed_commands(limit)
 
     def backup_vm(self, vm_id, backup_dir):
         """Backup a VM to the specified directory"""
