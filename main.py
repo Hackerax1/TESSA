@@ -37,7 +37,7 @@ def main():
         sys.exit(1)
     
     if args.web:
-        web_mode(args.host, args.user, args.password, args.realm, args.verify_ssl, args.debug)
+        web_mode(args)
     else:
         cli_mode(args.host, args.user, args.password, args.realm, args.verify_ssl)
 
