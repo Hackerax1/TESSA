@@ -1,9 +1,13 @@
 """
 Service handler module for managing service-related operations.
 """
-from .base_nli import BaseNLI
 
-class ServiceHandler(BaseNLI):
+class ServiceHandler:
+    def __init__(self, base_nli):
+        self.service_catalog = base_nli.service_catalog
+        self.service_manager = base_nli.service_manager
+        self.nlu = base_nli.nlu
+
     def handle_service_intent(self, intent, args, entities):
         """Handle service-related intents"""
         if intent == 'list_available_services':

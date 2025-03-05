@@ -1,0 +1,90 @@
+id: cloudflared
+name: Cloudflare Tunnel
+description: |
+  Cloudflare Tunnel provides a secure way to connect your homelab services to the internet without opening ports.
+  It creates an encrypted tunnel between your services and Cloudflare's edge network.
+keywords:
+  - cloudflare
+  - tunnel
+  - proxy
+  - ssl
+  - https
+  - domain
+  - dns
+vm_requirements:
+  memory: 512
+  cores: 1
+  disk: 5
+  os_template: ubuntu-22.04
+deployment:
+  method: docker
+  docker_image: cloudflare/cloudflared:latest
+  port_mappings: ""  # No ports needed as tunnel is outbound
+  environment_vars: "-e NO_AUTOUPDATE=true"
+  volume_mappings: "-v ~/.cloudflared:/etc/cloudflared"
+  docker_run_args: "--restart=unless-stopped"
+  pre_install_steps:
+    - "mkdir -p ~/.cloudflared"
+    - "echo 'Please run: cloudflared tunnel login'"
+    - "echo 'Then run: cloudflared tunnel create homelab'"
+    - "echo 'Copy the tunnel ID and token for configuration'"
+  post_install_steps:
+    - "echo 'Configure your tunnel by creating ~/.cloudflared/config.yml with:'"
+    - |
+      tunnel: your-tunnel-id
+      credentials-file: /etc/cloudflared/your-tunnel-id.json
+      ingress:
+        - hostname: your.domain.com
+          service: http://localhost:8006  # Proxmox web interface
+        - hostname: "*.your.domain.com"
+          service: http://localhost:8006
+        - service: http_status:404
+access_info: |
+  Cloudflare Tunnel Setup Instructions:
+  
+  1. Install cloudflared CLI:
+     - Windows: scoop install cloudflared
+     - Linux: curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+     - Mac: brew install cloudflare/cloudflare/cloudflared
+  
+  2. Authenticate with Cloudflare:
+     $ cloudflared tunnel login
+  
+  3. Create your tunnel:
+     $ cloudflared tunnel create homelab
+  
+  4. Configure your tunnel:
+     Create ~/.cloudflared/config.yml with your tunnel settings
+  
+  5. Start the tunnel:
+     $ cloudflared tunnel run
+  
+  6. Route traffic to your tunnel:
+     $ cloudflared tunnel route dns <tunnel-id> your.domain.com
+
+  For detailed DNS setup:
+  1. Log into Cloudflare dashboard (https://dash.cloudflare.com)
+  2. Add your domain if not already added
+  3. Update nameservers at your registrar to Cloudflare's nameservers
+  4. Configure DNS records (automatically done by cloudflared)
+  5. Enable SSL/TLS encryption mode to "Full" or "Full (strict)"
+  6. Optional: Enable additional security features like WAF and Access
+
+notes: |
+  Security Recommendations:
+  - Always use Cloudflare Access or IP restrictions to protect sensitive services
+  - Enable Cloudflare Zero Trust features for additional security
+  - Regularly update cloudflared to get the latest security patches
+  - Use separate tunnels for different security contexts
+  
+  Benefits:
+  - No open ports required
+  - End-to-end encryption
+  - DDoS protection
+  - Easy SSL certificate management
+  - Zero Trust security features
+  
+  Common Issues:
+  - If tunnel fails to start, check credentials file permissions
+  - If DNS not resolving, verify Cloudflare nameservers are configured
+  - If SSL errors, check Cloudflare SSL/TLS encryption mode

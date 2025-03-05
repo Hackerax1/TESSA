@@ -12,6 +12,11 @@ A natural language interface for managing Proxmox VE environments, allowing user
 - Web interface with chat-like UI
 - Command-line interface for terminal use
 - AI-powered NLU using Ollama integration
+- ZFS storage management and snapshots
+- Domain management with Cloudflare integration
+- Automatic SSL certificate management
+- Secure tunnel configuration for remote access
+- Zero Trust security features
 
 ## Project Structure
 
@@ -41,8 +46,15 @@ proxmox-nli/
             __init__.py
             core_nli.py
             response_generator.py
+            cloudflare_manager.py  # Cloudflare integration
             cli.py
             web.py
+        services/             # Service management
+            catalog/          # Service definitions
+                nginx.yml
+                cloudflared.yml
+            service_manager.py
+            service_catalog.py
     templates/                 # Web interface templates
         index.html
     app.py                     # Web server
@@ -103,6 +115,11 @@ OLLAMA_API_URL=http://localhost:11434
 OLLAMA_MODEL=llama3
 DISABLE_OLLAMA=false
 DISABLE_OLLAMA_RESPONSE=false
+
+# Cloudflare Configuration
+CLOUDFLARE_API_TOKEN=your-api-token  # Optional: For automated DNS management
+CLOUDFLARE_EMAIL=your-email
+CLOUDFLARE_ZONE_ID=your-zone-id      # Optional: For automated DNS management
 
 # Backup Configuration
 BACKUP_DIR=/backups
@@ -177,6 +194,13 @@ Ensure you have a `.env` file in the root directory with the necessary configura
 - `run command "uptime" on vm 100` - Execute a command on VM 100
 - `help` - Show all available commands
 
+### Domain Management Commands
+- `configure cloudflare domain example.com with email user@example.com` - Configure a domain with Cloudflare
+- `setup cloudflare tunnel for domain example.com` - Create a Cloudflare tunnel
+- `list cloudflare domains` - Show all configured Cloudflare domains
+- `list cloudflare tunnels` - Show all configured Cloudflare tunnels
+- `remove cloudflare domain example.com` - Remove a domain from Cloudflare configuration
+
 ## Ollama Integration
 
 The system can use Ollama's AI models to improve natural language understanding and response generation:
@@ -210,6 +234,84 @@ Any Ollama-compatible model can be used, but these are recommended:
 
 ### Fallback Mechanism
 If Ollama is unavailable or encounters an error, the system will automatically fall back to traditional pattern-based NLU methods.
+
+## Domain Management and SSL
+
+The system supports seamless domain management and SSL certificate configuration through Cloudflare integration:
+
+### Features
+- Automatic SSL certificate management via Cloudflare
+- Zero Trust access control
+- DDoS protection
+- Secure tunnel configuration
+- No port forwarding required
+
+### Setting up a Domain
+
+1. Register a domain (e.g., from Namecheap, GoDaddy, etc.)
+2. Configure the domain with Cloudflare:
+   ```
+   configure cloudflare domain your-domain.com with email your-email@example.com
+   ```
+3. Follow the provided instructions to update nameservers
+4. Create a secure tunnel:
+   ```
+   setup cloudflare tunnel for domain your-domain.com
+   ```
+
+### Security Features
+
+The Cloudflare integration provides several security features:
+- End-to-end encryption
+- Zero Trust access control
+- DDoS protection
+- Web Application Firewall (WAF)
+- Bot protection
+- Rate limiting
+
+### Tunnel Configuration
+
+Cloudflare Tunnels provide secure access to your homelab without exposing ports:
+
+1. **Install cloudflared:**
+   ```bash
+   # Windows (using scoop):
+   scoop install cloudflared
+
+   # Linux:
+   curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+   sudo dpkg -i cloudflared.deb
+
+   # Mac:
+   brew install cloudflare/cloudflare/cloudflared
+   ```
+
+2. **Configure the tunnel:**
+   - Run `cloudflared tunnel login`
+   - Follow the browser authentication process
+   - The system will automatically configure the tunnel for your domain
+
+3. **Access your services:**
+   - Proxmox web interface: `https://proxmox.your-domain.com`
+   - Other services can be added to the tunnel configuration
+
+### Best Practices
+
+1. **Security:**
+   - Enable Cloudflare Access for sensitive services
+   - Use strong authentication methods
+   - Regularly update SSL/TLS settings
+   - Monitor access logs
+
+2. **Performance:**
+   - Use Cloudflare's CDN features
+   - Enable caching where appropriate
+   - Configure proper DNS records
+
+3. **Maintenance:**
+   - Regularly update cloudflared
+   - Monitor tunnel status
+   - Keep DNS records current
 
 ## Custom Commands and Plugin System
 

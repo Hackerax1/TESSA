@@ -470,3 +470,57 @@ class ServiceManager:
                 "success": False,
                 "message": f"Error removing service: {str(e)}"
             }
+
+    def setup_cloudflare_service(self, domain_name, email, tunnel_name="homelab"):
+        """
+        Set up Cloudflare service with domain and tunnel configuration
+        """
+        # Import cloudflare manager
+        from ..core.cloudflare_manager import CloudflareManager
+        cf_manager = CloudflareManager()
+        
+        # First configure the domain
+        domain_result = cf_manager.configure_domain(domain_name, email)
+        if not domain_result["success"]:
+            return domain_result
+            
+        # Then set up the tunnel
+        tunnel_result = cf_manager.create_tunnel(domain_name, tunnel_name)
+        if not tunnel_result["success"]:
+            return tunnel_result
+        
+        # Deploy cloudflared service from catalog
+        service_result = self.deploy_service("cloudflared", {
+            "domain": domain_name,
+            "tunnel_name": tunnel_name
+        })
+        
+        return {
+            "success": True,
+            "message": "Cloudflare service setup complete",
+            "domain_config": domain_result,
+            "tunnel_config": tunnel_result,
+            "service_deployment": service_result
+        }
+
+    def remove_cloudflare_service(self, domain_name):
+        """
+        Remove Cloudflare service configuration
+        """
+        from ..core.cloudflare_manager import CloudflareManager
+        cf_manager = CloudflareManager()
+        
+        # Remove domain configuration
+        result = cf_manager.remove_domain(domain_name)
+        if not result["success"]:
+            return result
+        
+        return {
+            "success": True,
+            "message": f"Cloudflare service removed for domain {domain_name}",
+            "cleanup_steps": [
+                "1. Remove DNS records from Cloudflare dashboard",
+                "2. Update nameservers at your domain registrar if needed",
+                "3. Clean up any local cloudflared configurations"
+            ]
+        }

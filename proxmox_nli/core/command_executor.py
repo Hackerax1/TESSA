@@ -1,9 +1,14 @@
 """
 Command executor module handling execution of various Proxmox commands.
 """
-from .base_nli import BaseNLI
 
-class CommandExecutor(BaseNLI):
+class CommandExecutor:
+    def __init__(self, base_nli):
+        self.commands = base_nli.commands
+        self.docker_commands = base_nli.docker_commands
+        self.vm_command = base_nli.vm_command
+        self.get_help = base_nli.get_help
+
     def _execute_command(self, intent, args, entities):
         """Internal method to execute the command"""
         # VM Management

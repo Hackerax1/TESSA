@@ -1,9 +1,13 @@
 """
 User manager module for handling user preferences and activity tracking.
 """
-from .base_nli import BaseNLI
 
-class UserManager(BaseNLI):
+class UserManager:
+    def __init__(self, base_nli):
+        self.user_preferences = base_nli.user_preferences
+        self.nlu = base_nli.nlu
+        self.audit_logger = base_nli.audit_logger
+
     def _load_user_context(self, user_id):
         """Load user preferences into the context manager"""
         if not user_id:
@@ -32,7 +36,7 @@ class UserManager(BaseNLI):
         except Exception as e:
             import logging
             logging.error(f"Error loading user preferences: {e}")
-    
+
     def set_user_preference(self, user_id, key, value):
         """Set a user preference"""
         if not user_id:
@@ -50,7 +54,7 @@ class UserManager(BaseNLI):
             
         prefs = self.user_preferences.get_all_preferences(user_id)
         return {"success": True, "preferences": prefs}
-    
+
     def get_user_statistics(self, user_id):
         """Get usage statistics for a user"""
         if not user_id:

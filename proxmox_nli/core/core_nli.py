@@ -9,7 +9,16 @@ from .user_manager import UserManager
 
 REQUEST_TIME = Summary('request_processing_seconds', 'Time spent processing request')
 
-class ProxmoxNLI(BaseNLI, CommandExecutor, ServiceHandler, UserManager):
+class ProxmoxNLI(BaseNLI):
+    def __init__(self, host, user, password, realm='pam', verify_ssl=False):
+        """Initialize the Proxmox NLI with all components"""
+        super().__init__(host, user, password, realm, verify_ssl)
+        
+        # Initialize components with self as base_nli
+        self.command_executor = CommandExecutor(self)
+        self.service_handler = ServiceHandler(self)
+        self.user_manager = UserManager(self)
+
     def execute_intent(self, intent, args, entities):
         """Execute the identified intent"""
         # Skip confirmation for safe read-only operations
@@ -28,14 +37,14 @@ class ProxmoxNLI(BaseNLI, CommandExecutor, ServiceHandler, UserManager):
             confirmation_msg = self._get_confirmation_message(intent, args, entities)
             return {"success": True, "requires_confirmation": True, "message": confirmation_msg}
         
-        # Handle service-related intents
+        # Handle service-related intents through service handler
         if intent in ['list_available_services', 'list_deployed_services', 'find_service', 
                      'deploy_service', 'service_status', 'stop_service', 'remove_service']:
-            return self.handle_service_intent(intent, args, entities)
+            return self.service_handler.handle_service_intent(intent, args, entities)
             
-        # Handle other commands
-        return self._execute_command(intent, args, entities)
-    
+        # Handle other commands through command executor
+        return self.command_executor._execute_command(intent, args, entities)
+
     def confirm_command(self, confirmed=True):
         """Handle command confirmation"""
         if not self.pending_command:
@@ -43,7 +52,7 @@ class ProxmoxNLI(BaseNLI, CommandExecutor, ServiceHandler, UserManager):
         
         if confirmed:
             # Execute the pending command
-            result = self._execute_command(self.pending_command, self.pending_args, self.pending_entities)
+            result = self.execute_intent(self.pending_command, self.pending_args, self.pending_entities)
             # Clear pending command
             self.pending_command = None
             self.pending_args = None
@@ -55,33 +64,28 @@ class ProxmoxNLI(BaseNLI, CommandExecutor, ServiceHandler, UserManager):
             self.pending_args = None
             self.pending_entities = None
             return {"success": True, "message": "Command cancelled"}
-    
+
     def _get_confirmation_message(self, intent, args, entities):
         """Generate a confirmation message for the pending command"""
         messages = {
-            'start_vm': f"Are you sure you want to start VM {args[0] if args else entities.get('VM_ID')}?",
-            'stop_vm': f"Are you sure you want to stop VM {args[0] if args else entities.get('VM_ID')}?",
-            'restart_vm': f"Are you sure you want to restart VM {args[0] if args else entities.get('VM_ID')}?",
-            'delete_vm': f"Are you sure you want to DELETE VM {args[0] if args else entities.get('VM_ID')}? This cannot be undone!",
+            'start_vm': f"Are you sure you want to start VM {entities.get('VM_ID')}?",
+            'stop_vm': f"Are you sure you want to stop VM {entities.get('VM_ID')}?",
+            'restart_vm': f"Are you sure you want to restart VM {entities.get('VM_ID')}?",
+            'delete_vm': f"Are you sure you want to delete VM {entities.get('VM_ID')}? This cannot be undone!",
             'create_vm': "Are you sure you want to create a new VM with these parameters?",
-            'start_docker_container': f"Are you sure you want to start Docker container {entities.get('CONTAINER_NAME')} on VM {entities.get('VM_ID')}?",
-            'stop_docker_container': f"Are you sure you want to stop Docker container {entities.get('CONTAINER_NAME')} on VM {entities.get('VM_ID')}?",
-            'run_docker_container': f"Are you sure you want to run a new Docker container from image {entities.get('IMAGE_NAME')} on VM {entities.get('VM_ID')}?",
-            'run_cli_command': f"Are you sure you want to execute command '{entities.get('COMMAND')}' on VM {entities.get('VM_ID')}?",
-            'deploy_service': f"Are you sure you want to deploy {args[0] if args else entities.get('SERVICE_ID')} service{' on VM ' + args[1] if args and len(args) > 1 else ''}?",
-            'stop_service': f"Are you sure you want to stop {args[0] if args else entities.get('SERVICE_ID')} service on VM {args[1] if args and len(args) > 1 else entities.get('VM_ID')}?",
-            'remove_service': f"Are you sure you want to remove {args[0] if args else entities.get('SERVICE_ID')} service from VM {args[1] if args and len(args) > 1 else entities.get('VM_ID')}?",
+            'deploy_service': f"Are you sure you want to deploy service {entities.get('SERVICE_ID')} to VM {entities.get('VM_ID')}?",
+            'stop_service': f"Are you sure you want to stop service {entities.get('SERVICE_ID')} on VM {entities.get('VM_ID')}?",
+            'remove_service': f"Are you sure you want to remove service {entities.get('SERVICE_ID')} from VM {entities.get('VM_ID')}?",
         }
-        
         return messages.get(intent, "Are you sure you want to execute this command?") + "\nReply with 'yes' to confirm or 'no' to cancel."
-    
+
     @REQUEST_TIME.time()
     def process_query(self, query, user=None, source='cli', ip_address=None):
         """Process a natural language query"""
         # Process the query using NLU engine
         intent, args, entities = self.nlu.process_query(query)
         
-        # Update user preferences with context
+        # Update user preferences with context through user manager
         if user:
             # Track command usage for this user
             self.user_preferences.track_command_usage(user, query, intent)
@@ -101,7 +105,7 @@ class ProxmoxNLI(BaseNLI, CommandExecutor, ServiceHandler, UserManager):
                 self.user_preferences.add_quick_access_service(user, service_id, vm_id)
                 
             # Load user preferences into context for smarter responses
-            self._load_user_context(user)
+            self.user_manager._load_user_context(user)
         
         # Execute intent
         result = self.execute_intent(intent, args, entities)
@@ -119,11 +123,3 @@ class ProxmoxNLI(BaseNLI, CommandExecutor, ServiceHandler, UserManager):
         
         # Generate response
         return self.response_generator.generate_response(query, intent, result)
-
-    def backup_vm(self, vm_id, backup_dir):
-        """Backup a VM to the specified directory"""
-        return self.commands.backup_vm(vm_id, backup_dir)
-
-    def restore_vm(self, backup_file, vm_id):
-        """Restore a VM from the specified backup file"""
-        return self.commands.restore_vm(backup_file, vm_id)
