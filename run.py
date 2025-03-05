@@ -4,6 +4,7 @@ import sys
 import subprocess
 import platform
 from check_requirements import RequirementsChecker
+import shutil
 from pathlib import Path
 import webbrowser
 import time

@@ -8,6 +8,7 @@ from pathlib import Path
 import argparse
 import requests
 from dotenv import load_dotenv
+import sys
 
 class BackupManager:
     def __init__(self, backup_dir="backups"):
@@ -137,6 +138,10 @@ class BackupManager:
 
 def backup_vm(vm_id):
     """Backup a VM"""
+    PROXMOX_API_URL = os.getenv("PROXMOX_API_URL")
+    PROXMOX_USER = os.getenv("PROXMOX_USER")
+    PROXMOX_PASSWORD = os.getenv("PROXMOX_PASSWORD")
+    
     url = f"{PROXMOX_API_URL}/nodes/{PROXMOX_USER}/qemu/{vm_id}/status/start"
     response = requests.post(url, auth=(PROXMOX_USER, PROXMOX_PASSWORD))
     if response.status_code == 200:
