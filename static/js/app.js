@@ -10,12 +10,106 @@ class ProxmoxNLI {
         this.isRecording = false;
         this.mediaRecorder = null;
         this.audioChunks = [];
-        this.socket = io();
+        this.socket = io({
+            auth: {
+                token: this.getToken()
+            }
+        });
 
         this.initializeEventListeners();
         this.setupSocketHandlers();
         this.setupMediaRecorder();
-        this.loadInitialData();
+        this.checkAuthentication();
+    }
+
+    async checkAuthentication() {
+        const token = this.getToken();
+        if (!token) {
+            this.showLoginForm();
+        } else {
+            await this.loadInitialData();
+        }
+    }
+
+    getToken() {
+        return localStorage.getItem('jwt_token');
+    }
+
+    setToken(token) {
+        localStorage.setItem('jwt_token', token);
+    }
+
+    removeToken() {
+        localStorage.removeItem('jwt_token');
+    }
+
+    showLoginForm() {
+        this.chatBody.innerHTML = `
+            <div class="login-form">
+                <h3>Login</h3>
+                <form id="login-form">
+                    <div class="form-group">
+                        <input type="text" id="username" class="form-control" placeholder="Username" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="password" id="password" class="form-control" placeholder="Password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Login</button>
+                </form>
+            </div>
+        `;
+
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const response = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                if (data.token) {
+                    this.setToken(data.token);
+                    this.socket.auth = { token: data.token };
+                    this.socket.connect();
+                    await this.loadInitialData();
+                } else {
+                    this.addMessage('Login failed: ' + (data.error || 'Unknown error'), 'system');
+                }
+            } catch (error) {
+                this.addMessage('Login failed: ' + error, 'system');
+            }
+        });
+    }
+
+    async fetchWithAuth(url, options = {}) {
+        const token = this.getToken();
+        if (!token) {
+            this.showLoginForm();
+            throw new Error('Not authenticated');
+        }
+
+        const headers = {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            ...(options.headers || {})
+        };
+
+        const response = await fetch(url, { ...options, headers });
+        
+        if (response.status === 401) {
+            this.removeToken();
+            this.showLoginForm();
+            throw new Error('Authentication expired');
+        }
+
+        return response;
     }
 
     async setupMediaRecorder() {
@@ -34,11 +128,8 @@ class ProxmoxNLI {
                 reader.onloadend = async () => {
                     const base64Audio = reader.result;
                     try {
-                        const response = await fetch('/stt', {
+                        const response = await this.fetchWithAuth('/stt', {
                             method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
                             body: JSON.stringify({ audio: base64Audio })
                         });
                         const data = await response.json();
@@ -67,11 +158,11 @@ class ProxmoxNLI {
         });
 
         this.socket.on('vm_status_update', (data) => {
-            this.updateVMList(data.vms);
+            this.updateVMList(data);
         });
 
         this.socket.on('cluster_status_update', (data) => {
-            this.updateClusterStatus(data.status);
+            this.updateClusterStatus(data);
         });
     }
 
@@ -85,11 +176,8 @@ class ProxmoxNLI {
             this.userInput.value = '';
 
             try {
-                const response = await fetch('/query', {
+                const response = await this.fetchWithAuth('/query', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
                     body: JSON.stringify({ query: query })
                 });
                 const data = await response.json();
@@ -125,9 +213,25 @@ class ProxmoxNLI {
         });
     }
 
-    updateVMList(vms) {
+    updateVMList(data) {
         this.vmList.innerHTML = '';
-        vms.forEach(vm => {
+        if (data.error) {
+            this.vmList.innerHTML = `
+                <div class="alert alert-danger" role="alert">
+                    ${data.error}
+                </div>`;
+            return;
+        }
+        
+        if (!data.vms || data.vms.length === 0) {
+            this.vmList.innerHTML = `
+                <div class="alert alert-info" role="alert">
+                    No virtual machines found
+                </div>`;
+            return;
+        }
+
+        data.vms.forEach(vm => {
             const card = document.createElement('div');
             card.className = `card vm-card ${vm.status === 'running' ? 'border-success' : 'border-danger'}`;
             card.innerHTML = `
@@ -143,9 +247,25 @@ class ProxmoxNLI {
         });
     }
 
-    updateClusterStatus(nodes) {
+    updateClusterStatus(data) {
         this.clusterStatus.innerHTML = '';
-        nodes.forEach(node => {
+        if (data.error) {
+            this.clusterStatus.innerHTML = `
+                <div class="alert alert-danger" role="alert">
+                    ${data.error}
+                </div>`;
+            return;
+        }
+
+        if (!data.status || data.status.length === 0) {
+            this.clusterStatus.innerHTML = `
+                <div class="alert alert-info" role="alert">
+                    No cluster nodes found
+                </div>`;
+            return;
+        }
+
+        data.status.forEach(node => {
             const nodeElement = document.createElement('div');
             nodeElement.className = 'mb-2';
             nodeElement.innerHTML = `
@@ -158,7 +278,7 @@ class ProxmoxNLI {
 
     async loadAuditLogs() {
         try {
-            const response = await fetch('/audit-logs');
+            const response = await this.fetchWithAuth('/audit-logs');
             const data = await response.json();
             this.auditLog.innerHTML = '';
             data.logs.forEach(log => {
@@ -181,11 +301,8 @@ class ProxmoxNLI {
 
     async playTextToSpeech(text) {
         try {
-            const response = await fetch('/tts', {
+            const response = await this.fetchWithAuth('/tts', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
                 body: JSON.stringify({ text: text })
             });
             const data = await response.json();
@@ -208,9 +325,20 @@ class ProxmoxNLI {
         this.chatBody.scrollTop = this.chatBody.scrollHeight;
     }
 
-    loadInitialData() {
-        this.loadAuditLogs();
-        setInterval(() => this.loadAuditLogs(), 30000);
+    async loadInitialData() {
+        try {
+            const response = await this.fetchWithAuth('/query', {
+                method: 'POST',
+                body: JSON.stringify({ query: 'list vms' })
+            });
+            const data = await response.json();
+            if (data.error) {
+                this.addMessage('Error: ' + data.error, 'system');
+            }
+            await this.loadAuditLogs();
+        } catch (error) {
+            console.error('Error loading initial data:', error);
+        }
     }
 }
 

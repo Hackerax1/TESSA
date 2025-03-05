@@ -1,6 +1,31 @@
 # Proxmox Natural Language Interface (NLI)
 
-A natural language interface for managing Proxmox VE environments, allowing users to control virtual machines, containers, and more using plain English commands.
+A natural language interface for managing your Proxmox VE environment using plain English commands.
+
+## Quick Start
+
+### Windows Users
+1. Download and extract the project
+2. Double-click `start.bat`
+3. Follow the setup prompts (requirements check, dependencies installation)
+4. Edit the created `.env` file with your Proxmox configuration
+5. Run `start.bat` again to launch the application
+
+### Docker Users
+1. Download and extract the project
+2. Copy `.env.example` to `.env` and edit with your configuration
+3. Build and run with Docker:
+   ```sh
+   docker-compose up --build
+   ```
+
+The application will automatically:
+- Check system requirements (Windows only)
+- Create a Python virtual environment (Windows only)
+- Install all required dependencies
+- Configure your connection with the provided settings
+- Start the web interface
+- Open your browser to the interface
 
 ## Features
 

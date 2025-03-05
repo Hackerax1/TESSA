@@ -7,24 +7,43 @@ class ProxmoxCommands:
         self.api = api
 
     def list_vms(self):
-        """List all VMs"""
+        """Get a list of all VMs with their status"""
         result = self.api.api_request('GET', 'cluster/resources?type=vm')
-        if result['success']:
-            vms = []
-            for vm in result['data']:
+        if not result['success']:
+            return result
+        
+        vms = []
+        for vm in result['data']:
+            vm_status = self.get_vm_status(vm['vmid'])
+            if vm_status['success']:
                 vms.append({
                     'id': vm['vmid'],
-                    'name': vm.get('name', f"VM {vm['vmid']}"),
-                    'status': vm['status'],
-                    'node': vm['node'],
-                    'cpu': int(vm.get('cpu', 0)),  # Convert to integer
-                    'memory': vm.get('maxmem', 0) / (1024*1024),  # Convert to MB
-                    'disk': vm.get('maxdisk', 0) / (1024*1024*1024)  # Convert to GB
+                    'name': vm['name'],
+                    'status': vm_status['status']['status'],
+                    'cpu': vm_status['status']['cpu'],
+                    'memory': vm_status['status']['memory'],
+                    'disk': vm_status['status']['disk']
                 })
-            return {"success": True, "message": "Found VMs", "vms": vms}
-        else:
+        
+        return {"success": True, "vms": vms}
+
+    def get_cluster_status(self):
+        """Get status of all nodes in the cluster"""
+        result = self.api.api_request('GET', 'cluster/status')
+        if not result['success']:
             return result
-    
+        
+        nodes = []
+        for node in result['data']:
+            if node['type'] == 'node':
+                nodes.append({
+                    'name': node['name'],
+                    'status': 'online' if node['online'] == 1 else 'offline',
+                    'id': node['id']
+                })
+        
+        return {"success": True, "status": nodes}
+
     def start_vm(self, vm_id):
         """Start a VM"""
         # First, we need to find which node the VM is on
@@ -154,14 +173,6 @@ class ProxmoxCommands:
                     'node': ct['node']
                 })
             return {"success": True, "message": "Found containers", "containers": containers}
-        else:
-            return result
-    
-    def get_cluster_status(self):
-        """Get the status of the cluster"""
-        result = self.api.api_request('GET', 'cluster/status')
-        if result['success']:
-            return {"success": True, "message": "Cluster status", "status": result['data']}
         else:
             return result
     
