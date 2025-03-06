@@ -7,6 +7,7 @@ import json
 import logging
 import yaml
 from typing import Dict, List, Optional
+from .deployment.service_validator import ServiceValidator
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,9 @@ class ServiceCatalog:
         # Dictionary to store loaded service definitions
         self.services = {}
         
+        # Track invalid services for reporting
+        self.invalid_services = {}
+        
         # Load all services from catalog
         self._load_services()
     
@@ -43,15 +47,17 @@ class ServiceCatalog:
                     with open(service_path, 'r') as f:
                         service_def = yaml.safe_load(f)
                         
-                    # Validate required fields
-                    required_fields = ['id', 'name', 'description', 'keywords', 'deployment']
-                    if all(field in service_def for field in required_fields):
+                    # Validate service definition
+                    validation_result = ServiceValidator.validate_service_definition(service_def)
+                    if validation_result["success"]:
                         self.services[service_def['id']] = service_def
                         logger.info(f"Loaded service definition: {service_def['name']}")
                     else:
-                        logger.warning(f"Skipping invalid service definition in {filename}: missing required fields")
+                        self.invalid_services[filename] = validation_result["message"]
+                        logger.warning(f"Invalid service definition in {filename}: {validation_result['message']}")
                 
                 except Exception as e:
+                    self.invalid_services[filename] = str(e)
                     logger.error(f"Error loading service definition from {filename}: {str(e)}")
     
     def get_all_services(self) -> List[Dict]:
@@ -95,20 +101,19 @@ class ServiceCatalog:
                 
         return matches
     
-    def add_service_definition(self, service_def: Dict) -> bool:
+    def add_service_definition(self, service_def: Dict) -> Dict:
         """Add a new service definition to the catalog.
         
         Args:
             service_def: Service definition dictionary
             
         Returns:
-            True if successful, False otherwise
+            Result dictionary with success status and message
         """
-        # Validate required fields
-        required_fields = ['id', 'name', 'description', 'keywords', 'deployment']
-        if not all(field in service_def for field in required_fields):
-            logger.error("Cannot add service definition: missing required fields")
-            return False
+        # Validate service definition
+        validation_result = ServiceValidator.validate_service_definition(service_def)
+        if not validation_result["success"]:
+            return validation_result
             
         try:
             # Save to file
@@ -120,8 +125,23 @@ class ServiceCatalog:
             # Add to in-memory catalog
             self.services[service_def['id']] = service_def
             logger.info(f"Added new service definition: {service_def['name']}")
-            return True
+            
+            return {
+                "success": True,
+                "message": f"Successfully added service definition for {service_def['name']}"
+            }
             
         except Exception as e:
             logger.error(f"Error adding service definition: {str(e)}")
-            return False
+            return {
+                "success": False,
+                "message": f"Error adding service definition: {str(e)}"
+            }
+            
+    def get_invalid_services(self) -> Dict[str, str]:
+        """Get list of invalid service definitions and their errors.
+        
+        Returns:
+            Dictionary mapping filenames to error messages
+        """
+        return self.invalid_services

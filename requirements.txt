@@ -1,3 +1,4 @@
+wheel
 flask>=2.2.0
 SpeechRecognition
 pyaudio
@@ -16,3 +17,4 @@ python-socketio>=5.4.0
 loguru>=0.6.0
 gTTS>=2.3.1
 PyYAML>=6.0
+jsonschema>=4.0.0
