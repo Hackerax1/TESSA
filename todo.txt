@@ -30,7 +30,7 @@
 # Medium Priority - Usability & Integration
 
 - [ ] **Automated Installation & Configuration:**
-  - [ ] Enhance installer.py script for unattended installation.
+  - [X] Enhance installer.py script for unattended installation.
   - [ ] Implement configuration validation and error handling.
   - [ ] Automate initial Proxmox configuration (network, storage).
   - [ ] Create bootable USB image with auto-start setup wizard.

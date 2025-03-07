@@ -32,7 +32,8 @@ class ProxmoxNLIInstaller:
             "start_web_interface": tk.BooleanVar(value=True),
             "debug_mode": tk.BooleanVar(value=False),
             "autostart": tk.BooleanVar(value=False),
-            "port": tk.StringVar(value="5000")
+            "port": tk.StringVar(value="5000"),
+            "unattended_installation": tk.BooleanVar(value=False)
         }
         
         # Create the notebook (tabs)
@@ -164,6 +165,8 @@ class ProxmoxNLIInstaller:
         ttk.Checkbutton(form_frame, text="Debug Mode", variable=self.config["debug_mode"]).grid(row=9, column=0, columnspan=2, sticky="w", pady=5)
         
         ttk.Checkbutton(form_frame, text="Create autostart shortcut", variable=self.config["autostart"]).grid(row=10, column=0, columnspan=2, sticky="w", pady=5)
+        
+        ttk.Checkbutton(form_frame, text="Unattended Installation", variable=self.config["unattended_installation"]).grid(row=11, column=0, columnspan=2, sticky="w", pady=5)
         
         # Buttons frame
         buttons_frame = ttk.Frame(config_frame)
@@ -341,7 +344,8 @@ class ProxmoxNLIInstaller:
             "start_web_interface": self.config["start_web_interface"].get(),
             "debug_mode": self.config["debug_mode"].get(),
             "port": self.config["port"].get(),
-            "autostart": self.config["autostart"].get()
+            "autostart": self.config["autostart"].get(),
+            "unattended_installation": self.config["unattended_installation"].get()
         }
         
         config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "installer_config.json")
@@ -358,10 +362,13 @@ class ProxmoxNLIInstaller:
         self.install_button.config(state="disabled")
         self.back_install_button.config(state="disabled")
         
-        # Start installation in a separate thread
-        thread = threading.Thread(target=self._install_process)
-        thread.daemon = True
-        thread.start()
+        if self.config["unattended_installation"].get():
+            self._install_process()
+        else:
+            # Start installation in a separate thread
+            thread = threading.Thread(target=self._install_process)
+            thread.daemon = True
+            thread.start()
 
     def _install_process(self):
         # Clear log
@@ -478,6 +485,9 @@ nltk.download('wordnet')
             
             # Enable launch button
             self.finish_button.config(state="normal")
+            
+            if self.config["unattended_installation"].get():
+                self._finish_and_launch()
             
         except Exception as e:
             update_status(f"Installation failed: {str(e)}")

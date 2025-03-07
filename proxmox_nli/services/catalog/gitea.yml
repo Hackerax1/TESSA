@@ -1,0 +1,109 @@
+id: gitea
+name: Gitea
+description: A lightweight self-hosted Git service with web interface and collaboration features
+keywords:
+  - git server
+  - repository
+  - code hosting
+  - collaboration
+  - github alternative
+  - version control
+  - development
+  - code review
+vm_requirements:
+  memory: 1024
+  cores: 1
+  disk: 10
+  os_template: debian-11
+deployment:
+  method: docker
+  docker_compose: |
+    version: '3'
+    services:
+      gitea:
+        image: gitea/gitea:latest
+        container_name: gitea
+        environment:
+          - USER_UID=1000
+          - USER_GID=1000
+          - GITEA__database__DB_TYPE=postgres
+          - GITEA__database__HOST=db:5432
+          - GITEA__database__NAME=gitea
+          - GITEA__database__USER=gitea
+          - GITEA__database__PASSWD=${DB_PASSWORD:-gitea}
+        volumes:
+          - gitea_data:/data
+          - /etc/timezone:/etc/timezone:ro
+          - /etc/localtime:/etc/localtime:ro
+        ports:
+          - 3000:3000
+          - 222:22
+        depends_on:
+          - db
+        restart: unless-stopped
+      
+      db:
+        image: postgres:14
+        container_name: gitea-db
+        environment:
+          - POSTGRES_USER=gitea
+          - POSTGRES_PASSWORD=${DB_PASSWORD:-gitea}
+          - POSTGRES_DB=gitea
+        volumes:
+          - gitea_db:/var/lib/postgresql/data
+        restart: unless-stopped
+
+    volumes:
+      gitea_data:
+      gitea_db:
+
+  post_install_steps:
+    - "echo 'Setting up initial configuration...'"
+    - "echo 'Consider configuring SSH keys for Git operations'"
+    - "echo 'Set up backup automation for the gitea_data volume'"
+
+access_info: |
+  Gitea has been successfully deployed!
+  
+  Access the web interface at: http://<VM_IP>:3000
+  SSH access (for git operations): <VM_IP>:222
+  
+  Initial Setup:
+  1. Follow the setup wizard on first access to configure:
+     - Database settings (pre-configured in compose file)
+     - Site name and admin account
+     - Email sending settings (optional)
+  2. After initial setup, create repositories and organizations
+  3. Set up user accounts and permissions
+  4. Configure SSH keys for secure git operations
+  5. Set up webhooks for integration with CI/CD pipelines
+  
+  SSH Configuration:
+  To use SSH for git operations, add to your ~/.ssh/config:
+  ```
+  Host gitea
+    HostName <VM_IP>
+    Port 222
+    User git
+    IdentityFile ~/.ssh/id_ed25519
+  ```
+
+notes: |
+  Gitea offers a lightweight GitHub-like experience:
+  - Repository management with issues, pull requests, and wikis
+  - Organizations and teams for collaborative development
+  - Integrations with CI/CD systems via webhooks
+  - Web-based code editing and review
+  - Activity feeds and notifications
+  
+  Performance Tips:
+  - Use SSD storage for the database and repositories
+  - Configure regular garbage collection for git repositories
+  - Set appropriate resource limits for the containers
+  - Monitor database performance and optimize as needed
+  
+  Security Considerations:
+  - Enable SSH key authentication and disable password authentication
+  - Set up HTTPS for secure web access
+  - Implement regular backups of repositories and database
+  - Keep Gitea updated to patch security vulnerabilities
