@@ -2,7 +2,6 @@ wheel
 flask>=2.2.0
 SpeechRecognition
 pyaudio
-webrtcvad
 gunicorn
 nltk>=3.7
 python-dotenv

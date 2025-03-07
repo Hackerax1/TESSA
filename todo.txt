@@ -1,34 +1,128 @@
-# High Priority
+# High Priority - Core Functionality & TESSA Identity
 
-- [ ] Input Sanitization and Security
-  - [ ] Implement robust input sanitization
-  - [ ] Enforce principle of least privilege
+- [ ] **Security & TESSA Trust Building:**
+  - [ ] Implement robust input sanitization across all interfaces (CLI, Web).
+  - [ ] Enforce principle of least privilege for all operations.
+  - [ ] Regularly audit dependencies for vulnerabilities.
+  - [ ] Implement rate limiting and anti-CSRF measures in the web interface.
+  - [ ] Add TESSA security explanations in plain language ("I'm protecting your data by...").
 
-- [ ] Expand Command Coverage (Core VM Operations)
-  - [ ] Full VM lifecycle management (create, start, stop, restart, delete, clone)
-  - [ ] Basic container management (start, stop, restart, delete)
+- [ ] **Core VM & Container Management:**
+  - [ ] Implement full VM lifecycle management (create, start, stop, restart, delete, clone, migrate).
+  - [ ] Implement basic container management (start, stop, restart, delete, exec).
+  - [ ] Add support for VM snapshots (create, revert, delete).
+  - [ ] Implement TESSA self-referential responses ("I'll create that VM for you", "Let me manage those containers").
 
-# Medium Priority
+- [ ] **Service Deployment & Management:**
+  - [ ] Implement service deployment via Docker Compose.
+  - [ ] Add service status monitoring (health checks).
+  - [ ] Implement service update/rollback functionality.
+  - [ ] Create a basic service catalog with popular self-hosted apps (#proxmox_nli\services\catalog).
+  - [ ] Add conversational service explanation ("Let me tell you about Nextcloud and why it's useful").
 
-- [ ] Automated Installation and Configuration
-  - [ ] Enhance installer.py script
-  - [ ] Implement configuration validation
+- [ ] **Hardware Detection & Compatibility:**
+  - [ ] Create Python scripts for automatic hardware detection and configuration recommendation.
+  - [ ] Implement fallback options for partially compatible hardware.
+  - [ ] Build a hardware compatibility database with community contributions.
+  - [ ] Develop driver auto-installation system for common hardware components.
+  - [ ] Create a pre-installation compatibility checker tool.
 
-- [ ] Web Interface Enhancements (Real-time Updates and Information)
-  - [ ] Implement real-time updates with WebSockets
-  - [ ] Display detailed VM information
+# Medium Priority - Usability & Integration
 
-- [ ] Unit Tests (Core Functionality)
-  - [ ] NLU engine tests
-  - [ ] Command execution tests
-  - [ ] API interaction tests
+- [ ] **Automated Installation & Configuration:**
+  - [ ] Enhance installer.py script for unattended installation.
+  - [ ] Implement configuration validation and error handling.
+  - [ ] Automate initial Proxmox configuration (network, storage).
+  - [ ] Create bootable USB image with auto-start setup wizard.
+  - [ ] Implement self-configuring networking (DHCP + common static configs).
+  - [ ] Generate QR code during installation for easy first access.
 
-# Low Priority
+- [ ] **Web Interface Enhancements:**
+  - [ ] Implement real-time updates with WebSockets for VM/container status.
+  - [ ] Display detailed VM/container information (CPU, memory, disk usage, network stats).
+  - [ ] Add a web-based terminal for VM/container access.
+  - [ ] Implement user authentication and authorization.
+  - [ ] Create visual network diagram of services and connections.
+  - [ ] Design progressive disclosure UI (basic → advanced options).
 
-- [ ] ZFS Management Commands
+- [ ] **Integration with User Preferences:**
+  - [ ] Allow users to save preferred settings (e.g., default VM resources, preferred OS template).
+  - [ ] Implement a "favorites" system for VMs, nodes, and services.
+  - [ ] Design goal-based setup workflow ("What would you like me to help you replace?").
+  - [ ] Implement TESSA user relationship model (remembering names, preferences, skill level).
+  - [ ] Create personalized greeting system based on time of day and user history.
 
-- [ ] Text-to-Speech Customization
+- [ ] **Backup and Restore:**
+  - [ ] Implement basic VM backup and restore functionality.
+  - [ ] Integrate with Proxmox Backup Server (if available).
+  - [ ] Add support for scheduling backups.
 
-- [ ] Comprehensive Documentation
+- [ ] **Unit Testing:**
+  - [ ] Implement unit tests for NLU engine.
+  - [ ] Implement unit tests for command execution.
+  - [ ] Implement unit tests for API interaction.
+  - [ ] Add tests for hardware detection and compatibility scripts.
 
-- [ ] Plugin System
+# Low Priority - Advanced Features & Polish
+
+- [ ] **Advanced Resource Management:**
+  - [ ] Implement VM resource monitoring and optimization recommendations.
+  - [ ] Add support for dynamic resource allocation.
+
+- [ ] **ZFS Management Commands:**
+  - [ ] Implement commands for creating, deleting, and managing ZFS datasets.
+  - [ ] Add support for ZFS snapshots and replication.
+
+- [ ] **Networking Management:**
+  - [ ] Implement commands for creating and managing VLANs.
+  - [ ] Add support for firewall rule configuration.
+
+- [ ] **TESSA Voice & Personality:**
+  - [ ] Develop a consistent voice pattern and personality for TESSA.
+  - [ ] Create a realistic, warm female voice profile for TTS output.
+  - [ ] Implement adaptive tone based on user experience level and context.
+  - [ ] Allow users to customize the voice accent, pace, and tone.
+  - [ ] Add occasional humor and personality quirks in responses.
+
+- [ ] **Comprehensive Documentation:**
+  - [ ] Create detailed documentation for all features and commands.
+  - [ ] Provide examples and tutorials.
+  - [ ] Add hardware compatibility guides and recommendations.
+  - [ ] Create beginner-friendly setup guides with visual aids.
+
+- [ ] **Plugin System:**
+  - [ ] Design and implement a plugin system for extending functionality.
+  - [ ] Create a basic plugin API.
+
+- [ ] **Domain Management and SSL:**
+  - [ ] Improve Cloudflare integration for automated DNS and SSL management.
+  - [ ] Implement commands for managing DNS records.
+  - [ ] Add support for other DNS providers.
+
+- [ ] **Service Catalog Expansion:**
+  - [ ] Add more services to the service catalog (#proxmox_nli\services\catalog).
+  - [ ] Implement service dependency management.
+  - [ ] Organize services by user goals rather than technical categories.
+  - [ ] Add TESSA service recommendations with personality ("I think you'd really enjoy Nextcloud for your photos").
+
+# Future Considerations
+
+- [ ] **Multi-tenancy Support:**
+  - [ ] Allow multiple users to manage their own resources.
+  - [ ] Develop TESSA's ability to recognize different household members by voice or habits.
+
+- [ ] **Federated Identity Management:**
+  - [ ] Integrate with external identity providers (e.g., LDAP, OAuth).
+
+- [ ] **AI-Powered Recommendations:**
+  - [ ] Use AI to provide recommendations for resource optimization, security hardening, and service deployment.
+  - [ ] Implement AI-driven hardware compatibility assessment.
+  - [ ] Create predictive maintenance alerts based on hardware performance data.
+  - [ ] Develop personality growth for TESSA based on household usage patterns.
+  - [ ] Implement "getting to know you" conversations to personalize experiences.
+
+- [ ] **TESSA Persona Evolution:**
+  - [ ] Create TESSA backstory and consistent world model.
+  - [ ] Implement easter eggs and specialty responses for holidays/special occasions.
+  - [ ] Develop TESSA opinions on self-hosting topics ("I personally prefer Jellyfin for media").
+  - [ ] Add natural conversation transitions and topic memory between sessions.
