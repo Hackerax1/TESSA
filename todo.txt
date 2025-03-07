@@ -31,21 +31,21 @@
 
 - [ ] **Automated Installation & Configuration:**
   - [X] Enhance installer.py script for unattended installation.
-  - [ ] Implement configuration validation and error handling.
+  - [X] Implement configuration validation and error handling.
   - [ ] Automate initial Proxmox configuration (network, storage).
   - [ ] Create bootable USB image with auto-start setup wizard.
   - [ ] Implement self-configuring networking (DHCP + common static configs).
-  - [ ] Generate QR code during installation for easy first access.
+  - [X] Generate QR code during installation for easy first access.
 
 - [X] **Web Interface Enhancements:**
   - [X] Implement real-time updates with WebSockets for VM/container status.
   - [X] Display detailed VM/container information (CPU, memory, disk usage, network stats).
   - [X] Add a web-based terminal for VM/container access.
   - [X] Implement user authentication and authorization.
-  - [ ] Create visual network diagram of services and connections.
-  - [ ] Design progressive disclosure UI (basic → advanced options).
+  - [X] Create visual network diagram of services and connections.
+  - [X] Design progressive disclosure UI (basic → advanced options).
 
-- [X] **Integration with User Preferences:**
+- [ ] **Integration with User Preferences:**
   - [X] Allow users to save preferred settings (e.g., default VM resources, preferred OS template).
   - [X] Implement a "favorites" system for VMs, nodes, and services.
   - [ ] Design goal-based setup workflow ("What would you like me to help you replace?").
