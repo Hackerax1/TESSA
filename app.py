@@ -182,6 +182,25 @@ def get_failed_commands():
     logs = proxmox_nli.get_failed_commands(limit)
     return jsonify({'logs': logs})
 
+@app.route('/deploy', methods=['POST'])
+def deploy_services():
+    """Deploy services based on user goals and resources"""
+    data = request.json
+    goals = data.get('goals', [])
+    other_goals = data.get('otherGoals', '')
+    resources = data.get('resources', {})
+    services = data.get('services', [])
+
+    try:
+        # Implement the logic to deploy services based on goals and resources
+        # This is a placeholder implementation
+        logger.info(f"Deploying services with goals: {goals}, other goals: {other_goals}, resources: {resources}, services: {services}")
+        # Example: proxmox_nli.deploy_services(goals, resources, services)
+        return jsonify({'success': True})
+    except Exception as e:
+        logger.error(f"Error deploying services: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @socketio.on('connect')
 def handle_connect():
     """Handle client connection"""

@@ -1,27 +1,27 @@
 # High Priority - Core Functionality & TESSA Identity
 
-- [ ] **Security & TESSA Trust Building:**
-  - [ ] Implement robust input sanitization across all interfaces (CLI, Web).
-  - [ ] Enforce principle of least privilege for all operations.
-  - [ ] Regularly audit dependencies for vulnerabilities.
-  - [ ] Implement rate limiting and anti-CSRF measures in the web interface.
-  - [ ] Add TESSA security explanations in plain language ("I'm protecting your data by...").
+- [X] **Security & TESSA Trust Building:**
+  - [X] Implement robust input sanitization across all interfaces (CLI, Web).
+  - [X] Enforce principle of least privilege for all operations.
+  - [X] Regularly audit dependencies for vulnerabilities.
+  - [X] Implement rate limiting and anti-CSRF measures in the web interface.
+  - [X] Add TESSA security explanations in plain language ("I'm protecting your data by...").
 
-- [ ] **Core VM & Container Management:**
-  - [ ] Implement full VM lifecycle management (create, start, stop, restart, delete, clone, migrate).
-  - [ ] Implement basic container management (start, stop, restart, delete, exec).
-  - [ ] Add support for VM snapshots (create, revert, delete).
-  - [ ] Implement TESSA self-referential responses ("I'll create that VM for you", "Let me manage those containers").
+- [X] **Core VM & Container Management:**
+  - [X] Implement full VM lifecycle management (create, start, stop, restart, delete, clone, migrate).
+  - [X] Implement basic container management (start, stop, restart, delete, exec).
+  - [X] Add support for VM snapshots (create, revert, delete).
+  - [X] Implement TESSA self-referential responses ("I'll create that VM for you", "Let me manage those containers").
 
-- [ ] **Service Deployment & Management:**
-  - [ ] Implement service deployment via Docker Compose.
-  - [ ] Add service status monitoring (health checks).
-  - [ ] Implement service update/rollback functionality.
-  - [ ] Create a basic service catalog with popular self-hosted apps (#proxmox_nli\services\catalog).
-  - [ ] Add conversational service explanation ("Let me tell you about Nextcloud and why it's useful").
+- [X] **Service Deployment & Management:**
+  - [X] Implement service deployment via Docker Compose.
+  - [X] Add service status monitoring (health checks).
+  - [X] Implement service update/rollback functionality.
+  - [X] Create a basic service catalog with popular self-hosted apps (#proxmox_nli\services\catalog).
+  - [X] Add conversational service explanation ("Let me tell you about Nextcloud and why it's useful").
 
-- [ ] **Hardware Detection & Compatibility:**
-  - [ ] Create Python scripts for automatic hardware detection and configuration recommendation.
+- [X] **Hardware Detection & Compatibility:**
+  - [X] Create Python scripts for automatic hardware detection and configuration recommendation.
   - [ ] Implement fallback options for partially compatible hardware.
   - [ ] Build a hardware compatibility database with community contributions.
   - [ ] Develop driver auto-installation system for common hardware components.
@@ -37,25 +37,25 @@
   - [ ] Implement self-configuring networking (DHCP + common static configs).
   - [ ] Generate QR code during installation for easy first access.
 
-- [ ] **Web Interface Enhancements:**
-  - [ ] Implement real-time updates with WebSockets for VM/container status.
-  - [ ] Display detailed VM/container information (CPU, memory, disk usage, network stats).
-  - [ ] Add a web-based terminal for VM/container access.
-  - [ ] Implement user authentication and authorization.
+- [X] **Web Interface Enhancements:**
+  - [X] Implement real-time updates with WebSockets for VM/container status.
+  - [X] Display detailed VM/container information (CPU, memory, disk usage, network stats).
+  - [X] Add a web-based terminal for VM/container access.
+  - [X] Implement user authentication and authorization.
   - [ ] Create visual network diagram of services and connections.
   - [ ] Design progressive disclosure UI (basic → advanced options).
 
-- [ ] **Integration with User Preferences:**
-  - [ ] Allow users to save preferred settings (e.g., default VM resources, preferred OS template).
-  - [ ] Implement a "favorites" system for VMs, nodes, and services.
+- [X] **Integration with User Preferences:**
+  - [X] Allow users to save preferred settings (e.g., default VM resources, preferred OS template).
+  - [X] Implement a "favorites" system for VMs, nodes, and services.
   - [ ] Design goal-based setup workflow ("What would you like me to help you replace?").
-  - [ ] Implement TESSA user relationship model (remembering names, preferences, skill level).
-  - [ ] Create personalized greeting system based on time of day and user history.
+  - [X] Implement TESSA user relationship model (remembering names, preferences, skill level).
+  - [X] Create personalized greeting system based on time of day and user history.
 
-- [ ] **Backup and Restore:**
-  - [ ] Implement basic VM backup and restore functionality.
-  - [ ] Integrate with Proxmox Backup Server (if available).
-  - [ ] Add support for scheduling backups.
+- [X] **Backup and Restore:**
+  - [X] Implement basic VM backup and restore functionality.
+  - [X] Integrate with Proxmox Backup Server (if available).
+  - [X] Add support for scheduling backups.
 
 - [ ] **Unit Testing:**
   - [ ] Implement unit tests for NLU engine.

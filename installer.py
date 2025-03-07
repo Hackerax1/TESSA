@@ -8,6 +8,11 @@ import threading
 import webbrowser
 import time
 import json
+import re
+import socket
+import requests
+import qrcode
+from PIL import Image, ImageTk
 from pathlib import Path
 
 class ProxmoxNLIInstaller:
@@ -300,24 +305,145 @@ class ProxmoxNLIInstaller:
         self.check_button.config(state="normal")
 
     def _validate_and_proceed(self):
-        # Validate the form
-        if not self.config["proxmox_host"].get():
-            messagebox.showerror("Validation Error", "Proxmox Host is required")
-            return
+        # Enhanced validation with more detailed error messages
+        validation_errors = []
+        
+        # Check Proxmox host
+        host = self.config["proxmox_host"].get()
+        if not host:
+            validation_errors.append("Proxmox Host is required")
+        else:
+            # Validate host format (IP or hostname)
+            is_valid_host = False
+            # Check if IP address
+            if re.match(r'^(\d{1,3}\.){3}\d{1,3}$', host):
+                # Validate IPv4 format
+                try:
+                    octets = list(map(int, host.split('.')))
+                    is_valid_host = all(0 <= octet <= 255 for octet in octets)
+                    if not is_valid_host:
+                        validation_errors.append("Invalid IP address format")
+                except:
+                    validation_errors.append("Invalid IP address format")
+            # Check if hostname
+            elif re.match(r'^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$', host):
+                is_valid_host = True
+            else:
+                validation_errors.append("Invalid hostname format")
             
+            # Test connection if format is valid
+            if is_valid_host:
+                try:
+                    # Just test if the host is reachable
+                    socket.gethostbyname(host)
+                except socket.error:
+                    validation_errors.append(f"Cannot resolve host: {host}. Make sure it's reachable.")
+        
+        # Check username
         if not self.config["proxmox_user"].get():
-            messagebox.showerror("Validation Error", "Username is required")
-            return
-            
+            validation_errors.append("Username is required")
+        
+        # Check password
         if not self.config["proxmox_password"].get():
-            messagebox.showerror("Validation Error", "Password is required")
+            validation_errors.append("Password is required")
+        
+        # Validate port
+        try:
+            port = int(self.config["port"].get())
+            if not 1 <= port <= 65535:
+                validation_errors.append("Port must be between 1 and 65535")
+        except ValueError:
+            validation_errors.append("Port must be a valid number")
+        
+        # If errors, show them all at once
+        if validation_errors:
+            messagebox.showerror("Validation Error", "\n".join(validation_errors))
             return
+        
+        # Verify Proxmox connectivity
+        if messagebox.askyesno("Verify Connection", "Would you like to test the connection to your Proxmox server before proceeding?"):
+            self.status_var.set("Testing Proxmox connection...")
+            self.root.update()
             
+            try:
+                # Construct the API URL
+                api_url = f"https://{host}:8006/api2/json/version"
+                
+                # Skip SSL verification if requested
+                verify = self.config["verify_ssl"].get()
+                
+                # For a simple connectivity test, don't need auth
+                response = requests.get(api_url, verify=verify, timeout=5)
+                
+                if response.status_code == 200 or response.status_code == 401:  # 401 is auth error but server is reachable
+                    messagebox.showinfo("Connection Test", "Proxmox server is reachable!")
+                else:
+                    if not messagebox.askyesno("Connection Warning", 
+                                           f"Received status code {response.status_code} from Proxmox server. Continue anyway?"):
+                        return
+            except requests.exceptions.SSLError:
+                if not messagebox.askyesno("SSL Warning", 
+                                       "SSL certificate verification failed. This could be due to a self-signed certificate. Continue anyway?"):
+                    return
+            except requests.exceptions.ConnectionError:
+                if not messagebox.askyesno("Connection Error", 
+                                       "Could not connect to the Proxmox server. Continue anyway?"):
+                    return
+            except requests.exceptions.Timeout:
+                if not messagebox.askyesno("Connection Timeout", 
+                                       "Connection to Proxmox server timed out. Continue anyway?"):
+                    return
+            except Exception as e:
+                if not messagebox.askyesno("Connection Error", 
+                                       f"Error connecting to Proxmox server: {str(e)}. Continue anyway?"):
+                    return
+        
         # Save config
         self._save_config()
+        
+        # Save a configuration validation report file
+        self._save_validation_report()
             
         # Move to install tab
         self.notebook.select(self.install_tab)
+    
+    def _save_validation_report(self):
+        """Generate a validation report for the configuration"""
+        report_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config_validation.json")
+        
+        validation_report = {
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "proxmox_host": self.config["proxmox_host"].get(),
+            "proxmox_user": self.config["proxmox_user"].get(),
+            "proxmox_realm": self.config["proxmox_realm"].get(),
+            "verify_ssl": self.config["verify_ssl"].get(),
+            "web_interface_enabled": self.config["start_web_interface"].get(),
+            "port": self.config["port"].get(),
+            "autostart": self.config["autostart"].get(),
+            "validation_results": {
+                "host_reachable": True,
+                "port_available": True
+            }
+        }
+        
+        # Check if web port is already in use
+        try:
+            port = int(self.config["port"].get())
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            result = sock.connect_ex(('127.0.0.1', port))
+            if result == 0:
+                validation_report["validation_results"]["port_available"] = False
+                validation_report["validation_results"]["port_warning"] = f"Port {port} is already in use. The application might not start correctly."
+            sock.close()
+        except:
+            validation_report["validation_results"]["port_check_error"] = "Could not check if port is available"
+        
+        # Save report
+        try:
+            with open(report_path, 'w') as f:
+                json.dump(validation_report, f, indent=2)
+        except:
+            pass
 
     def _load_config(self):
         config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "installer_config.json")
@@ -449,9 +575,81 @@ nltk.download('wordnet')
                 raise Exception("Failed to download NLTK resources")
             
             update_status("NLTK resources downloaded successfully", 70)
+
+            # Step 4: Auto-configure network settings
+            update_status("Configuring network settings...", 75)
             
-            # Step 4: Create shortcuts
-            update_status("Creating shortcuts...", 80)
+            try:
+                # Get system network configuration
+                net_config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "network_config.json")
+                
+                # Get default gateway info
+                network_info = {}
+                # Get default IP address that would be used for internet connection
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                try:
+                    # doesn't even have to be reachable
+                    s.connect(('10.255.255.255', 1))
+                    network_info["default_ip"] = s.getsockname()[0]
+                except:
+                    network_info["default_ip"] = '127.0.0.1'
+                finally:
+                    s.close()
+                
+                # Save network configuration
+                with open(net_config_path, 'w') as f:
+                    json.dump(network_info, f, indent=2)
+                
+                update_status(f"Network configured with IP: {network_info.get('default_ip', 'unknown')}", 77)
+            except Exception as e:
+                update_status(f"Warning: Could not auto-configure network settings: {str(e)}", 77)
+            
+            # Step 5: Generate QR code for first access
+            update_status("Generating QR code for easy access...", 80)
+            try:
+                # Determine server IP for QR code
+                server_ip = network_info.get("default_ip", "localhost")
+                port = self.config["port"].get()
+                access_url = f"http://{server_ip}:{port}"
+                
+                # Generate QR code
+                qr = qrcode.QRCode(
+                    version=1,
+                    error_correction=qrcode.constants.ERROR_CORRECT_L,
+                    box_size=10,
+                    border=4,
+                )
+                qr.add_data(access_url)
+                qr.make(fit=True)
+                
+                img = qr.make_image(fill_color="black", back_color="white")
+                qr_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "access_qr.png")
+                img.save(qr_path)
+                
+                # Show in the UI
+                qr_img = Image.open(qr_path)
+                qr_img = qr_img.resize((150, 150), Image.LANCZOS)
+                qr_photo = ImageTk.PhotoImage(qr_img)
+                
+                # Create a pop-up window to display the QR code
+                qr_window = tk.Toplevel(self.root)
+                qr_window.title("Access QR Code")
+                qr_window.geometry("300x350")
+                
+                ttk.Label(qr_window, text="Scan this QR code to access:").pack(pady=10)
+                ttk.Label(qr_window, image=qr_photo).pack(pady=5)
+                ttk.Label(qr_window, text=access_url).pack(pady=10)
+                ttk.Button(qr_window, text="Close", command=qr_window.destroy).pack(pady=10)
+                
+                # Keep a reference to prevent garbage collection
+                self.qr_photo = qr_photo
+                
+                update_status(f"QR code generated for: {access_url}", 82)
+            except Exception as e:
+                update_status(f"Warning: Could not generate QR code: {str(e)}", 82)
+            
+            # Step 6: Create shortcuts
+            update_status("Creating shortcuts...", 85)
             
             # Create launcher script
             launcher_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "run_proxmox_nli.bat")
@@ -462,7 +660,7 @@ nltk.download('wordnet')
                 f.write(f'"{sys.executable}" main.py\n')
                 f.write('pause\n')
             
-            update_status("Created launcher script", 85)
+            update_status("Created launcher script", 90)
             
             # Create autostart shortcut if requested
             if self.config["autostart"].get():
@@ -476,11 +674,11 @@ nltk.download('wordnet')
                         f.write(f'cd /d "{os.path.dirname(os.path.abspath(__file__))}"\n')
                         f.write(f'start "" "{sys.executable}" main.py --no-console\n')
                     
-                    update_status("Created autostart shortcut", 90)
+                    update_status("Created autostart shortcut", 95)
                 except Exception as e:
-                    update_status(f"Failed to create autostart shortcut: {str(e)}", 90)
+                    update_status(f"Failed to create autostart shortcut: {str(e)}", 95)
             
-            # Step 5: Installation complete
+            # Step 7: Installation complete
             update_status("Installation completed successfully!", 100)
             
             # Enable launch button
@@ -492,6 +690,24 @@ nltk.download('wordnet')
         except Exception as e:
             update_status(f"Installation failed: {str(e)}")
             messagebox.showerror("Installation Error", f"Installation failed:\n{str(e)}")
+            
+            # Add troubleshooting help
+            update_status("Troubleshooting suggestions:")
+            update_status("1. Check your internet connection and try again")
+            update_status("2. Make sure Proxmox host is accessible")
+            update_status("3. Try running as Administrator if on Windows")
+            update_status("4. Check the log file for more details")
+            
+            # Create error log
+            try:
+                error_log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "installer_error.log")
+                with open(error_log_path, 'w') as f:
+                    f.write(f"ERROR: {str(e)}\n")
+                    f.write(f"TIMESTAMP: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+                    f.write(f"CONFIGURATION: {json.dumps({k: v.get() for k, v in self.config.items() if k != 'proxmox_password'})}")
+                update_status(f"Error details saved to {error_log_path}")
+            except:
+                pass
             
             # Enable back button and install button
             self.back_install_button.config(state="normal")

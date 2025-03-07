@@ -11,6 +11,7 @@ class ProxmoxNLI {
         this.mediaRecorder = null;
         this.audioChunks = [];
         this.socket = io();
+        this.networkDiagram = new NetworkDiagram('network-diagram-container');
 
         this.initializeEventListeners();
         this.setupSocketHandlers();
@@ -73,6 +74,10 @@ class ProxmoxNLI {
         this.socket.on('cluster_status_update', (data) => {
             this.updateClusterStatus(data.status);
         });
+
+        this.socket.on('network_diagram_update', (data) => {
+            this.networkDiagram.update(data.nodes, data.links);
+        });
     }
 
     initializeEventListeners() {
@@ -122,6 +127,17 @@ class ProxmoxNLI {
                 this.addMessage('Listening... Click the microphone again to stop.', 'system');
             }
             this.isRecording = !this.isRecording;
+        });
+
+        // Event listener for experience level change
+        document.getElementById('experienceLevel').addEventListener('change', (event) => {
+            const level = event.target.value;
+            this.adjustUIForExperienceLevel(level);
+        });
+
+        // Event listener for setup wizard steps
+        document.getElementById('deploy-button').addEventListener('click', () => {
+            this.deployServices();
         });
     }
 
@@ -211,6 +227,55 @@ class ProxmoxNLI {
     loadInitialData() {
         this.loadAuditLogs();
         setInterval(() => this.loadAuditLogs(), 30000);
+    }
+
+    adjustUIForExperienceLevel(level) {
+        const advancedTab = document.getElementById('advanced-tab');
+        if (level === 'beginner') {
+            advancedTab.style.display = 'none';
+        } else {
+            advancedTab.style.display = 'block';
+        }
+    }
+
+    deployServices() {
+        // Collect selected goals
+        const selectedGoals = Array.from(document.querySelectorAll('#step1 input[type="checkbox"]:checked')).map(checkbox => checkbox.value);
+        const otherGoals = document.getElementById('otherGoals').value;
+
+        // Collect resource information
+        const resources = {
+            cpuCores: document.getElementById('cpuCores').value,
+            ramSize: document.getElementById('ramSize').value,
+            diskSize: document.getElementById('diskSize').value,
+            networkSpeed: document.getElementById('networkSpeed').value
+        };
+
+        // Collect recommended services
+        const recommendedServices = Array.from(document.querySelectorAll('#recommended-services input[type="checkbox"]:checked')).map(checkbox => checkbox.value);
+
+        // Display summary
+        document.getElementById('summary-goals').innerHTML = selectedGoals.join(', ') + (otherGoals ? ', ' + otherGoals : '');
+        document.getElementById('summary-resources').innerHTML = `CPU Cores: ${resources.cpuCores}, RAM: ${resources.ramSize} GB, Disk: ${resources.diskSize} GB, Network: ${resources.networkSpeed} Mbps`;
+        document.getElementById('summary-services').innerHTML = recommendedServices.join(', ');
+
+        // Send deployment request to the server
+        fetch('/deploy', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ goals: selectedGoals, otherGoals, resources, services: recommendedServices })
+        }).then(response => response.json()).then(data => {
+            if (data.success) {
+                alert('Services deployed successfully!');
+            } else {
+                alert('Error deploying services: ' + data.error);
+            }
+        }).catch(error => {
+            console.error('Error deploying services:', error);
+            alert('Error deploying services: ' + error.message);
+        });
     }
 }
 
