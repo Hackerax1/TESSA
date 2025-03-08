@@ -5,6 +5,8 @@ import os
 from proxmox_nli.core import ProxmoxNLI
 from proxmox_nli.core.voice_handler import VoiceHandler, VoiceProfile
 from proxmox_nli.services.goal_mapper import GoalMapper
+from proxmox_nli.core.auth import AuthManager
+from functools import wraps
 from dotenv import load_dotenv
 import logging
 import threading
@@ -29,6 +31,28 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 proxmox_nli = None
 voice_handler = VoiceHandler()
 status_monitor_thread = None
+auth_manager = AuthManager()
+
+# Create the token_required decorator for protected routes
+def token_required(required_roles=['user']):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            # Check if Authorization header is present
+            auth_header = request.headers.get('Authorization')
+            if not auth_header or not auth_header.startswith('Bearer '):
+                return jsonify({'error': 'Missing or invalid authentication token'}), 401
+            
+            # Extract token
+            token = auth_header.split('Bearer ')[1]
+            
+            # Check permissions
+            if not auth_manager.check_permission(token, required_roles):
+                return jsonify({'error': 'Unauthorized access'}), 403
+                
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
 
 def monitor_vm_status():
     """Background task to monitor VM status and emit updates"""
