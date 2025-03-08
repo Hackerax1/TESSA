@@ -20,7 +20,7 @@
   - [X] Create a basic service catalog with popular self-hosted apps (#proxmox_nli\services\catalog).
   - [X] Add conversational service explanation ("Let me tell you about Nextcloud and why it's useful").
 
-- [X] **Hardware Detection & Compatibility:**
+- [ ] **Hardware Detection & Compatibility:**
   - [X] Create Python scripts for automatic hardware detection and configuration recommendation.
   - [ ] Implement fallback options for partially compatible hardware.
   - [ ] Build a hardware compatibility database with community contributions.

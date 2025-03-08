@@ -9,12 +9,16 @@ from ..commands.docker_commands import DockerCommands
 from ..commands.vm_command import VMCommand
 from ..services.service_catalog import ServiceCatalog
 from ..services.service_manager import ServiceManager
+from ..plugins.plugin_manager import PluginManager
 from .response_generator import ResponseGenerator
 from .audit_logger import AuditLogger
 from .user_preferences import UserPreferencesManager
 from prometheus_client import start_http_server
 import importlib.util
 import sys
+import logging
+
+logger = logging.getLogger(__name__)
 
 class BaseNLI:
     def __init__(self, host, user, password, realm='pam', verify_ssl=False):
@@ -52,13 +56,19 @@ class BaseNLI:
             self.response_generator.set_ollama_client(self.nlu.ollama_client)
         
         start_http_server(8000)
-        self.load_custom_commands()
         
         # Add confirmation required flag and pending command storage
         self.require_confirmation = True
         self.pending_command = None
         self.pending_args = None
         self.pending_entities = None
+        
+        # Initialize help texts dictionary
+        self.help_texts = {}
+        
+        # Load custom commands and plugins
+        self.load_custom_commands()
+        self.initialize_plugin_system()
 
     def load_custom_commands(self):
         """Load custom commands from the custom_commands directory"""
@@ -75,6 +85,16 @@ class BaseNLI:
                 spec.loader.exec_module(module)
                 if hasattr(module, 'register_commands'):
                     module.register_commands(self)
+    
+    def initialize_plugin_system(self):
+        """Initialize the plugin system and load available plugins."""
+        try:
+            logger.info("Initializing plugin system...")
+            self.plugin_manager = PluginManager(self)
+            self.plugin_manager.load_plugins()
+            logger.info(f"Plugin system initialized with {len(self.plugin_manager.plugins)} plugins.")
+        except Exception as e:
+            logger.error(f"Error initializing plugin system: {str(e)}")
 
     def get_help_text(self):
         """Get the help text with all available commands"""
@@ -119,12 +139,77 @@ class BaseNLI:
             "- run command \"<command>\" on vm <id> - Execute a command on a VM",
             "- execute \"<command>\" on vm <id> - Execute a command on a VM",
             "",
-            "General:",
-            "- help - Show this help message"
         ]
+        
+        # Add plugin commands if any plugins are loaded
+        plugin_commands = []
+        if hasattr(self, 'plugin_manager') and self.plugin_manager.plugins:
+            plugin_commands.append("Plugin Commands:")
+            for plugin_name, plugin in self.plugin_manager.get_all_plugins().items():
+                plugin_commands.append(f"- {plugin_name} ({plugin.description})")
+                for cmd, help_text in self.help_texts.items():
+                    if cmd.startswith(f"{plugin_name}_"):
+                        plugin_commands.append(f"  - {cmd.replace(f'{plugin_name}_', '')}: {help_text}")
+            plugin_commands.append("")
+        
+        commands.extend(plugin_commands)
+        
+        # Add general commands
+        commands.extend([
+            "General:",
+            "- help - Show this help message",
+            "- plugins - List installed plugins",
+            "- enable plugin <name> - Enable a plugin",
+            "- disable plugin <name> - Disable a plugin"
+        ])
+        
         return "\n".join(commands)
 
     def get_help(self):
         """Get help information"""
         help_text = self.get_help_text()
         return {"success": True, "message": help_text}
+        
+    def get_plugins(self):
+        """Get information about installed plugins"""
+        if not hasattr(self, 'plugin_manager'):
+            return {"success": False, "message": "Plugin system not initialized"}
+            
+        plugins = []
+        for name, plugin in self.plugin_manager.get_all_plugins().items():
+            plugins.append({
+                "name": name,
+                "version": plugin.version,
+                "author": plugin.author,
+                "description": plugin.description
+            })
+            
+        return {
+            "success": True,
+            "plugins": plugins,
+            "message": f"Found {len(plugins)} installed plugins"
+        }
+        
+    def enable_plugin(self, plugin_name):
+        """Enable a plugin"""
+        if not hasattr(self, 'plugin_manager'):
+            return {"success": False, "message": "Plugin system not initialized"}
+            
+        result = self.plugin_manager.enable_plugin(plugin_name)
+        if result:
+            # Reload plugins to initialize the newly enabled one
+            self.plugin_manager.load_plugins()
+            return {"success": True, "message": f"Plugin {plugin_name} enabled"}
+        else:
+            return {"success": False, "message": f"Failed to enable plugin {plugin_name}"}
+            
+    def disable_plugin(self, plugin_name):
+        """Disable a plugin"""
+        if not hasattr(self, 'plugin_manager'):
+            return {"success": False, "message": "Plugin system not initialized"}
+            
+        result = self.plugin_manager.disable_plugin(plugin_name)
+        if result:
+            return {"success": True, "message": f"Plugin {plugin_name} disabled"}
+        else:
+            return {"success": False, "message": f"Failed to disable plugin {plugin_name}"}
