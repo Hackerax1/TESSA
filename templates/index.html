@@ -373,6 +373,61 @@
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                     <button type="button" class="btn btn-primary" id="save-preferences">Save Changes</button>
                 </div>
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5>TESSA Voice Settings</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="voice-profile" class="form-label">Voice Profile</label>
+                            <select class="form-select" id="voice-profile">
+                                <option value="tessa_default">TESSA Default</option>
+                                <option value="tessa_warm">TESSA Warm</option>
+                                <option value="tessa_professional">TESSA Professional</option>
+                                <!-- Dynamically populated with other profiles -->
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="voice-accent" class="form-label">Accent</label>
+                            <select class="form-select" id="voice-accent">
+                                <option value="com">US English</option>
+                                <option value="co.uk">British English</option>
+                                <option value="com.au">Australian English</option>
+                                <option value="ca">Canadian English</option>
+                                <option value="co.in">Indian English</option>
+                                <option value="ie">Irish English</option>
+                                <option value="co.za">South African English</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="voice-speed" class="form-label">Speaking Speed</label>
+                            <select class="form-select" id="voice-speed">
+                                <option value="false">Normal</option>
+                                <option value="true">Slow</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="voice-style" class="form-label">Conversation Style</label>
+                            <select class="form-select" id="voice-style">
+                                <option value="friendly">Friendly</option>
+                                <option value="professional">Professional</option>
+                                <option value="casual">Casual</option>
+                                <option value="enthusiastic">Enthusiastic</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="personality-level" class="form-label">Personality Level</label>
+                            <input type="range" class="form-range" min="0" max="100" value="20" id="personality-level">
+                            <small class="form-text text-muted">Controls how often TESSA adds personality phrases to responses</small>
+                        </div>
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="enable-personality" checked>
+                            <label class="form-check-label" for="enable-personality">Enable Personality Quirks</label>
+                        </div>
+                        <button type="button" class="btn btn-primary" id="save-voice-settings">Save Voice Settings</button>
+                        <button type="button" class="btn btn-secondary ms-2" id="test-voice">Test Voice</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
