@@ -14,6 +14,8 @@ import time
 import json
 import re
 import subprocess
+from collections import defaultdict
+from datetime import datetime, timedelta
 
 # Load environment variables from .env file
 load_dotenv()
@@ -31,7 +33,18 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 proxmox_nli = None
 voice_handler = VoiceHandler()
 status_monitor_thread = None
+resource_monitor_thread = None
 auth_manager = AuthManager()
+
+# Store resource history for optimization analysis
+vm_resource_history = defaultdict(lambda: {"cpu": [], "memory": [], "disk_io": [], "network": [], "timestamps": []})
+resource_history_window = 24 * 60 * 60  # 24 hours in seconds
+
+# Optimization thresholds
+CPU_UNDERUTILIZED_THRESHOLD = 10  # percentage
+CPU_OVERUTILIZED_THRESHOLD = 80  # percentage
+MEMORY_UNDERUTILIZED_THRESHOLD = 20  # percentage
+MEMORY_OVERUTILIZED_THRESHOLD = 85  # percentage
 
 # Create the token_required decorator for protected routes
 def token_required(required_roles=['user']):
@@ -76,6 +89,151 @@ def monitor_vm_status():
             socketio.emit('vm_status_update', {'error': 'System error occurred'})
             socketio.emit('cluster_status_update', {'error': 'System error occurred'})
         time.sleep(5)  # Update every 5 seconds
+
+def monitor_vm_resources():
+    """Background task to monitor VM resource usage and store historical data"""
+    while True:
+        try:
+            if proxmox_nli:
+                # Get detailed resource usage for all VMs
+                vms = proxmox_nli.commands.list_vms()
+                if vms.get('success'):
+                    current_time = datetime.now()
+                    for vm in vms.get('vms', []):
+                        vm_id = vm.get('vmid')
+                        if not vm_id:
+                            continue
+                            
+                        # Get detailed resource usage for this VM
+                        resource_data = proxmox_nli.commands.get_vm_resources(vm_id)
+                        if resource_data.get('success'):
+                            # Clean up old data (older than resource_history_window)
+                            if vm_resource_history[vm_id]['timestamps']:
+                                cutoff_time = current_time - timedelta(seconds=resource_history_window)
+                                cutoff_timestamp = cutoff_time.timestamp()
+                                
+                                # Find the index of the oldest data point to keep
+                                idx = 0
+                                for ts in vm_resource_history[vm_id]['timestamps']:
+                                    if ts >= cutoff_timestamp:
+                                        break
+                                    idx += 1
+                                
+                                if idx > 0:
+                                    # Remove old data points
+                                    vm_resource_history[vm_id]['cpu'] = vm_resource_history[vm_id]['cpu'][idx:]
+                                    vm_resource_history[vm_id]['memory'] = vm_resource_history[vm_id]['memory'][idx:]
+                                    vm_resource_history[vm_id]['disk_io'] = vm_resource_history[vm_id]['disk_io'][idx:]
+                                    vm_resource_history[vm_id]['network'] = vm_resource_history[vm_id]['network'][idx:]
+                                    vm_resource_history[vm_id]['timestamps'] = vm_resource_history[vm_id]['timestamps'][idx:]
+                            
+                            # Store current resource data
+                            resources = resource_data.get('resources', {})
+                            vm_resource_history[vm_id]['cpu'].append(resources.get('cpu_usage', 0))
+                            vm_resource_history[vm_id]['memory'].append(resources.get('memory_usage', 0))
+                            vm_resource_history[vm_id]['disk_io'].append(resources.get('disk_io', 0))
+                            vm_resource_history[vm_id]['network'].append(resources.get('network_io', 0))
+                            vm_resource_history[vm_id]['timestamps'].append(current_time.timestamp())
+                            
+                # Generate optimization recommendations periodically
+                generate_optimization_recommendations()
+        except Exception as e:
+            logger.error(f"Error in resource monitor: {str(e)}")
+        
+        time.sleep(60)  # Update every 60 seconds
+
+def generate_optimization_recommendations():
+    """Generate VM optimization recommendations based on resource usage patterns"""
+    try:
+        recommendations = []
+        
+        for vm_id, resources in vm_resource_history.items():
+            if not resources['cpu'] or len(resources['cpu']) < 10:  # Need enough data points
+                continue
+                
+            # Calculate average resource utilization
+            avg_cpu = sum(resources['cpu']) / len(resources['cpu'])
+            avg_memory = sum(resources['memory']) / len(resources['memory'])
+            
+            vm_info = None
+            # Get VM configuration
+            vm_list = proxmox_nli.commands.list_vms().get('vms', [])
+            for vm in vm_list:
+                if vm.get('vmid') == vm_id:
+                    vm_info = vm
+                    break
+            
+            if not vm_info:
+                continue
+                
+            vm_name = vm_info.get('name', f'VM {vm_id}')
+            current_cores = vm_info.get('cores', 0)
+            current_memory = vm_info.get('memory', 0) / 1024  # Convert to GB
+            
+            # CPU optimization recommendations
+            if avg_cpu < CPU_UNDERUTILIZED_THRESHOLD and current_cores > 1:
+                # VM is using less than threshold% CPU on average, can reduce cores
+                recommended_cores = max(1, current_cores - 1)
+                recommendations.append({
+                    'vm_id': vm_id,
+                    'vm_name': vm_name,
+                    'resource': 'cpu',
+                    'current': current_cores,
+                    'recommended': recommended_cores,
+                    'type': 'reduce',
+                    'reason': f'CPU utilization is consistently below {CPU_UNDERUTILIZED_THRESHOLD}% (avg: {avg_cpu:.1f}%)',
+                    'savings': 'Reducing CPU cores will free up host resources for other VMs'
+                })
+            elif avg_cpu > CPU_OVERUTILIZED_THRESHOLD:
+                # VM is using more than threshold% CPU on average, might need more cores
+                recommended_cores = current_cores + 1
+                recommendations.append({
+                    'vm_id': vm_id,
+                    'vm_name': vm_name,
+                    'resource': 'cpu',
+                    'current': current_cores,
+                    'recommended': recommended_cores,
+                    'type': 'increase',
+                    'reason': f'CPU utilization is consistently above {CPU_OVERUTILIZED_THRESHOLD}% (avg: {avg_cpu:.1f}%)',
+                    'savings': 'Increasing CPU cores will improve VM performance'
+                })
+            
+            # Memory optimization recommendations
+            if avg_memory < MEMORY_UNDERUTILIZED_THRESHOLD and current_memory > 1:
+                # VM is using less than threshold% memory on average, can reduce memory
+                recommended_memory = max(1, int(current_memory * 0.75))  # Reduce by 25%
+                recommendations.append({
+                    'vm_id': vm_id,
+                    'vm_name': vm_name,
+                    'resource': 'memory',
+                    'current': current_memory,
+                    'recommended': recommended_memory,
+                    'type': 'reduce',
+                    'reason': f'Memory utilization is consistently below {MEMORY_UNDERUTILIZED_THRESHOLD}% (avg: {avg_memory:.1f}%)',
+                    'savings': 'Reducing memory will free up host resources for other VMs'
+                })
+            elif avg_memory > MEMORY_OVERUTILIZED_THRESHOLD:
+                # VM is using more than threshold% memory on average, might need more memory
+                recommended_memory = int(current_memory * 1.25)  # Increase by 25%
+                recommendations.append({
+                    'vm_id': vm_id,
+                    'vm_name': vm_name,
+                    'resource': 'memory',
+                    'current': current_memory,
+                    'recommended': recommended_memory,
+                    'type': 'increase',
+                    'reason': f'Memory utilization is consistently above {MEMORY_OVERUTILIZED_THRESHOLD}% (avg: {avg_memory:.1f}%)',
+                    'savings': 'Increasing memory will improve VM performance and prevent swapping'
+                })
+                
+        # Store recommendations for API endpoints to access
+        app.config['optimization_recommendations'] = recommendations
+        
+        # Emit new recommendations via websocket
+        socketio.emit('optimization_recommendations', {'recommendations': recommendations})
+        
+    except Exception as e:
+        logger.error(f"Error generating optimization recommendations: {str(e)}")
 
 @app.route('/auth/login', methods=['POST'])
 def login():
@@ -555,6 +713,122 @@ def detect_resources():
             'error': str(e)
         })
 
+@app.route('/vm-resources/<vm_id>', methods=['GET'])
+@token_required(['user', 'admin'])
+def get_vm_resources(vm_id):
+    """Get resource usage data for a specific VM"""
+    try:
+        if not proxmox_nli:
+            return jsonify({'error': 'System not initialized'}), 500
+            
+        # Get current resource usage
+        resource_data = proxmox_nli.commands.get_vm_resources(vm_id)
+        
+        # Get historical data
+        history = vm_resource_history.get(vm_id, {
+            'cpu': [], 
+            'memory': [], 
+            'disk_io': [], 
+            'network': [], 
+            'timestamps': []
+        })
+        
+        # Format timestamps for frontend
+        formatted_timestamps = [datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S') for ts in history['timestamps']]
+        
+        return jsonify({
+            'success': True,
+            'current': resource_data.get('resources', {}),
+            'history': {
+                'cpu': history['cpu'],
+                'memory': history['memory'],
+                'disk_io': history['disk_io'],
+                'network': history['network'],
+                'timestamps': formatted_timestamps
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting VM resources: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/optimization-recommendations', methods=['GET'])
+@token_required(['user', 'admin'])
+def get_optimization_recommendations():
+    """Get optimization recommendations for all VMs"""
+    try:
+        recommendations = app.config.get('optimization_recommendations', [])
+        return jsonify({
+            'success': True,
+            'recommendations': recommendations
+        })
+    except Exception as e:
+        logger.error(f"Error getting optimization recommendations: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/apply-optimization/<vm_id>', methods=['POST'])
+@token_required(['admin'])
+def apply_optimization(vm_id):
+    """Apply a recommended optimization to a VM"""
+    try:
+        if not proxmox_nli:
+            return jsonify({'error': 'System not initialized'}), 500
+            
+        data = request.json
+        resource_type = data.get('resource')
+        new_value = data.get('value')
+        
+        if not resource_type or new_value is None:
+            return jsonify({'success': False, 'error': 'Resource type and value are required'}), 400
+            
+        # Apply the optimization
+        result = None
+        if resource_type == 'cpu':
+            result = proxmox_nli.commands.set_vm_cpu(vm_id, new_value)
+        elif resource_type == 'memory':
+            result = proxmox_nli.commands.set_vm_memory(vm_id, new_value * 1024)  # Convert GB to MB
+        
+        if result and result.get('success'):
+            # Log the optimization
+            logger.info(f"Applied {resource_type} optimization to VM {vm_id}: set to {new_value}")
+            return jsonify({
+                'success': True,
+                'message': f'Successfully applied {resource_type} optimization to VM {vm_id}'
+            })
+        else:
+            error = result.get('error', 'Unknown error') if result else 'Failed to apply optimization'
+            return jsonify({'success': False, 'error': error}), 500
+            
+    except Exception as e:
+        logger.error(f"Error applying optimization: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/cluster-resources', methods=['GET'])
+@token_required(['user', 'admin'])
+def get_cluster_resources():
+    """Get overall resource usage across the cluster"""
+    try:
+        if not proxmox_nli:
+            return jsonify({'error': 'System not initialized'}), 500
+            
+        # Get cluster resources
+        result = proxmox_nli.commands.get_cluster_resources()
+        
+        if result.get('success'):
+            return jsonify({
+                'success': True,
+                'resources': result.get('resources', {})
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result.get('error', 'Failed to get cluster resources')
+            }), 500
+            
+    except Exception as e:
+        logger.error(f"Error getting cluster resources: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @socketio.on('connect')
 def handle_connect():
     """Handle client connection"""
@@ -567,7 +841,7 @@ def handle_disconnect():
 
 def start_app(host, user, password, realm='pam', verify_ssl=False, debug=False):
     """Start the Flask application with the given configuration"""
-    global proxmox_nli, status_monitor_thread
+    global proxmox_nli, status_monitor_thread, resource_monitor_thread
     
     # Initialize ProxmoxNLI
     proxmox_nli = ProxmoxNLI(
@@ -578,10 +852,18 @@ def start_app(host, user, password, realm='pam', verify_ssl=False, debug=False):
         verify_ssl=verify_ssl
     )
     
+    # Initialize app config for storing optimization recommendations
+    app.config['optimization_recommendations'] = []
+    
     # Start the status monitor in a background thread
     if not status_monitor_thread or not status_monitor_thread.is_alive():
         status_monitor_thread = threading.Thread(target=monitor_vm_status, daemon=True)
         status_monitor_thread.start()
+    
+    # Start the resource monitor in a background thread
+    if not resource_monitor_thread or not resource_monitor_thread.is_alive():
+        resource_monitor_thread = threading.Thread(target=monitor_vm_resources, daemon=True)
+        resource_monitor_thread.start()
     
     # Start the Flask app
     socketio.run(app, debug=debug, host='0.0.0.0', port=int(os.getenv('API_PORT', 5000)))
