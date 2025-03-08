@@ -60,7 +60,7 @@
 - [ ] **Unit Testing:**
   - [X] Implement unit tests for NLU engine.
   - [ ] Implement unit tests for command execution.
-  - [ ] Implement unit tests for API interaction.
+  - [X] Implement unit tests for API interaction.
   - [ ] Add tests for hardware detection and compatibility scripts.
 
 # Low Priority - Advanced Features & Polish
@@ -69,9 +69,9 @@
   - [ ] Implement VM resource monitoring and optimization recommendations.
   - [ ] Add support for dynamic resource allocation.
 
-- [ ] **ZFS Management Commands:**
-  - [ ] Implement commands for creating, deleting, and managing ZFS datasets.
-  - [ ] Add support for ZFS snapshots and replication.
+- [X] **ZFS Management Commands:**
+  - [X] Implement commands for creating, deleting, and managing ZFS datasets.
+  - [X] Add support for ZFS snapshots and replication.
 
 - [ ] **Networking Management:**
   - [ ] Implement commands for creating and managing VLANs.
@@ -88,7 +88,7 @@
   - [ ] Create detailed documentation for all features and commands.
   - [ ] Provide examples and tutorials.
   - [ ] Add hardware compatibility guides and recommendations.
-  - [ ] Create beginner-friendly setup guides with visual aids.
+  - [ ] Create beginner-friendly setup guides with visual aids using Mermaid.
 
 - [X] **Plugin System:**
   - [X] Design and implement a plugin system for extending functionality.
