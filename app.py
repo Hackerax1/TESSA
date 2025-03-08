@@ -39,6 +39,9 @@ def monitor_vm_status():
                 result = proxmox_nli.commands.list_vms()
                 if result['success']:
                     socketio.emit('vm_status_update', {'vms': result['vms']})
+                else:
+                    logger.error(f"Failed to get VM status: {result.get('message', 'Unknown error')}")
+                    socketio.emit('vm_status_update', {'error': result.get('message', 'Failed to get VM status')})
                     
                 # Get cluster status
                 cluster_status = proxmox_nli.commands.get_cluster_status()
@@ -46,7 +49,37 @@ def monitor_vm_status():
                     socketio.emit('cluster_status_update', {'status': cluster_status['nodes']})
         except Exception as e:
             logger.error(f"Error in status monitor: {str(e)}")
+            socketio.emit('vm_status_update', {'error': 'System error occurred'})
+            socketio.emit('cluster_status_update', {'error': 'System error occurred'})
         time.sleep(5)  # Update every 5 seconds
+
+@app.route('/auth/login', methods=['POST'])
+def login():
+    """Authenticate user and return JWT token"""
+    data = request.json
+    username = data.get('username')
+    password = data.get('password')
+    
+    if not username or not password:
+        return jsonify({'error': 'Missing credentials'}), 400
+        
+    # Here you would validate credentials against your user database
+    # For now, we'll use a simple check against environment variables
+    if username == os.getenv('ADMIN_USER') and password == os.getenv('ADMIN_PASSWORD'):
+        token = auth_manager.create_token(username, ['admin'])
+        return jsonify({'token': token})
+    
+    return jsonify({'error': 'Invalid credentials'}), 401
+
+@app.route('/auth/refresh', methods=['POST'])
+@token_required()
+def refresh_token():
+    """Refresh an existing valid token"""
+    token = request.headers.get('Authorization').split('Bearer ')[1]
+    new_token = auth_manager.refresh_token(token)
+    if new_token:
+        return jsonify({'token': new_token})
+    return jsonify({'error': 'Could not refresh token'}), 401
 
 @app.route('/')
 def home():
@@ -71,6 +104,7 @@ def get_initial_status():
         return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/query', methods=['POST'])
+@token_required(['user', 'admin'])
 def process_query():
     """Process a natural language query"""
     query = request.json.get('query', '').strip()
@@ -98,6 +132,7 @@ def process_query():
 
 # User preferences endpoints
 @app.route('/user-preferences/<user_id>', methods=['GET'])
+@token_required(['user', 'admin'])
 def get_user_preferences(user_id):
     """Get all preferences for a user"""
     if not proxmox_nli:
@@ -107,6 +142,7 @@ def get_user_preferences(user_id):
     return jsonify(result)
 
 @app.route('/user-preferences/<user_id>', methods=['POST'])
+@token_required(['user', 'admin'])
 def set_user_preference(user_id):
     """Set a user preference"""
     if not proxmox_nli:

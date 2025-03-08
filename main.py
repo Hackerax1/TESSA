@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-import argparse
 import os
+import sys
+import argparse
 from dotenv import load_dotenv
 from proxmox_nli.core import ProxmoxNLI, cli_mode, web_mode
 import docker
@@ -24,34 +25,22 @@ def main():
     parser.add_argument('--password', default=default_password, help='Proxmox password')
     parser.add_argument('--realm', default=default_realm, help='Proxmox realm')
     parser.add_argument('--verify-ssl', action='store_true', help='Verify SSL certificate')
-    parser.add_argument('--web', action='store_true', default=default_web_mode, help='Start as web server with voice recognition')
-    parser.add_argument('--debug', action='store_true', default=default_debug, help='Enable debug mode (web server only)')
+    parser.add_argument('--web', action='store_true', default=default_web_mode, help='Start web interface')
+    parser.add_argument('--debug', action='store_true', default=default_debug, help='Enable debug mode')
     
     args = parser.parse_args()
     
-    # Validate required parameters
-    missing_params = []
-    if not args.host:
-        missing_params.append('host')
-    if not args.user:
-        missing_params.append('user')
-    if not args.password:
-        missing_params.append('password')
-        
-    if missing_params:
-        print(f"Error: Missing required parameters: {', '.join(missing_params)}")
-        print("Please provide them as command line arguments or in the .env file")
-        return
-
-    try:
-        if args.web:
-            print("Starting in web interface mode...")
-            web_mode(args)
-        else:
-            print("Starting in CLI mode...")
-            cli_mode(args)
-    except KeyboardInterrupt:
-        print("\nExiting...")
+    # Validate required settings
+    if not all([args.host, args.user, args.password]):
+        print("Error: Missing required configuration.")
+        print("Please ensure PROXMOX_API_URL, PROXMOX_USER, and PROXMOX_PASSWORD are set in .env")
+        print("Or provide them as command line arguments: --host, --user, --password")
+        sys.exit(1)
+    
+    if args.web:
+        web_mode(args)
+    else:
+        cli_mode(args.host, args.user, args.password, args.realm, args.verify_ssl)
 
 if __name__ == "__main__":
     main()

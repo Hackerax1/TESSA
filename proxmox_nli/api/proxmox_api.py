@@ -1,5 +1,15 @@
+"""
+Proxmox API interface module.
+"""
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 import requests
 import json
+import logging
+from typing import Dict, Any, Optional
+
+logger = logging.getLogger(__name__)
 
 class ProxmoxAPI:
     def __init__(self, host, user, password, realm='pam', verify_ssl=False):

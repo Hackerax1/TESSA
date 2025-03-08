@@ -1,6 +1,9 @@
 """
 Core NLI module providing the main interface for Proxmox natural language processing.
 """
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 from prometheus_client import Summary
 from .base_nli import BaseNLI
 from .command_executor import CommandExecutor

@@ -43,11 +43,8 @@ class ProxmoxNLI {
                 reader.onloadend = async () => {
                     const base64Audio = reader.result;
                     try {
-                        const response = await fetch('/stt', {
+                        const response = await this.fetchWithAuth('/stt', {
                             method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
                             body: JSON.stringify({ audio: base64Audio })
                         });
                         const data = await response.json();
@@ -82,7 +79,7 @@ class ProxmoxNLI {
         });
 
         this.socket.on('vm_status_update', (data) => {
-            this.updateVMList(data.vms);
+            this.updateVMList(data);
         });
 
         this.socket.on('cluster_status_update', (data) => {
@@ -105,11 +102,8 @@ class ProxmoxNLI {
             this.userInput.value = '';
 
             try {
-                const response = await fetch('/query', {
+                const response = await this.fetchWithAuth('/query', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
                     body: JSON.stringify({ query: query })
                 });
                 const data = await response.json();
@@ -820,7 +814,23 @@ class ProxmoxNLI {
 
     updateVMList(vms) {
         this.vmList.innerHTML = '';
-        vms.forEach(vm => {
+        if (data.error) {
+            this.vmList.innerHTML = `
+                <div class="alert alert-danger" role="alert">
+                    ${data.error}
+                </div>`;
+            return;
+        }
+        
+        if (!data.vms || data.vms.length === 0) {
+            this.vmList.innerHTML = `
+                <div class="alert alert-info" role="alert">
+                    No virtual machines found
+                </div>`;
+            return;
+        }
+
+        data.vms.forEach(vm => {
             const card = document.createElement('div');
             card.className = `card vm-card ${vm.status === 'running' ? 'border-success' : 'border-danger'}`;
             card.innerHTML = `
@@ -836,9 +846,25 @@ class ProxmoxNLI {
         });
     }
 
-    updateClusterStatus(nodes) {
+    updateClusterStatus(data) {
         this.clusterStatus.innerHTML = '';
-        nodes.forEach(node => {
+        if (data.error) {
+            this.clusterStatus.innerHTML = `
+                <div class="alert alert-danger" role="alert">
+                    ${data.error}
+                </div>`;
+            return;
+        }
+
+        if (!data.status || data.status.length === 0) {
+            this.clusterStatus.innerHTML = `
+                <div class="alert alert-info" role="alert">
+                    No cluster nodes found
+                </div>`;
+            return;
+        }
+
+        data.status.forEach(node => {
             const nodeElement = document.createElement('div');
             nodeElement.className = 'mb-2';
             nodeElement.innerHTML = `
@@ -851,7 +877,7 @@ class ProxmoxNLI {
 
     async loadAuditLogs() {
         try {
-            const response = await fetch('/audit-logs');
+            const response = await this.fetchWithAuth('/audit-logs');
             const data = await response.json();
             this.auditLog.innerHTML = '';
             data.logs.forEach(log => {
