@@ -1,0 +1,110 @@
+id: mealie
+name: Mealie
+description: Modern recipe manager and meal planning application with a clean interface
+keywords:
+  - recipes
+  - cooking
+  - meal planning
+  - shopping list
+  - food
+  - kitchen
+  - recipe manager
+  - recipe book
+vm_requirements:
+  memory: 1024
+  cores: 1
+  disk: 10
+  os_template: ubuntu-22.04
+dependencies:
+  - id: postgres
+    required: false
+    description: "Optional database for storing recipes and user information (uses SQLite by default)"
+  - id: nginx
+    required: false
+    description: "Recommended for secure external access with SSL"
+user_goals:
+  - id: productivity
+    relevance: high
+    reason: "Mealie helps you organize recipes and plan meals efficiently"
+  - id: files
+    relevance: low
+    reason: "While not a general file manager, it does organize an important type of personal content"
+replaces_services:
+  - id: paprika
+    quality: excellent
+    reason: "Mealie provides similar or better recipe management capabilities with a modern interface"
+  - id: mealime
+    quality: good
+    reason: "Mealie offers comparable meal planning features in a self-hosted environment"
+personality_recommendation: "I think you'd really enjoy Mealie for your recipe collection! It has one of the cleanest, most modern interfaces of any recipe manager I've seen. The recipe scraper works like magic - just paste a URL and it pulls in everything automatically. If you enjoy cooking and want to keep your favorite recipes organized, you'll love how simple and beautiful Mealie makes it!"
+deployment:
+  method: docker
+  docker_compose: |
+    version: '3.8'
+    
+    services:
+      mealie:
+        container_name: mealie
+        image: hkotel/mealie:latest
+        restart: unless-stopped
+        volumes:
+          - mealie-data:/app/data
+        environment:
+          - PUID=1000
+          - PGID=1000
+          - TZ=${TIME_ZONE:-America/New_York}
+          - MAX_WORKERS=1
+          - WEB_CONCURRENCY=1
+          - BASE_URL=
+          - TOKEN_TIME=48
+          - API_PORT=9000
+          - WEB_PORT=9000
+          - ALLOW_SIGNUP=${ALLOW_SIGNUP:-true}
+        ports:
+          - "9000:9000"
+    
+    volumes:
+      mealie-data:
+
+access_info: |
+  Mealie has been successfully deployed!
+  
+  Access the web interface at: http://<VM_IP>:9000
+  
+  Initial Setup:
+  1. Create an admin account on first login
+  2. Import recipes from supported sources or add them manually
+  3. Create meal plans and generate shopping lists
+  4. Set up user accounts for family members if desired
+  5. Configure recipe sharing settings
+  
+  Features to Explore:
+  - Recipe import from websites
+  - Meal planning calendar
+  - Shopping list generation
+  - Recipe scaling
+  - Recipe sharing
+
+notes: |
+  Mealie provides a modern recipe management solution:
+  - Clean, modern interface
+  - Recipe storage with images
+  - Ingredient management
+  - Meal planning
+  - Shopping list generation
+  - Recipe import from websites
+  - Multi-user support
+  - Mobile-friendly interface
+  
+  Usage Tips:
+  - Use the recipe scraper to easily import recipes from websites
+  - Create recipe categories to organize your collection
+  - Tag recipes for easy filtering
+  - Use the meal planner to organize your weekly meals
+  - Generate shopping lists based on your meal plan
+  
+  Comparison with Tandoor:
+  - Mealie has a more modern, cleaner interface
+  - Tandoor has more advanced features for power users
+  - Both support recipe import, meal planning, and shopping lists
+  - Choose based on your preference for interface vs. feature set

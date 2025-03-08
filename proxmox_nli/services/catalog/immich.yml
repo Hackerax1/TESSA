@@ -1,0 +1,190 @@
+id: immich
+name: Immich
+description: Modern self-hosted photo and video backup solution with mobile apps and automatic backup
+keywords:
+  - photos
+  - videos
+  - backup
+  - mobile
+  - google photos alternative
+  - photo management
+  - automatic backup
+  - memories
+vm_requirements:
+  memory: 6144
+  cores: 4
+  disk: 100
+  os_template: ubuntu-22.04
+dependencies:
+  - id: postgres
+    required: true
+    description: "Database for storing photo metadata and user information"
+  - id: redis
+    required: true
+    description: "Required for caching and background job processing"
+  - id: nginx
+    required: false
+    description: "Recommended for secure external access with SSL"
+user_goals:
+  - id: media
+    relevance: high
+    reason: "Immich provides a complete solution for backing up and viewing your photos and videos"
+  - id: files
+    relevance: high
+    reason: "Immich helps you organize and preserve your most precious memories"
+  - id: privacy
+    relevance: high
+    reason: "Keep your personal photos and videos private and under your control"
+  - id: productivity
+    relevance: medium
+    reason: "Automatic backup from mobile devices saves time and ensures your memories are preserved"
+replaces_services:
+  - id: google_photos
+    quality: excellent
+    reason: "Immich was specifically designed as a Google Photos alternative with similar features and mobile apps"
+  - id: icloud_photos
+    quality: excellent
+    reason: "Immich provides automatic backup from iOS devices similar to iCloud Photos"
+  - id: amazon_photos
+    quality: good
+    reason: "Immich offers most features of Amazon Photos in a self-hosted environment"
+personality_recommendation: "I think Immich would be perfect for your photo collection! It's one of the most polished photo backup solutions with beautiful mobile apps that automatically back up your photos as you take them. The memories feature is delightful - it shows you photos from years past on the same day. Your family will love having all your memories in one place!"
+deployment:
+  method: docker
+  docker_compose: |
+    version: '3.8'
+    
+    services:
+      immich-server:
+        container_name: immich-server
+        image: ghcr.io/immich-app/immich-server:release
+        command: ["start.sh", "immich"]
+        volumes:
+          - /mnt/photos:/usr/src/app/upload
+          - immich-data:/usr/src/app/data
+        env_file:
+          - .env
+        depends_on:
+          - redis
+          - database
+        restart: unless-stopped
+    
+      immich-microservices:
+        container_name: immich-microservices
+        image: ghcr.io/immich-app/immich-server:release
+        command: ["start.sh", "microservices"]
+        volumes:
+          - /mnt/photos:/usr/src/app/upload
+          - immich-data:/usr/src/app/data
+        env_file:
+          - .env
+        depends_on:
+          - redis
+          - database
+        restart: unless-stopped
+    
+      immich-machine-learning:
+        container_name: immich-machine-learning
+        image: ghcr.io/immich-app/immich-machine-learning:release
+        volumes:
+          - immich-model-cache:/cache
+        env_file:
+          - .env
+        restart: unless-stopped
+    
+      redis:
+        container_name: immich-redis
+        image: redis:6.2-alpine
+        restart: unless-stopped
+    
+      database:
+        container_name: immich-postgres
+        image: postgres:14-alpine
+        env_file:
+          - .env
+        environment:
+          POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+          POSTGRES_USER: ${DB_USERNAME:-postgres}
+          POSTGRES_DB: ${DB_DATABASE_NAME:-immich}
+        volumes:
+          - immich-database:/var/lib/postgresql/data
+        restart: unless-stopped
+    
+      immich-web:
+        container_name: immich-web
+        image: ghcr.io/immich-app/immich-web:release
+        env_file:
+          - .env
+        restart: unless-stopped
+        depends_on:
+          - immich-server
+        ports:
+          - 2283:80
+    
+    volumes:
+      immich-data:
+      immich-database:
+      immich-model-cache:
+
+  post_install_steps:
+    - "echo 'Creating photos directory...'"
+    - "mkdir -p /mnt/photos"
+    - "chmod -R 777 /mnt/photos"
+    - "echo 'Creating .env file with default values...'"
+    - |
+      cat > .env << EOL
+      DB_HOSTNAME=database
+      DB_USERNAME=postgres
+      DB_PASSWORD=postgres
+      DB_DATABASE_NAME=immich
+      
+      REDIS_HOSTNAME=redis
+      
+      UPLOAD_LOCATION=/usr/src/app/upload
+      
+      # Optional: SMTP settings for email notifications
+      # SMTP_HOST=
+      # SMTP_PORT=
+      # SMTP_USERNAME=
+      # SMTP_PASSWORD=
+      # SMTP_FROM=
+      EOL
+
+access_info: |
+  Immich has been successfully deployed!
+  
+  Access the web interface at: http://<VM_IP>:2283
+  
+  Initial Setup:
+  1. Create an admin account on first login
+  2. Download the mobile app from Google Play or Apple App Store
+  3. Scan the QR code from the web interface to connect your mobile device
+  4. Configure automatic backup settings in the mobile app
+  5. Explore the web interface to manage your photos and videos
+  
+  Mobile Apps:
+  - Android: https://play.google.com/store/apps/details?id=app.alextran.immich
+  - iOS: https://apps.apple.com/us/app/immich/id1613945652
+
+notes: |
+  Immich provides a complete photo and video management solution:
+  - Automatic backup from mobile devices
+  - Face recognition
+  - Object detection and search
+  - Location mapping
+  - Memories feature
+  - Shared albums
+  - Partner sharing
+  
+  Performance Tips:
+  - Initial machine learning processing may take significant time
+  - Consider enabling GPU acceleration for faster processing
+  - Allocate sufficient disk space for your photo collection
+  - Regular backups of both the database and photos are recommended
+  
+  Hardware Recommendations:
+  - At least 6GB RAM for good performance
+  - 8GB+ RAM for large collections
+  - SSD storage for database
+  - GPU support improves machine learning performance
+  - Fast network connection for mobile uploads

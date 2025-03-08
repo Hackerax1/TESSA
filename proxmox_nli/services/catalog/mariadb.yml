@@ -1,0 +1,89 @@
+id: mariadb
+name: MariaDB
+description: High-performance relational database server compatible with MySQL
+keywords:
+  - database
+  - mysql
+  - sql
+  - relational database
+  - data storage
+  - backend
+vm_requirements:
+  memory: 1024
+  cores: 1
+  disk: 10
+  os_template: ubuntu-22.04
+user_goals:
+  - id: webhosting
+    relevance: high
+    reason: "MariaDB provides the database backend needed for most web applications"
+  - id: productivity
+    relevance: medium
+    reason: "Many productivity applications require a database for storing user data"
+personality_recommendation: "MariaDB is an excellent choice for your database needs! It's a high-performance, reliable database that's compatible with MySQL but with better performance and more features. It's the perfect foundation for your self-hosted applications."
+deployment:
+  method: docker
+  docker_compose: |
+    version: '3.8'
+    
+    services:
+      mariadb:
+        image: mariadb:10.6
+        container_name: mariadb
+        restart: unless-stopped
+        environment:
+          - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-changeme}
+          - MYSQL_DATABASE=${MYSQL_DATABASE:-default}
+          - MYSQL_USER=${MYSQL_USER:-dbuser}
+          - MYSQL_PASSWORD=${MYSQL_PASSWORD:-dbpassword}
+        volumes:
+          - mariadb_data:/var/lib/mysql
+          - ./init:/docker-entrypoint-initdb.d
+        ports:
+          - "3306:3306"
+    
+    volumes:
+      mariadb_data:
+
+  post_install_steps:
+    - "echo 'Creating init directory for custom SQL scripts...'"
+    - "mkdir -p ./init"
+    - "echo 'MariaDB has been installed successfully!'"
+
+access_info: |
+  MariaDB has been successfully deployed!
+  
+  Database Connection Information:
+  - Host: <VM_IP>
+  - Port: 3306
+  - Root Username: root
+  - Root Password: changeme (or the one you specified during setup)
+  - Default Database: default
+  - Default User: dbuser
+  - Default Password: dbpassword
+  
+  Initial Setup:
+  1. Change the default passwords immediately
+  2. Create additional databases and users as needed
+  3. Configure regular backups
+  4. Consider setting up a database management tool like phpMyAdmin or Adminer
+
+notes: |
+  MariaDB is a powerful relational database server:
+  - High performance and reliability
+  - MySQL compatibility
+  - Advanced features like virtual columns, table elimination, and more
+  - Active development and security updates
+  
+  Security Tips:
+  - Change default passwords immediately
+  - Limit network access to the database port
+  - Use strong, unique passwords
+  - Create specific users with limited permissions for each application
+  - Regularly backup your databases
+  
+  Performance Tips:
+  - Adjust InnoDB buffer pool size based on available memory
+  - Consider using SSD storage for better performance
+  - Optimize queries and indexes for your specific workload
+  - Monitor performance with tools like MySQL Tuner

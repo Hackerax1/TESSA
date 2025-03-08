@@ -1,0 +1,125 @@
+id: vaultwarden
+name: Vaultwarden
+description: Lightweight Bitwarden server implementation for self-hosted password management
+keywords:
+  - password manager
+  - bitwarden
+  - security
+  - credentials
+  - secrets
+  - password vault
+  - authentication
+  - 2fa
+vm_requirements:
+  memory: 512
+  cores: 1
+  disk: 5
+  os_template: ubuntu-22.04
+dependencies:
+  - id: mariadb
+    required: false
+    description: "Optional database for storing passwords (uses SQLite by default)"
+  - id: nginx
+    required: false
+    description: "Recommended for secure external access with SSL"
+user_goals:
+  - id: privacy
+    relevance: high
+    reason: "Vaultwarden gives you complete control over your sensitive password data"
+  - id: productivity
+    relevance: high
+    reason: "Securely manage and access your passwords across all your devices"
+  - id: security
+    relevance: high
+    reason: "Protect your online accounts with strong, unique passwords and 2FA management"
+replaces_services:
+  - id: lastpass
+    quality: excellent
+    reason: "Vaultwarden provides all the features of LastPass with complete privacy and no subscription fees"
+  - id: 1password
+    quality: excellent
+    reason: "Vaultwarden offers comparable features to 1Password in a self-hosted environment"
+  - id: dashlane
+    quality: excellent
+    reason: "Vaultwarden provides similar or better password management capabilities"
+personality_recommendation: "I think you'll absolutely love Vaultwarden for managing your passwords! It's a lightweight but powerful password manager that gives you complete control over your sensitive data. The mobile apps work seamlessly, and you'll never have to worry about subscription fees or privacy concerns again. It's one of the most important services to self-host for your digital security!"
+deployment:
+  method: docker
+  docker_compose: |
+    version: '3.8'
+    
+    services:
+      vaultwarden:
+        image: vaultwarden/server:latest
+        container_name: vaultwarden
+        restart: unless-stopped
+        volumes:
+          - vaultwarden-data:/data
+        environment:
+          - WEBSOCKET_ENABLED=true
+          - SIGNUPS_ALLOWED=${ALLOW_SIGNUPS:-false}
+          - DOMAIN=${DOMAIN:-https://vault.example.com}
+          - ADMIN_TOKEN=${ADMIN_TOKEN:-}
+          - SMTP_HOST=${SMTP_HOST:-}
+          - SMTP_FROM=${SMTP_FROM:-}
+          - SMTP_PORT=${SMTP_PORT:-587}
+          - SMTP_SSL=${SMTP_SSL:-true}
+          - SMTP_USERNAME=${SMTP_USERNAME:-}
+          - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+        ports:
+          - "8000:80"
+          - "3012:3012"
+    
+    volumes:
+      vaultwarden-data:
+
+access_info: |
+  Vaultwarden has been successfully deployed!
+  
+  Access the web interface at: http://<VM_IP>:8000
+  
+  Initial Setup:
+  1. Create your first user account (this will be the admin)
+  2. Set an admin token in the environment variables for accessing admin panel
+  3. Configure email settings for password recovery
+  4. Install the Bitwarden clients on your devices:
+     - Desktop: https://bitwarden.com/download/
+     - Mobile: Available on iOS App Store and Google Play
+     - Browser extensions: Available for all major browsers
+  5. In the clients, use your self-hosted URL instead of the default Bitwarden server
+  
+  Security Recommendations:
+  1. Set up HTTPS with a reverse proxy like Nginx
+  2. Disable signups after creating needed accounts
+  3. Enable two-factor authentication
+  4. Regularly backup your vault data
+
+notes: |
+  Vaultwarden is a lightweight Bitwarden server implementation:
+  - Compatible with all Bitwarden clients
+  - Lower resource usage than the official Bitwarden server
+  - All premium features included for free
+  - Complete control over your password data
+  
+  Features:
+  - Secure password storage and generation
+  - Two-factor authentication
+  - Secure notes and identity information
+  - File attachments
+  - Password sharing
+  - Organization support
+  - Directory sync
+  - Emergency access
+  
+  Client Options:
+  - Web vault
+  - Mobile apps (iOS, Android)
+  - Desktop apps (Windows, macOS, Linux)
+  - Browser extensions (Chrome, Firefox, Safari, Edge)
+  
+  Security Best Practices:
+  - Use a strong master password
+  - Enable two-factor authentication
+  - Regular backups
+  - Keep server and clients updated
+  - Use HTTPS with a valid certificate

@@ -1,0 +1,115 @@
+id: calibre-web
+name: Calibre-Web
+description: Web app for browsing, reading, and downloading e-books from a Calibre database
+keywords:
+  - ebooks
+  - books
+  - reading
+  - calibre
+  - library
+  - epub
+  - pdf
+  - kindle
+vm_requirements:
+  memory: 1024
+  cores: 1
+  disk: 10
+  os_template: ubuntu-22.04
+dependencies:
+  - id: mariadb
+    required: false
+    description: "Optional database for storing user information (uses SQLite by default)"
+  - id: nginx
+    required: false
+    description: "Recommended for secure external access with SSL"
+user_goals:
+  - id: media
+    relevance: high
+    reason: "Calibre-Web provides a complete e-book management and reading solution"
+  - id: files
+    relevance: medium
+    reason: "Helps organize and access your e-book collection"
+  - id: productivity
+    relevance: medium
+    reason: "Makes your reading materials accessible from anywhere"
+replaces_services:
+  - id: kindle_cloud
+    quality: excellent
+    reason: "Calibre-Web provides similar or better e-book management with more format support"
+  - id: google_play_books
+    quality: good
+    reason: "Offers comparable e-book management and reading features in a self-hosted environment"
+personality_recommendation: "I think you'd love Calibre-Web for your e-book collection! It's like having your own personal library that you can access from anywhere. The reading experience is excellent on both desktop and mobile, and you can even send books directly to your Kindle. Perfect for book lovers who want to organize their digital library!"
+deployment:
+  method: docker
+  docker_compose: |
+    version: '3.8'
+    
+    services:
+      calibre-web:
+        image: linuxserver/calibre-web:latest
+        container_name: calibre-web
+        environment:
+          - PUID=1000
+          - PGID=1000
+          - TZ=${TIME_ZONE:-America/New_York}
+          - DOCKER_MODS=linuxserver/mods:universal-calibre #optional
+          - OAUTHLIB_RELAX_TOKEN_SCOPE=1 #optional
+        volumes:
+          - calibre-web-config:/config
+          - /mnt/books:/books
+        ports:
+          - 8083:8083
+        restart: unless-stopped
+    
+    volumes:
+      calibre-web-config:
+
+  post_install_steps:
+    - "echo 'Creating books directory...'"
+    - "mkdir -p /mnt/books"
+    - "chmod -R 777 /mnt/books"
+    - "echo 'Please place your Calibre library in /mnt/books or create a new one'"
+
+access_info: |
+  Calibre-Web has been successfully deployed!
+  
+  Access the web interface at: http://<VM_IP>:8083
+  
+  Initial Setup:
+  1. On first login, use the default credentials:
+     - Username: admin
+     - Password: admin123
+  2. You'll be prompted to set the location of your Calibre library
+     - If you don't have one, you can create a new one at /books
+  3. Change the default password immediately
+  4. Configure email settings if you want to send books to e-readers
+  5. Set up user accounts for family members if desired
+  
+  Features to Explore:
+  - E-book reading directly in the browser
+  - Send to Kindle functionality
+  - Book metadata editing
+  - Series and author organization
+  - Reading progress tracking
+
+notes: |
+  Calibre-Web provides a complete e-book management solution:
+  - Browse your e-book collection by author, title, series, etc.
+  - Read e-books directly in the browser
+  - Download books in various formats
+  - Send books to e-readers like Kindle
+  - Track reading progress
+  - Multi-user support with different permissions
+  
+  Usage Tips:
+  - For best results, organize your e-books with Calibre desktop app first
+  - Use the OPDS catalog to access your books from mobile reading apps
+  - Enable Kepubify for better Kobo reader support
+  - Set up email delivery for sending books to Kindle
+  
+  Integration Options:
+  - Works with most e-readers
+  - OPDS catalog for mobile reading apps
+  - Email delivery for Kindle
+  - Kobo integration

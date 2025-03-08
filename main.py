@@ -4,6 +4,7 @@ import sys
 import argparse
 from dotenv import load_dotenv
 from proxmox_nli.core import ProxmoxNLI, cli_mode, web_mode
+import docker
 
 def main():
     """Main entry point for Proxmox Natural Language Interface"""

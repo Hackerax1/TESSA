@@ -127,14 +127,6 @@ class ProxmoxNLI(BaseNLI):
         # Generate response
         return self.response_generator.generate_response(query, intent, result)
 
-    def get_recent_activity(self, limit: int = 100) -> list:
-        """Get recent audit logs from the database"""
+    def get_recent_activity(self, limit=100):
+        """Get recent audit logs with the specified limit"""
         return self.audit_logger.get_recent_logs(limit)
-    
-    def get_user_activity(self, user: str, limit: int = 100) -> list:
-        """Get recent activity for a specific user"""
-        return self.audit_logger.get_user_activity(user, limit)
-    
-    def get_failed_commands(self, limit: int = 100) -> list:
-        """Get recent failed command executions"""
-        return self.audit_logger.get_failed_commands(limit)

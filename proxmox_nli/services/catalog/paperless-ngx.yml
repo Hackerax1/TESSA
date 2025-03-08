@@ -1,0 +1,154 @@
+id: paperless-ngx
+name: Paperless-ngx
+description: Self-hosted document management system with OCR, tagging, and full-text search
+keywords:
+  - documents
+  - scanning
+  - ocr
+  - paperless
+  - document management
+  - file organization
+  - receipts
+  - invoices
+  - bills
+vm_requirements:
+  memory: 2048
+  cores: 2
+  disk: 20
+  os_template: ubuntu-22.04
+dependencies:
+  - id: postgres
+    required: true
+    description: "Database for storing document metadata and search index"
+  - id: redis
+    required: true
+    description: "Required for task queuing and caching"
+  - id: nginx
+    required: false
+    description: "Recommended for secure external access with SSL"
+user_goals:
+  - id: files
+    relevance: high
+    reason: "Paperless-ngx helps you organize and digitize your important documents"
+  - id: productivity
+    relevance: high
+    reason: "Automates document processing and makes finding important papers quick and easy"
+  - id: privacy
+    relevance: medium
+    reason: "Keeps your sensitive documents secure and under your control"
+replaces_services:
+  - id: evernote
+    quality: good
+    reason: "Paperless-ngx provides similar document scanning and organization capabilities"
+  - id: google_drive
+    quality: medium
+    reason: "While focused on documents rather than all files, it provides better document-specific features"
+personality_recommendation: "I think you'll find Paperless-ngx incredibly useful for organizing your household documents! It's perfect for digitizing all those receipts, bills, and important papers that pile up. The OCR is surprisingly accurate, and being able to search the full text of any document is a game-changer. No more digging through file cabinets!"
+deployment:
+  method: docker
+  docker_compose: |
+    version: '3.8'
+    
+    services:
+      paperless:
+        container_name: paperless-ngx
+        image: ghcr.io/paperless-ngx/paperless-ngx:latest
+        restart: unless-stopped
+        depends_on:
+          - paperless-db
+          - paperless-redis
+        ports:
+          - "8000:8000"
+        volumes:
+          - paperless-data:/usr/src/paperless/data
+          - paperless-media:/usr/src/paperless/media
+          - paperless-export:/usr/src/paperless/export
+          - /mnt/documents/consume:/usr/src/paperless/consume
+          - /mnt/documents/archive:/usr/src/paperless/archive
+        environment:
+          PAPERLESS_REDIS: redis://paperless-redis:6379
+          PAPERLESS_DBHOST: paperless-db
+          PAPERLESS_DBNAME: paperless
+          PAPERLESS_DBUSER: paperless
+          PAPERLESS_DBPASS: paperless
+          PAPERLESS_ADMIN_USER: ${ADMIN_USER:-admin}
+          PAPERLESS_ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme}
+          PAPERLESS_TIME_ZONE: ${TIME_ZONE:-America/New_York}
+          PAPERLESS_OCR_LANGUAGE: ${OCR_LANGUAGE:-eng}
+          PAPERLESS_CONSUMER_POLLING: 60
+          PAPERLESS_CONSUMER_DELETE_DUPLICATES: "true"
+          PAPERLESS_TIKA_ENABLED: 1
+          PAPERLESS_ENABLE_HTTP_REMOTE_USER: 0
+    
+      paperless-db:
+        container_name: paperless-db
+        image: postgres:14-alpine
+        restart: unless-stopped
+        volumes:
+          - paperless-db:/var/lib/postgresql/data
+        environment:
+          POSTGRES_DB: paperless
+          POSTGRES_USER: paperless
+          POSTGRES_PASSWORD: paperless
+    
+      paperless-redis:
+        container_name: paperless-redis
+        image: redis:6-alpine
+        restart: unless-stopped
+        volumes:
+          - paperless-redis:/data
+    
+    volumes:
+      paperless-data:
+      paperless-media:
+      paperless-export:
+      paperless-db:
+      paperless-redis:
+
+  post_install_steps:
+    - "echo 'Creating document directories...'"
+    - "mkdir -p /mnt/documents/consume"
+    - "mkdir -p /mnt/documents/archive"
+    - "chmod -R 777 /mnt/documents"
+    - "echo 'Document directories created at /mnt/documents/consume and /mnt/documents/archive'"
+
+access_info: |
+  Paperless-ngx has been successfully deployed!
+  
+  Access the web interface at: http://<VM_IP>:8000
+  Default credentials:
+  - Username: admin
+  - Password: changeme (or the one you specified during setup)
+  
+  Initial Setup:
+  1. Log in and change the default password immediately
+  2. Configure document types, correspondents, and tags
+  3. Place documents in the /mnt/documents/consume folder to be automatically processed
+  4. Set up automated scanning with a compatible scanner if desired
+  5. Configure backup of your document database and files
+  
+  Usage Tips:
+  - Documents placed in the consume folder will be automatically processed and moved to the archive
+  - You can email documents to Paperless if you configure the email settings
+  - Mobile scanning apps can be configured to save directly to the consume folder
+
+notes: |
+  Paperless-ngx provides a powerful document management solution:
+  - OCR for all documents
+  - Full-text search
+  - Automatic tagging and classification
+  - Document type recognition
+  - Correspondent identification
+  - Mobile-friendly interface
+  
+  Performance Tips:
+  - OCR processing can be CPU-intensive
+  - Consider increasing memory allocation for large document collections
+  - SSD storage improves database performance
+  - Regular backups of both the database and document files are recommended
+  
+  Integration Options:
+  - Compatible with most document scanners
+  - Can receive documents via email
+  - API available for custom integrations
+  - Mobile scanning apps can save directly to consume folder

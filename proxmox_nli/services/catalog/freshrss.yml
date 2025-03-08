@@ -1,0 +1,108 @@
+id: freshrss
+name: FreshRSS
+description: Self-hosted RSS feed aggregator with modern interface and mobile support
+keywords:
+  - rss
+  - news
+  - feed reader
+  - feed aggregator
+  - content curation
+  - articles
+  - blogs
+  - news reader
+vm_requirements:
+  memory: 512
+  cores: 1
+  disk: 5
+  os_template: ubuntu-22.04
+dependencies:
+  - id: mariadb
+    required: false
+    description: "Optional database for storing feeds and articles (uses SQLite by default)"
+  - id: nginx
+    required: false
+    description: "Recommended for secure external access with SSL"
+user_goals:
+  - id: productivity
+    relevance: high
+    reason: "FreshRSS helps you stay informed by aggregating all your news sources in one place"
+  - id: privacy
+    relevance: medium
+    reason: "Your reading habits and interests remain private, not tracked by commercial services"
+replaces_services:
+  - id: feedly
+    quality: excellent
+    reason: "FreshRSS provides similar or better feed reading capabilities with complete privacy"
+  - id: inoreader
+    quality: excellent
+    reason: "FreshRSS offers comparable features to Inoreader in a self-hosted environment"
+  - id: google_reader
+    quality: excellent
+    reason: "FreshRSS is a complete replacement for the discontinued Google Reader"
+personality_recommendation: "I think you'd really enjoy FreshRSS for keeping up with your favorite websites and news sources! It's a clean, fast way to read all your content in one place without ads or tracking. The mobile apps work great too, so you can catch up on your reading anywhere. It's perfect for staying informed without getting overwhelmed!"
+deployment:
+  method: docker
+  docker_compose: |
+    version: '3.8'
+    
+    services:
+      freshrss:
+        image: freshrss/freshrss:latest
+        container_name: freshrss
+        restart: unless-stopped
+        volumes:
+          - freshrss-data:/var/www/FreshRSS/data
+          - freshrss-extensions:/var/www/FreshRSS/extensions
+        environment:
+          - TZ=${TIME_ZONE:-America/New_York}
+          - CRON_MIN=*/15
+          - FRESHRSS_ENV=production
+        ports:
+          - "8080:80"
+    
+    volumes:
+      freshrss-data:
+      freshrss-extensions:
+
+access_info: |
+  FreshRSS has been successfully deployed!
+  
+  Access the web interface at: http://<VM_IP>:8080
+  
+  Initial Setup:
+  1. Follow the setup wizard to create your admin account
+  2. Add your favorite RSS feeds
+  3. Configure feed refresh intervals
+  4. Set up API access if you want to use mobile apps
+  5. Install additional extensions if needed
+  
+  Mobile Access Options:
+  - Use the web interface (mobile-friendly)
+  - Configure API access and use apps like:
+    - Android: FeedMe, News+, Readably
+    - iOS: Reeder, Fiery Feeds, lire
+  - Enable the Fever API for broader app compatibility
+
+notes: |
+  FreshRSS provides a complete RSS feed reading solution:
+  - Clean, customizable interface
+  - Fast performance even with thousands of articles
+  - Mobile-friendly web interface
+  - API support for mobile apps
+  - Feed categorization and tagging
+  - Article filtering and search
+  - Keyboard shortcuts
+  - Import/export OPML
+  
+  Usage Tips:
+  - Use keyboard shortcuts for faster navigation (j/k for next/previous)
+  - Create categories to organize your feeds
+  - Use the "mark all as read" feature for busy feeds
+  - Enable the dark theme for night reading
+  - Set up automatic cleanup of old articles to save space
+  
+  Integration Options:
+  - Compatible with various mobile apps via API
+  - Supports sharing to social media
+  - Extensions available for additional features
+  - Fever API for broader app compatibility

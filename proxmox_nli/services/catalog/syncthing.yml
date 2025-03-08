@@ -1,0 +1,88 @@
+id: syncthing
+name: Syncthing
+description: Open source peer-to-peer file synchronization tool that securely syncs files between devices
+keywords:
+  - file sync
+  - p2p
+  - peer to peer
+  - decentralized
+  - file sharing
+  - continuous backup
+  - synchronization
+  - cross-platform
+vm_requirements:
+  memory: 512
+  cores: 1
+  disk: 10
+  os_template: ubuntu-22.04
+deployment:
+  method: docker
+  docker_compose: |
+    version: '3'
+    services:
+      syncthing:
+        image: linuxserver/syncthing:latest
+        container_name: syncthing
+        environment:
+          - PUID=1000
+          - PGID=1000
+          - TZ=Etc/UTC
+        volumes:
+          - syncthing_config:/config
+          - /mnt/syncthing_data:/data
+        ports:
+          - 8384:8384
+          - 22000:22000/tcp
+          - 22000:22000/udp
+          - 21027:21027/udp
+        restart: unless-stopped
+
+    volumes:
+      syncthing_config:
+
+  post_install_steps:
+    - "echo 'Creating data directory...'"
+    - "mkdir -p /mnt/syncthing_data"
+    - "chown -R 1000:1000 /mnt/syncthing_data"
+    - "echo 'Remember to open required ports in your firewall'"
+
+access_info: |
+  Syncthing has been successfully deployed!
+  
+  Access the web interface at: http://<VM_IP>:8384
+  
+  Initial Setup:
+  1. On first access, you'll need to create an admin user
+  2. Add devices using their Device ID (available in their Syncthing UI)
+  3. Create folders to be synced and assign which devices can access them
+  4. Configure synchronization settings (file versioning, ignore patterns, etc.)
+  5. Set up access controls and secure remote access
+  
+  Firewall Configuration:
+  Make sure these ports are open for Syncthing to work properly:
+  - TCP/UDP 22000: File transfers
+  - UDP 21027: Local discovery
+  - TCP 8384: Web UI (only needs to be accessible to you)
+
+notes: |
+  Syncthing is a powerful, decentralized file synchronization tool:
+  - No central server - direct device-to-device synchronization
+  - End-to-end encryption for all communications
+  - Automatic conflict resolution
+  - Version history and file recovery
+  - Real-time synchronization
+  - Works across platforms (Windows, macOS, Linux, Android)
+  
+  Usage Tips:
+  - Start with small folders to ensure proper setup
+  - Set up versioning to avoid data loss
+  - Configure ignore patterns for temporary files
+  - Use separate folders for different purposes/sharing groups
+  - Monitor disk usage on all sync devices
+  
+  Performance Optimization:
+  - Consider using folder-specific settings for large datasets
+  - Use "send only" or "receive only" options where appropriate
+  - Enable compression for slower network connections
+  - Adjust scan intervals based on your needs
+  - Monitor resource usage and adjust accordingly

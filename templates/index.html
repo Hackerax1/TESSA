@@ -9,6 +9,39 @@
     <link href="/static/css/styles.css" rel="stylesheet">
 </head>
 <body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <img src="/static/TessaLogo.webp" alt="TESSA" height="30" class="d-inline-block align-text-top me-2">
+                TESSA - Proxmox NLI
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#setupWizardModal">Setup Wizard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#userPrefsModal">Preferences</a>
+                    </li>
+                </ul>
+                <div class="d-flex align-items-center">
+                    <label for="experienceLevel" class="form-label text-light me-2">Experience Level:</label>
+                    <select class="form-select form-select-sm" id="experienceLevel">
+                        <option value="beginner">Beginner</option>
+                        <option value="intermediate">Intermediate</option>
+                        <option value="advanced">Advanced</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </nav>
+
     <div class="container">
         <div class="row">
             <!-- Chat Interface -->
@@ -20,8 +53,7 @@
                     </div>
                     <div class="chat-body" id="chat-body">
                         <div class="message system">
-                            Hello! I'm your Proxmox Natural Language Interface. How can I help you today?
-                            <br><br>
+                            Hello! I'm TESSA, your Proxmox Natural Language Interface. How can I help you today?
                             Try commands like:
                             <ul>
                                 <li>list vms</li>
@@ -47,24 +79,69 @@
 
             <!-- Status and Monitoring -->
             <div class="col-md-5">
-                <div class="status-container">
-                    <h3>System Status</h3>
-                    <div id="cluster-status">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Loading...</span>
+                <!-- Progressive Disclosure Tabs -->
+                <ul class="nav nav-tabs mb-3" id="monitoringTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="basic-tab" data-bs-toggle="tab" data-bs-target="#basic" type="button" role="tab" aria-controls="basic" aria-selected="true">Basic</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="advanced-tab" data-bs-toggle="tab" data-bs-target="#advanced" type="button" role="tab" aria-controls="advanced" aria-selected="false">Advanced</button>
+                    </li>
+                </ul>
+                
+                <div class="tab-content" id="monitoringTabContent">
+                    <!-- Basic Tab - Simple status info -->
+                    <div class="tab-pane fade show active" id="basic" role="tabpanel" aria-labelledby="basic-tab">
+                        <div class="status-container">
+                            <h3>System Status</h3>
+                            <div id="cluster-status">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="status-container">
+                            <h3>Virtual Machines</h3>
+                            <div id="vm-list">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Advanced Tab - Detailed information and network diagram -->
+                    <div class="tab-pane fade" id="advanced" role="tabpanel" aria-labelledby="advanced-tab">
+                        <div class="status-container">
+                            <h3>Network Diagram</h3>
+                            <div id="network-diagram-container" style="height: 400px; border: 1px solid #ccc; border-radius: 4px;">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="status-container">
+                            <h3>Resource Usage</h3>
+                            <div id="resource-usage">
+                                <div class="resource-graph">
+                                    <h4>CPU Usage</h4>
+                                    <div id="cpu-chart"></div>
+                                </div>
+                                <div class="resource-graph">
+                                    <h4>Memory Usage</h4>
+                                    <div id="memory-chart"></div>
+                                </div>
+                                <div class="resource-graph">
+                                    <h4>Storage Usage</h4>
+                                    <div id="storage-chart"></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-
-                <div class="status-container">
-                    <h3>Virtual Machines</h3>
-                    <div id="vm-list">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Loading...</span>
-                        </div>
-                    </div>
-                </div>
-
+                
                 <div class="audit-container">
                     <h3>Audit Log</h3>
                     <div id="audit-log"></div>
@@ -72,9 +149,312 @@
             </div>
         </div>
     </div>
+    
+    <!-- Setup Wizard Modal -->
+    <div class="modal fade" id="setupWizardModal" tabindex="-1" aria-labelledby="setupWizardModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="setupWizardModalLabel">Goal-Based Setup Wizard</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Wizard Navigation -->
+                    <ul class="nav nav-pills nav-justified mb-3" id="wizardSteps" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="step1-tab" data-bs-toggle="pill" data-bs-target="#step1" type="button" role="tab" aria-controls="step1" aria-selected="true">Goals</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="step2-tab" data-bs-toggle="pill" data-bs-target="#step2" type="button" role="tab" aria-controls="step2" aria-selected="false">Resources</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="step3-tab" data-bs-toggle="pill" data-bs-target="#step3" type="button" role="tab" aria-controls="step3" aria-selected="false">Services</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="step4-tab" data-bs-toggle="pill" data-bs-target="#step4" type="button" role="tab" aria-controls="step4" aria-selected="false">Summary</button>
+                        </li>
+                    </ul>
+                    
+                    <!-- Wizard Content -->
+                    <div class="tab-content" id="wizardStepsContent">
+                        <!-- Step 1: Goals -->
+                        <div class="tab-pane fade show active" id="step1" role="tabpanel" aria-labelledby="step1-tab">
+                            <h4>What would you like to accomplish with your home server?</h4>
+                            <p class="text-muted">Select all that apply</p>
+                            
+                            <div class="row mt-4">
+                                <div class="col-md-6">
+                                    <div class="form-check mb-3">
+                                        <input class="form-check-input" type="checkbox" value="media" id="goalMedia">
+                                        <label class="form-check-label" for="goalMedia">
+                                            <i class="bi bi-film"></i> Media Server (Movies, TV, Music)
+                                        </label>
+                                    </div>
+                                    <div class="form-check mb-3">
+                                        <input class="form-check-input" type="checkbox" value="files" id="goalFiles">
+                                        <label class="form-check-label" for="goalFiles">
+                                            <i class="bi bi-folder"></i> File Storage & Backup
+                                        </label>
+                                    </div>
+                                    <div class="form-check mb-3">
+                                        <input class="form-check-input" type="checkbox" value="webhosting" id="goalWeb">
+                                        <label class="form-check-label" for="goalWeb">
+                                            <i class="bi bi-globe"></i> Self-host Websites
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check mb-3">
+                                        <input class="form-check-input" type="checkbox" value="homeauto" id="goalHomeAuto">
+                                        <label class="form-check-label" for="goalHomeAuto">
+                                            <i class="bi bi-house"></i> Home Automation
+                                        </label>
+                                    </div>
+                                    <div class="form-check mb-3">
+                                        <input class="form-check-input" type="checkbox" value="productivity" id="goalProductivity">
+                                        <label class="form-check-label" for="goalProductivity">
+                                            <i class="bi bi-calendar"></i> Office/Productivity Tools
+                                        </label>
+                                    </div>
+                                    <div class="form-check mb-3">
+                                        <input class="form-check-input" type="checkbox" value="gaming" id="goalGaming">
+                                        <label class="form-check-label" for="goalGaming">
+                                            <i class="bi bi-controller"></i> Game Servers
+                                        </label>
+                                    </div>
+                                    <div class="form-check mb-3">
+                                        <input class="form-check-input" type="checkbox" value="privacy" id="goalPrivacy">
+                                        <label class="form-check-label" for="goalPrivacy">
+                                            <i class="bi bi-shield-lock"></i> Privacy & Security
+                                        </label>
+                                    </div>
+                                    <div class="form-check mb-3">
+                                        <input class="form-check-input" type="checkbox" value="networking" id="goalNetworking">
+                                        <label class="form-check-label" for="goalNetworking">
+                                            <i class="bi bi-hdd-network"></i> Network Management
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-4">
+                                <label for="otherGoals" class="form-label">Other goals or needs:</label>
+                                <textarea class="form-control" id="otherGoals" rows="2"></textarea>
+                            </div>
+                            
+                            <div class="d-flex justify-content-end mt-3">
+                                <button class="btn btn-primary" id="step1-next">Next</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Step 2: Resources -->
+                        <div class="tab-pane fade" id="step2" role="tabpanel" aria-labelledby="step2-tab">
+                            <h4>Hardware Resources</h4>
+                            <p class="text-muted">Please confirm your available resources</p>
+                            
+                            <div id="detected-resources" class="mb-4">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Detecting resources...</span>
+                                </div>
+                                <span class="ms-2">Detecting system resources...</span>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="cpuCores" class="form-label">CPU Cores</label>
+                                        <input type="number" class="form-control" id="cpuCores" value="4" min="1">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="ramSize" class="form-label">RAM (GB)</label>
+                                        <input type="number" class="form-control" id="ramSize" value="8" min="1">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="diskSize" class="form-label">Storage Space (GB)</label>
+                                        <input type="number" class="form-control" id="diskSize" value="500" min="1">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="networkSpeed" class="form-label">Network Speed (Mbps)</label>
+                                        <input type="number" class="form-control" id="networkSpeed" value="100" min="1">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between mt-3">
+                                <button class="btn btn-secondary" id="step2-prev" onclick="nextWizardStep('step1-tab')">Previous</button>
+                                <button class="btn btn-primary" id="step2-next" onclick="nextWizardStep('step3-tab')">Next</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Step 3: Services -->
+                        <div class="tab-pane fade" id="step3" role="tabpanel" aria-labelledby="step3-tab">
+                            <h4>Recommended Services</h4>
+                            <p class="text-muted">Based on your goals, here are some recommended services:</p>
+                            
+                            <div id="recommended-services" class="mb-4">
+                                <!-- Will be populated dynamically based on goals -->
+                                <div class="alert alert-info">
+                                    Please select your goals in step 1 to see recommended services.
+                                </div>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between mt-3">
+                                <button class="btn btn-secondary" id="step3-prev" onclick="nextWizardStep('step2-tab')">Previous</button>
+                                <button class="btn btn-primary" id="step3-next" onclick="nextWizardStep('step4-tab')">Next</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Step 4: Summary -->
+                        <div class="tab-pane fade" id="step4" role="tabpanel" aria-labelledby="step4-tab">
+                            <h4>Setup Summary</h4>
+                            <p class="text-muted">Here's what we're going to set up for you:</p>
+                            
+                            <div class="card mb-3">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Goals</h5>
+                                </div>
+                                <div class="card-body" id="summary-goals">
+                                    <!-- Will be populated dynamically -->
+                                </div>
+                            </div>
+                            
+                            <div class="card mb-3">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Services to Install</h5>
+                                </div>
+                                <div class="card-body" id="summary-services">
+                                    <!-- Will be populated dynamically -->
+                                </div>
+                            </div>
+                            
+                            <div class="card mb-3">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Resource Allocation</h5>
+                                </div>
+                                <div class="card-body" id="summary-resources">
+                                    <!-- Will be populated dynamically -->
+                                </div>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between mt-3">
+                                <button class="btn btn-secondary" id="step4-prev" onclick="nextWizardStep('step3-tab')">Previous</button>
+                                <button class="btn btn-primary" id="deploy-button">Deploy Services</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Preferences Modal -->
+    <div class="modal fade" id="userPrefsModal" tabindex="-1" aria-labelledby="userPrefsModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="userPrefsModalLabel">User Preferences</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="user-preferences-form">
+                        <div class="mb-3">
+                            <label for="userName" class="form-label">Your Name</label>
+                            <input type="text" class="form-control" id="userName" placeholder="John Doe">
+                        </div>
+                        <div class="mb-3">
+                            <label for="defaultVmTemplate" class="form-label">Default VM Template</label>
+                            <select class="form-select" id="defaultVmTemplate">
+                                <option value="ubuntu-2204">Ubuntu 22.04</option>
+                                <option value="debian-12">Debian 12</option>
+                                <option value="centos-stream-9">CentOS Stream 9</option>
+                                <option value="win-2022">Windows Server 2022</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="defaultVmMemory" class="form-label">Default VM Memory (MB)</label>
+                            <input type="number" class="form-control" id="defaultVmMemory" value="2048" min="512">
+                        </div>
+                        <div class="mb-3">
+                            <label for="defaultVmCores" class="form-label">Default VM CPU Cores</label>
+                            <input type="number" class="form-control" id="defaultVmCores" value="2" min="1">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="save-preferences">Save Changes</button>
+                </div>
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5>TESSA Voice Settings</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="voice-profile" class="form-label">Voice Profile</label>
+                            <select class="form-select" id="voice-profile">
+                                <option value="tessa_default">TESSA Default</option>
+                                <option value="tessa_warm">TESSA Warm</option>
+                                <option value="tessa_professional">TESSA Professional</option>
+                                <!-- Dynamically populated with other profiles -->
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="voice-accent" class="form-label">Accent</label>
+                            <select class="form-select" id="voice-accent">
+                                <option value="com">US English</option>
+                                <option value="co.uk">British English</option>
+                                <option value="com.au">Australian English</option>
+                                <option value="ca">Canadian English</option>
+                                <option value="co.in">Indian English</option>
+                                <option value="ie">Irish English</option>
+                                <option value="co.za">South African English</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="voice-speed" class="form-label">Speaking Speed</label>
+                            <select class="form-select" id="voice-speed">
+                                <option value="false">Normal</option>
+                                <option value="true">Slow</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="voice-style" class="form-label">Conversation Style</label>
+                            <select class="form-select" id="voice-style">
+                                <option value="friendly">Friendly</option>
+                                <option value="professional">Professional</option>
+                                <option value="casual">Casual</option>
+                                <option value="enthusiastic">Enthusiastic</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="personality-level" class="form-label">Personality Level</label>
+                            <input type="range" class="form-range" min="0" max="100" value="20" id="personality-level">
+                            <small class="form-text text-muted">Controls how often TESSA adds personality phrases to responses</small>
+                        </div>
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="enable-personality" checked>
+                            <label class="form-check-label" for="enable-personality">Enable Personality Quirks</label>
+                        </div>
+                        <button type="button" class="btn btn-primary" id="save-voice-settings">Save Voice Settings</button>
+                        <button type="button" class="btn btn-secondary ms-2" id="test-voice">Test Voice</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/static/js/network_diagram.js"></script>
     <script src="/static/js/app.js"></script>
+    <script>
+        function nextWizardStep(stepId) {
+            document.getElementById(stepId).click();
+        }
+    </script>
 </body>
 </html>

@@ -1,0 +1,77 @@
+id: bitwarden
+name: Bitwarden (Vaultwarden)
+description: Self-hosted password manager and secure vault for credentials, notes, and personal data
+keywords:
+  - password manager
+  - credentials
+  - secrets
+  - vault
+  - security
+  - authentication
+  - bitwarden
+  - vaultwarden
+vm_requirements:
+  memory: 1024
+  cores: 1
+  disk: 10
+  os_template: ubuntu-22.04
+deployment:
+  method: docker
+  docker_compose: |
+    version: '3'
+    services:
+      vaultwarden:
+        image: vaultwarden/server:latest
+        container_name: vaultwarden
+        environment:
+          - WEBSOCKET_ENABLED=true
+          - SIGNUPS_ALLOWED=${ALLOW_SIGNUPS:-false}
+          - ADMIN_TOKEN=${ADMIN_TOKEN:-generateastrong32charactertoken}
+          - DOMAIN=${DOMAIN:-http://localhost}
+        volumes:
+          - vaultwarden_data:/data
+        ports:
+          - 8000:80
+          - 3012:3012
+        restart: unless-stopped
+
+    volumes:
+      vaultwarden_data:
+
+  post_install_steps:
+    - "echo 'Setting permissions...'"
+    - "echo 'Generate admin token with: openssl rand -base64 48'"
+    - "echo 'Change ADMIN_TOKEN in docker-compose.yml to your generated token'"
+    - "echo 'Consider setting up HTTPS for secure access'"
+
+access_info: |
+  Vaultwarden (Bitwarden) has been successfully deployed!
+  
+  Access the web interface at: http://<VM_IP>:8000
+  
+  Initial Setup:
+  1. Create your first account (this will be your admin user)
+  2. Access admin panel at http://<VM_IP>:8000/admin using your ADMIN_TOKEN
+  3. Configure organizational policies and security settings
+  4. Install the Bitwarden browser extension and mobile app
+  5. Point them to your self-hosted instance URL
+  
+  For secure usage:
+  1. Enable Two-Factor Authentication
+  2. Set up a strong master password
+  3. Configure SSL/TLS for encrypted access
+  4. Set up regular backups of the data volume
+
+notes: |
+  Vaultwarden is a lightweight, community-driven implementation of the Bitwarden server API:
+  - Compatible with official Bitwarden clients
+  - More efficient resource usage than the official server
+  - Supports all essential Bitwarden features
+  - Cross-platform support (Windows, macOS, Linux, iOS, Android)
+  
+  Security Recommendations:
+  - Always use HTTPS (integrate with Cloudflare or Let's Encrypt)
+  - Disable public signups after creating necessary accounts
+  - Encrypt backups of the vault data
+  - Restrict network access to trusted devices/networks
+  - Consider using fail2ban to prevent brute force attempts

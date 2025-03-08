@@ -1,0 +1,128 @@
+# High Priority - Core Functionality & TESSA Identity
+
+- [X] **Security & TESSA Trust Building:**
+  - [X] Implement robust input sanitization across all interfaces (CLI, Web).
+  - [X] Enforce principle of least privilege for all operations.
+  - [X] Regularly audit dependencies for vulnerabilities.
+  - [X] Implement rate limiting and anti-CSRF measures in the web interface.
+  - [X] Add TESSA security explanations in plain language ("I'm protecting your data by...").
+
+- [X] **Core VM & Container Management:**
+  - [X] Implement full VM lifecycle management (create, start, stop, restart, delete, clone, migrate).
+  - [X] Implement basic container management (start, stop, restart, delete, exec).
+  - [X] Add support for VM snapshots (create, revert, delete).
+  - [X] Implement TESSA self-referential responses ("I'll create that VM for you", "Let me manage those containers").
+
+- [X] **Service Deployment & Management:**
+  - [X] Implement service deployment via Docker Compose.
+  - [X] Add service status monitoring (health checks).
+  - [X] Implement service update/rollback functionality.
+  - [X] Create a basic service catalog with popular self-hosted apps (#proxmox_nli\services\catalog).
+  - [X] Add conversational service explanation ("Let me tell you about Nextcloud and why it's useful").
+
+- [ ] **Hardware Detection & Compatibility:**
+  - [X] Create Python scripts for automatic hardware detection and configuration recommendation.
+  - [X] Implement fallback options for partially compatible hardware.
+  - [ ] Build a hardware compatibility database with community contributions.
+  - [X] Develop driver auto-installation system for common hardware components.
+  - [ ] Create a pre-installation compatibility checker tool.
+
+# Medium Priority - Usability & Integration
+
+- [ ] **Automated Installation & Configuration:**
+  - [X] Enhance installer.py script for unattended installation.
+  - [X] Implement configuration validation and error handling.
+  - [ ] Automate initial Proxmox configuration (network, storage).
+  - [ ] Create bootable USB image with auto-start setup wizard.
+  - [ ] Implement self-configuring networking (DHCP + common static configs).
+  - [X] Generate QR code during installation for easy first access.
+
+- [X] **Web Interface Enhancements:**
+  - [X] Implement real-time updates with WebSockets for VM/container status.
+  - [X] Display detailed VM/container information (CPU, memory, disk usage, network stats).
+  - [X] Add a web-based terminal for VM/container access.
+  - [X] Implement user authentication and authorization.
+  - [X] Create visual network diagram of services and connections.
+  - [X] Design progressive disclosure UI (basic → advanced options).
+
+- [ ] **Integration with User Preferences:**
+  - [X] Allow users to save preferred settings (e.g., default VM resources, preferred OS template).
+  - [X] Implement a "favorites" system for VMs, nodes, and services.
+  - [ ] Design goal-based setup workflow ("What would you like me to help you replace?").
+  - [X] Implement TESSA user relationship model (remembering names, preferences, skill level).
+  - [X] Create personalized greeting system based on time of day and user history.
+
+- [X] **Backup and Restore:**
+  - [X] Implement basic VM backup and restore functionality.
+  - [X] Integrate with Proxmox Backup Server (if available).
+  - [X] Add support for scheduling backups.
+
+- [ ] **Unit Testing:**
+  - [X] Implement unit tests for NLU engine.
+  - [ ] Implement unit tests for command execution.
+  - [X] Implement unit tests for API interaction.
+  - [ ] Add tests for hardware detection and compatibility scripts.
+
+# Low Priority - Advanced Features & Polish
+
+- [ ] **Advanced Resource Management:**
+  - [ ] Implement VM resource monitoring and optimization recommendations.
+  - [ ] Add support for dynamic resource allocation.
+
+- [X] **ZFS Management Commands:**
+  - [X] Implement commands for creating, deleting, and managing ZFS datasets.
+  - [X] Add support for ZFS snapshots and replication.
+
+- [ ] **Networking Management:**
+  - [ ] Implement commands for creating and managing VLANs.
+  - [ ] Add support for firewall rule configuration.
+
+- [X] **TESSA Voice & Personality:**
+  - [X] Develop a consistent voice pattern and personality for TESSA.
+  - [X] Create a realistic, warm female voice profile for TTS output.
+  - [X] Implement adaptive tone based on user experience level and context.
+  - [X] Allow users to customize the voice accent, pace, and tone.
+  - [X] Add occasional humor and personality quirks in responses.
+
+- [ ] **Comprehensive Documentation:**
+  - [ ] Create detailed documentation for all features and commands.
+  - [ ] Provide examples and tutorials.
+  - [ ] Add hardware compatibility guides and recommendations.
+  - [ ] Create beginner-friendly setup guides with visual aids using Mermaid.
+
+- [X] **Plugin System:**
+  - [X] Design and implement a plugin system for extending functionality.
+  - [X] Create a basic plugin API.
+
+- [ ] **Domain Management and SSL:**
+  - [ ] Improve Cloudflare integration for automated DNS and SSL management.
+  - [ ] Implement commands for managing DNS records.
+  - [ ] Add support for other DNS providers.
+
+- [ ] **Service Catalog Expansion:**
+  - [ ] Add more services to the service catalog (#proxmox_nli\services\catalog).
+  - [ ] Implement service dependency management.
+  - [ ] Organize services by user goals rather than technical categories.
+  - [ ] Add TESSA service recommendations with personality ("I think you'd really enjoy Nextcloud for your photos").
+
+# Future Considerations
+
+- [ ] **Multi-tenancy Support:**
+  - [ ] Allow multiple users to manage their own resources.
+  - [ ] Develop TESSA's ability to recognize different household members by voice or habits.
+
+- [ ] **Federated Identity Management:**
+  - [ ] Integrate with external identity providers (e.g., LDAP, OAuth).
+
+- [ ] **AI-Powered Recommendations:**
+  - [ ] Use AI to provide recommendations for resource optimization, security hardening, and service deployment.
+  - [ ] Implement AI-driven hardware compatibility assessment.
+  - [ ] Create predictive maintenance alerts based on hardware performance data.
+  - [ ] Develop personality growth for TESSA based on household usage patterns.
+  - [ ] Implement "getting to know you" conversations to personalize experiences.
+
+- [ ] **TESSA Persona Evolution:**
+  - [ ] Create TESSA backstory and consistent world model.
+  - [ ] Implement easter eggs and specialty responses for holidays/special occasions.
+  - [ ] Develop TESSA opinions on self-hosting topics ("I personally prefer Jellyfin for media").
+  - [ ] Add natural conversation transitions and topic memory between sessions.

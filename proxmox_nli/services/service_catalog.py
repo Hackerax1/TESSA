@@ -7,6 +7,7 @@ import json
 import logging
 import yaml
 from typing import Dict, List, Optional
+from .deployment.service_validator import ServiceValidator
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,9 @@ class ServiceCatalog:
         # Dictionary to store loaded service definitions
         self.services = {}
         
+        # Track invalid services for reporting
+        self.invalid_services = {}
+        
         # Load all services from catalog
         self._load_services()
     
@@ -43,15 +47,17 @@ class ServiceCatalog:
                     with open(service_path, 'r') as f:
                         service_def = yaml.safe_load(f)
                         
-                    # Validate required fields
-                    required_fields = ['id', 'name', 'description', 'keywords', 'deployment']
-                    if all(field in service_def for field in required_fields):
+                    # Validate service definition
+                    validation_result = ServiceValidator.validate_service_definition(service_def)
+                    if validation_result["success"]:
                         self.services[service_def['id']] = service_def
                         logger.info(f"Loaded service definition: {service_def['name']}")
                     else:
-                        logger.warning(f"Skipping invalid service definition in {filename}: missing required fields")
+                        self.invalid_services[filename] = validation_result["message"]
+                        logger.warning(f"Invalid service definition in {filename}: {validation_result['message']}")
                 
                 except Exception as e:
+                    self.invalid_services[filename] = str(e)
                     logger.error(f"Error loading service definition from {filename}: {str(e)}")
     
     def get_all_services(self) -> List[Dict]:
@@ -95,20 +101,19 @@ class ServiceCatalog:
                 
         return matches
     
-    def add_service_definition(self, service_def: Dict) -> bool:
+    def add_service_definition(self, service_def: Dict) -> Dict:
         """Add a new service definition to the catalog.
         
         Args:
             service_def: Service definition dictionary
             
         Returns:
-            True if successful, False otherwise
+            Result dictionary with success status and message
         """
-        # Validate required fields
-        required_fields = ['id', 'name', 'description', 'keywords', 'deployment']
-        if not all(field in service_def for field in required_fields):
-            logger.error("Cannot add service definition: missing required fields")
-            return False
+        # Validate service definition
+        validation_result = ServiceValidator.validate_service_definition(service_def)
+        if not validation_result["success"]:
+            return validation_result
             
         try:
             # Save to file
@@ -120,8 +125,149 @@ class ServiceCatalog:
             # Add to in-memory catalog
             self.services[service_def['id']] = service_def
             logger.info(f"Added new service definition: {service_def['name']}")
-            return True
+            
+            return {
+                "success": True,
+                "message": f"Successfully added service definition for {service_def['name']}"
+            }
             
         except Exception as e:
             logger.error(f"Error adding service definition: {str(e)}")
-            return False
+            return {
+                "success": False,
+                "message": f"Error adding service definition: {str(e)}"
+            }
+            
+    def get_invalid_services(self) -> Dict[str, str]:
+        """Get list of invalid service definitions and their errors.
+        
+        Returns:
+            Dictionary mapping filenames to error messages
+        """
+        return self.invalid_services
+        
+    def get_service_dependencies(self, service_id: str) -> List[Dict]:
+        """Get all dependencies for a specific service.
+        
+        Args:
+            service_id: The ID of the service to get dependencies for
+            
+        Returns:
+            List of dependency dictionaries with service details
+        """
+        service = self.get_service(service_id)
+        if not service or 'dependencies' not in service:
+            return []
+            
+        dependencies = []
+        for dep in service.get('dependencies', []):
+            dep_service = self.get_service(dep['id'])
+            if dep_service:
+                dependencies.append({
+                    'id': dep['id'],
+                    'name': dep_service['name'],
+                    'required': dep['required'],
+                    'description': dep.get('description', ''),
+                    'service': dep_service
+                })
+            else:
+                # Dependency service not found in catalog
+                dependencies.append({
+                    'id': dep['id'],
+                    'name': dep['id'],
+                    'required': dep['required'],
+                    'description': dep.get('description', ''),
+                    'service': None
+                })
+                
+        return dependencies
+        
+    def get_all_required_dependencies(self, service_id: str, processed_services: List[str] = None) -> List[Dict]:
+        """Get all required dependencies for a service, including transitive dependencies.
+        
+        Args:
+            service_id: The ID of the service to get dependencies for
+            processed_services: List of already processed service IDs (to prevent cycles)
+            
+        Returns:
+            List of dependency dictionaries with service details
+        """
+        if processed_services is None:
+            processed_services = []
+            
+        if service_id in processed_services:
+            return []  # Prevent circular dependencies
+            
+        processed_services.append(service_id)
+        
+        direct_deps = self.get_service_dependencies(service_id)
+        all_deps = []
+        
+        for dep in direct_deps:
+            if dep['required'] and dep['id'] not in [d['id'] for d in all_deps]:
+                all_deps.append(dep)
+                
+                # Get transitive dependencies
+                if dep['service']:
+                    transitive_deps = self.get_all_required_dependencies(
+                        dep['id'], processed_services.copy()
+                    )
+                    
+                    # Add only new dependencies
+                    for trans_dep in transitive_deps:
+                        if trans_dep['id'] not in [d['id'] for d in all_deps]:
+                            all_deps.append(trans_dep)
+                            
+        return all_deps
+        
+    def get_services_by_goal(self, goal_id: str) -> List[Dict]:
+        """Get services that support a specific user goal.
+        
+        Args:
+            goal_id: The ID of the user goal
+            
+        Returns:
+            List of service dictionaries that support the goal
+        """
+        matching_services = []
+        
+        for service in self.services.values():
+            if 'user_goals' in service:
+                for goal in service.get('user_goals', []):
+                    if goal['id'] == goal_id:
+                        # Add relevance information to the service
+                        service_copy = service.copy()
+                        service_copy['goal_relevance'] = goal.get('relevance', 'medium')
+                        service_copy['goal_reason'] = goal.get('reason', '')
+                        matching_services.append(service_copy)
+                        break
+                        
+        # Sort by relevance (high, medium, low)
+        relevance_order = {'high': 0, 'medium': 1, 'low': 2}
+        return sorted(matching_services, key=lambda s: relevance_order.get(s.get('goal_relevance'), 3))
+        
+    def get_replacement_services(self, cloud_service_id: str) -> List[Dict]:
+        """Get services that can replace a specific cloud service.
+        
+        Args:
+            cloud_service_id: The ID of the cloud service to replace
+            
+        Returns:
+            List of service dictionaries that can replace the cloud service
+        """
+        matching_services = []
+        
+        for service in self.services.values():
+            if 'replaces_services' in service:
+                for replacement in service.get('replaces_services', []):
+                    if replacement['id'] == cloud_service_id:
+                        # Add replacement information to the service
+                        service_copy = service.copy()
+                        service_copy['replacement_quality'] = replacement.get('quality', 'good')
+                        service_copy['replacement_reason'] = replacement.get('reason', '')
+                        matching_services.append(service_copy)
+                        break
+                        
+        # Sort by quality (excellent, good, fair, poor)
+        quality_order = {'excellent': 0, 'good': 1, 'fair': 2, 'poor': 3}
+        return sorted(matching_services, key=lambda s: quality_order.get(s.get('replacement_quality'), 4))
