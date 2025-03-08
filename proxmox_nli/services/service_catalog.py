@@ -145,3 +145,129 @@ class ServiceCatalog:
             Dictionary mapping filenames to error messages
         """
         return self.invalid_services
+        
+    def get_service_dependencies(self, service_id: str) -> List[Dict]:
+        """Get all dependencies for a specific service.
+        
+        Args:
+            service_id: The ID of the service to get dependencies for
+            
+        Returns:
+            List of dependency dictionaries with service details
+        """
+        service = self.get_service(service_id)
+        if not service or 'dependencies' not in service:
+            return []
+            
+        dependencies = []
+        for dep in service.get('dependencies', []):
+            dep_service = self.get_service(dep['id'])
+            if dep_service:
+                dependencies.append({
+                    'id': dep['id'],
+                    'name': dep_service['name'],
+                    'required': dep['required'],
+                    'description': dep.get('description', ''),
+                    'service': dep_service
+                })
+            else:
+                # Dependency service not found in catalog
+                dependencies.append({
+                    'id': dep['id'],
+                    'name': dep['id'],
+                    'required': dep['required'],
+                    'description': dep.get('description', ''),
+                    'service': None
+                })
+                
+        return dependencies
+        
+    def get_all_required_dependencies(self, service_id: str, processed_services: List[str] = None) -> List[Dict]:
+        """Get all required dependencies for a service, including transitive dependencies.
+        
+        Args:
+            service_id: The ID of the service to get dependencies for
+            processed_services: List of already processed service IDs (to prevent cycles)
+            
+        Returns:
+            List of dependency dictionaries with service details
+        """
+        if processed_services is None:
+            processed_services = []
+            
+        if service_id in processed_services:
+            return []  # Prevent circular dependencies
+            
+        processed_services.append(service_id)
+        
+        direct_deps = self.get_service_dependencies(service_id)
+        all_deps = []
+        
+        for dep in direct_deps:
+            if dep['required'] and dep['id'] not in [d['id'] for d in all_deps]:
+                all_deps.append(dep)
+                
+                # Get transitive dependencies
+                if dep['service']:
+                    transitive_deps = self.get_all_required_dependencies(
+                        dep['id'], processed_services.copy()
+                    )
+                    
+                    # Add only new dependencies
+                    for trans_dep in transitive_deps:
+                        if trans_dep['id'] not in [d['id'] for d in all_deps]:
+                            all_deps.append(trans_dep)
+                            
+        return all_deps
+        
+    def get_services_by_goal(self, goal_id: str) -> List[Dict]:
+        """Get services that support a specific user goal.
+        
+        Args:
+            goal_id: The ID of the user goal
+            
+        Returns:
+            List of service dictionaries that support the goal
+        """
+        matching_services = []
+        
+        for service in self.services.values():
+            if 'user_goals' in service:
+                for goal in service.get('user_goals', []):
+                    if goal['id'] == goal_id:
+                        # Add relevance information to the service
+                        service_copy = service.copy()
+                        service_copy['goal_relevance'] = goal.get('relevance', 'medium')
+                        service_copy['goal_reason'] = goal.get('reason', '')
+                        matching_services.append(service_copy)
+                        break
+                        
+        # Sort by relevance (high, medium, low)
+        relevance_order = {'high': 0, 'medium': 1, 'low': 2}
+        return sorted(matching_services, key=lambda s: relevance_order.get(s.get('goal_relevance'), 3))
+        
+    def get_replacement_services(self, cloud_service_id: str) -> List[Dict]:
+        """Get services that can replace a specific cloud service.
+        
+        Args:
+            cloud_service_id: The ID of the cloud service to replace
+            
+        Returns:
+            List of service dictionaries that can replace the cloud service
+        """
+        matching_services = []
+        
+        for service in self.services.values():
+            if 'replaces_services' in service:
+                for replacement in service.get('replaces_services', []):
+                    if replacement['id'] == cloud_service_id:
+                        # Add replacement information to the service
+                        service_copy = service.copy()
+                        service_copy['replacement_quality'] = replacement.get('quality', 'good')
+                        service_copy['replacement_reason'] = replacement.get('reason', '')
+                        matching_services.append(service_copy)
+                        break
+                        
+        # Sort by quality (excellent, good, fair, poor)
+        quality_order = {'excellent': 0, 'good': 1, 'fair': 2, 'poor': 3}
+        return sorted(matching_services, key=lambda s: quality_order.get(s.get('replacement_quality'), 4))

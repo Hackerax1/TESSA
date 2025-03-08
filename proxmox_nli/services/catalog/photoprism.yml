@@ -1,0 +1,147 @@
+id: photoprism
+name: PhotoPrism
+description: Self-hosted photo management with AI-powered tagging and search
+keywords:
+  - photos
+  - images
+  - gallery
+  - photo management
+  - google photos alternative
+  - image search
+  - photo organization
+  - ai tagging
+vm_requirements:
+  memory: 4096
+  cores: 2
+  disk: 50
+  os_template: ubuntu-22.04
+dependencies:
+  - id: mariadb
+    required: true
+    description: "Database for storing photo metadata and user information"
+  - id: nginx
+    required: false
+    description: "Recommended for secure external access with SSL"
+user_goals:
+  - id: media
+    relevance: high
+    reason: "PhotoPrism provides an excellent way to organize and view your personal photo collection"
+  - id: files
+    relevance: medium
+    reason: "While primarily for photos, PhotoPrism also helps organize your media files"
+  - id: privacy
+    relevance: high
+    reason: "Keep your personal photos private and under your control"
+replaces_services:
+  - id: google_photos
+    quality: excellent
+    reason: "PhotoPrism offers similar features to Google Photos with AI-powered search and face recognition"
+  - id: apple_photos
+    quality: good
+    reason: "PhotoPrism provides most features of Apple Photos in a self-hosted environment"
+personality_recommendation: "I think you'll absolutely love PhotoPrism for your personal photos! Its AI-powered search is amazing - you can find photos by describing what's in them, and it automatically recognizes faces too. Your memories deserve to be organized beautifully and remain private."
+deployment:
+  method: docker
+  docker_compose: |
+    version: '3.8'
+    services:
+      photoprism:
+        image: photoprism/photoprism:latest
+        container_name: photoprism
+        depends_on:
+          - mariadb
+        environment:
+          PHOTOPRISM_ADMIN_PASSWORD: "${ADMIN_PASSWORD:-insecure}"
+          PHOTOPRISM_SITE_URL: "http://${DOMAIN:-localhost}:2342/"
+          PHOTOPRISM_ORIGINALS_LIMIT: 5000
+          PHOTOPRISM_HTTP_COMPRESSION: "gzip"
+          PHOTOPRISM_DEBUG: "false"
+          PHOTOPRISM_PUBLIC: "false"
+          PHOTOPRISM_READONLY: "false"
+          PHOTOPRISM_EXPERIMENTAL: "false"
+          PHOTOPRISM_DISABLE_WEBDAV: "false"
+          PHOTOPRISM_DISABLE_SETTINGS: "false"
+          PHOTOPRISM_DISABLE_TENSORFLOW: "false"
+          PHOTOPRISM_DISABLE_FACES: "false"
+          PHOTOPRISM_DISABLE_CLASSIFICATION: "false"
+          PHOTOPRISM_DARKTABLE_PRESETS: "false"
+          PHOTOPRISM_DETECT_NSFW: "false"
+          PHOTOPRISM_UPLOAD_NSFW: "true"
+          PHOTOPRISM_DATABASE_DRIVER: "mysql"
+          PHOTOPRISM_DATABASE_SERVER: "mariadb:3306"
+          PHOTOPRISM_DATABASE_NAME: "photoprism"
+          PHOTOPRISM_DATABASE_USER: "photoprism"
+          PHOTOPRISM_DATABASE_PASSWORD: "${DB_PASSWORD:-photoprism}"
+          PHOTOPRISM_SITE_TITLE: "PhotoPrism"
+          PHOTOPRISM_SITE_CAPTION: "AI-Powered Photos App"
+          PHOTOPRISM_SITE_DESCRIPTION: "Personal Photo Management"
+          PHOTOPRISM_SITE_AUTHOR: "Admin"
+        volumes:
+          - photoprism_data:/photoprism/storage
+          - /mnt/photos:/photoprism/originals
+        ports:
+          - "2342:2342"
+        restart: unless-stopped
+
+      mariadb:
+        image: mariadb:10.6
+        container_name: photoprism-mariadb
+        environment:
+          MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD:-photoprism}"
+          MYSQL_DATABASE: "photoprism"
+          MYSQL_USER: "photoprism"
+          MYSQL_PASSWORD: "${DB_PASSWORD:-photoprism}"
+        volumes:
+          - photoprism_db:/var/lib/mysql
+        restart: unless-stopped
+
+    volumes:
+      photoprism_data:
+      photoprism_db:
+
+  post_install_steps:
+    - "echo 'Creating photos directory...'"
+    - "mkdir -p /mnt/photos"
+    - "chmod -R 777 /mnt/photos"
+    - "echo 'Please mount your photo collection to /mnt/photos'"
+
+access_info: |
+  PhotoPrism has been successfully deployed!
+  
+  Access the web interface at: http://<VM_IP>:2342
+  Default credentials:
+  - Username: admin
+  - Password: insecure (or the one you specified during setup)
+  
+  Initial Setup:
+  1. Log in and change the default password immediately
+  2. Import your photos by placing them in the /mnt/photos directory
+  3. Configure automatic indexing and backups
+  4. Explore the face recognition and search features
+  5. Set up user accounts if needed
+  
+  Storage Setup:
+  1. For optimal performance, consider using SSD storage for the database
+  2. Photos can be stored on larger, slower storage
+  3. Regular backups of both the database and photos are recommended
+
+notes: |
+  PhotoPrism provides a powerful photo management solution:
+  - AI-powered search and tagging
+  - Face recognition
+  - Location mapping
+  - Timeline view
+  - Albums and sharing
+  - Mobile-friendly interface
+  
+  Performance Tips:
+  - Initial indexing may take significant time for large collections
+  - Enabling GPU acceleration can significantly improve performance
+  - Consider increasing memory allocation for large photo libraries
+  - Regular database maintenance improves performance
+  
+  Hardware Recommendations:
+  - At least 4GB RAM for small to medium collections
+  - 8GB+ RAM for large collections (10,000+ photos)
+  - SSD storage for database
+  - GPU support improves AI features performance

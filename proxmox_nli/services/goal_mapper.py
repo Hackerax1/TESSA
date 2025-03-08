@@ -24,79 +24,121 @@ class GoalMapper:
         self.services = {}
         self.load_services()
         
-        # Define goal to service mappings
+        # Define goal to service mappings with more detailed descriptions
         self.goal_mappings = {
             'media': {
-                'services': ['jellyfin', 'arr-stack'],
-                'description': 'A media server lets you store and stream your movies, TV shows, and music.'
+                'name': 'Media Server',
+                'description': 'A media server lets you store and stream your movies, TV shows, and music.',
+                'persona_description': 'Enjoy your media collection from anywhere, on any device. No more subscriptions!'
             },
             'files': {
-                'services': ['nextcloud', 'syncthing', 'truenas'],
-                'description': 'File storage solutions let you back up, sync, and access your files from anywhere.'
+                'name': 'File Storage & Sync',
+                'description': 'File storage solutions let you back up, sync, and access your files from anywhere.',
+                'persona_description': 'Keep your important files safe, accessible, and under your control.'
+            },
+            'photos': {
+                'name': 'Photo Management',
+                'description': 'Photo management tools help you organize, back up, and enjoy your photo collection.',
+                'persona_description': 'Preserve your memories in a beautiful, searchable library you control completely.'
+            },
+            'documents': {
+                'name': 'Document Management',
+                'description': 'Document management systems help you organize and search your important papers.',
+                'persona_description': 'Say goodbye to paper clutter and never lose an important document again!'
             },
             'webhosting': {
-                'services': ['nginx', 'gitea', 'cloudflared'],
-                'description': 'Web hosting tools let you run your own websites and web applications.'
+                'name': 'Web Hosting',
+                'description': 'Web hosting tools let you run your own websites and web applications.',
+                'persona_description': 'Host your own websites and web apps with complete creative freedom.'
             },
             'homeauto': {
-                'services': ['home-assistant-docker', 'home-assistant-os'],
-                'description': 'Home automation tools let you control and automate your smart home devices.'
+                'name': 'Home Automation',
+                'description': 'Home automation tools let you control and automate your smart home devices.',
+                'persona_description': 'Make your home smarter and more responsive to your needs and preferences.'
             },
             'productivity': {
-                'services': ['nextcloud', 'gitea', 'bitwarden'],
-                'description': 'Productivity tools help you organize your work, collaborate, and manage passwords.'
+                'name': 'Productivity Tools',
+                'description': 'Productivity tools help you organize your work, collaborate, and manage passwords.',
+                'persona_description': 'Boost your efficiency with tools designed to help you get more done.'
             },
             'gaming': {
-                'services': ['arr-stack'],
-                'description': 'Gaming servers let you host multiplayer games for you and your friends.'
+                'name': 'Gaming',
+                'description': 'Gaming servers let you host multiplayer games for you and your friends.',
+                'persona_description': 'Create your own gaming community with servers you control completely.'
             },
             'privacy': {
-                'services': ['pihole', 'vpn-service', 'bitwarden'],
-                'description': 'Privacy tools help protect your data and block unwanted tracking and ads.'
+                'name': 'Privacy & Security',
+                'description': 'Privacy tools help protect your data and block unwanted tracking and ads.',
+                'persona_description': 'Take back control of your digital privacy and secure your online presence.'
             },
             'networking': {
-                'services': ['pfsense', 'pihole', 'cloudflared'],
-                'description': 'Networking tools give you control over your home network and internet connection.'
+                'name': 'Networking',
+                'description': 'Networking tools give you control over your home network and internet connection.',
+                'persona_description': 'Optimize your home network for better performance, security, and control.'
+            },
+            'cooking': {
+                'name': 'Cooking & Recipes',
+                'description': 'Recipe management tools help you organize recipes and plan meals.',
+                'persona_description': 'Keep your favorite recipes organized and make meal planning a breeze!'
             }
         }
         
-        # Define cloud service replacements
+        # Define cloud service replacements with more detailed descriptions
         self.cloud_replacements = {
             'google_photos': {
-                'services': ['nextcloud', 'syncthing'],
-                'description': 'Replace Google Photos with your own photo storage and sharing solution.'
+                'name': 'Google Photos',
+                'description': 'Replace Google Photos with your own photo storage and sharing solution.',
+                'persona_description': 'Keep your precious memories private and under your control, not Google\'s.'
             },
             'google_drive': {
-                'services': ['nextcloud', 'syncthing'],
-                'description': 'Replace Google Drive with your own file storage and sharing solution.'
+                'name': 'Google Drive',
+                'description': 'Replace Google Drive with your own file storage and sharing solution.',
+                'persona_description': 'Access your files from anywhere without giving Google access to your data.'
             },
             'dropbox': {
-                'services': ['nextcloud', 'syncthing'],
-                'description': 'Replace Dropbox with your own file storage and sharing solution.'
+                'name': 'Dropbox',
+                'description': 'Replace Dropbox with your own file storage and sharing solution.',
+                'persona_description': 'All the convenience of Dropbox without the subscription fees or privacy concerns.'
             },
             'netflix': {
-                'services': ['jellyfin', 'arr-stack'],
-                'description': 'Replace Netflix with your own media server for movies and TV shows.'
+                'name': 'Netflix',
+                'description': 'Replace Netflix with your own media server for movies and TV shows.',
+                'persona_description': 'Build your own streaming service with content you choose, no subscriptions needed.'
             },
             'spotify': {
-                'services': ['jellyfin'],
-                'description': 'Replace Spotify with your own music streaming server.'
+                'name': 'Spotify',
+                'description': 'Replace Spotify with your own music streaming server.',
+                'persona_description': 'Stream your music collection from anywhere without monthly fees.'
             },
             'lastpass': {
-                'services': ['bitwarden'],
-                'description': 'Replace LastPass with your own password manager.'
+                'name': 'LastPass',
+                'description': 'Replace LastPass with your own password manager.',
+                'persona_description': 'Keep your passwords secure and accessible without trusting a third-party service.'
             },
             'github': {
-                'services': ['gitea'],
-                'description': 'Replace GitHub with your own Git repository hosting.'
+                'name': 'GitHub',
+                'description': 'Replace GitHub with your own Git repository hosting.',
+                'persona_description': 'Host your code repositories with complete control over access and features.'
             },
             'google_calendar': {
-                'services': ['nextcloud'],
-                'description': 'Replace Google Calendar with your own calendar server.'
+                'name': 'Google Calendar',
+                'description': 'Replace Google Calendar with your own calendar server.',
+                'persona_description': 'Manage your schedule privately without sharing your appointments with Google.'
             },
             'google_docs': {
-                'services': ['nextcloud'],
-                'description': 'Replace Google Docs with your own document collaboration tools.'
+                'name': 'Google Docs',
+                'description': 'Replace Google Docs with your own document collaboration tools.',
+                'persona_description': 'Collaborate on documents without giving Google access to your content.'
+            },
+            'evernote': {
+                'name': 'Evernote',
+                'description': 'Replace Evernote with your own note-taking and document management system.',
+                'persona_description': 'Keep your notes organized and searchable without subscription fees.'
+            },
+            'recipe_apps': {
+                'name': 'Recipe Apps',
+                'description': 'Replace commercial recipe apps with your own recipe management system.',
+                'persona_description': 'Organize your recipes your way without ads or subscription fees.'
             }
         }
     
@@ -108,7 +150,7 @@ class GoalMapper:
                 try:
                     with open(file_path, 'r') as f:
                         service_data = yaml.safe_load(f)
-                        service_id = os.path.splitext(os.path.basename(file_path))[0]
+                        service_id = service_data.get('id', os.path.splitext(os.path.basename(file_path))[0])
                         self.services[service_id] = service_data
                 except Exception as e:
                     logger.error(f"Error loading service {file_path}: {str(e)}")
@@ -119,61 +161,159 @@ class GoalMapper:
         """Get service details by ID"""
         return self.services.get(service_id)
     
-    def get_recommended_services(self, goals):
+    def get_recommended_services(self, goals, include_personality=True):
         """
         Get recommended services based on user goals
         
         Args:
             goals (list): List of goal IDs selected by the user
+            include_personality (bool): Whether to include personality-driven recommendations
             
         Returns:
             dict: Dictionary with recommended services and explanations
         """
         recommended = {}
         
+        # First, get services directly from the service catalog by goal
         for goal in goals:
             if goal in self.goal_mappings:
                 goal_info = self.goal_mappings[goal]
-                for service_id in goal_info['services']:
-                    service = self.get_service_by_id(service_id)
-                    if service and service_id not in recommended:
-                        recommended[service_id] = {
-                            'name': service.get('name', service_id),
-                            'description': service.get('description', ''),
-                            'goal': goal,
-                            'goal_description': goal_info['description'],
-                            'resources': service.get('resources', {})
-                        }
+                
+                # Get services that match this goal from their user_goals attribute
+                for service_id, service in self.services.items():
+                    if 'user_goals' in service:
+                        for service_goal in service.get('user_goals', []):
+                            if service_goal['id'] == goal and service_id not in recommended:
+                                # Create recommendation with personality
+                                recommended[service_id] = self._create_recommendation(
+                                    service, 
+                                    goal, 
+                                    goal_info,
+                                    service_goal.get('relevance', 'medium'),
+                                    service_goal.get('reason', ''),
+                                    include_personality
+                                )
+                                break
         
-        return recommended
+        # Sort recommendations by relevance
+        sorted_recommendations = {}
+        relevance_order = {'high': 0, 'medium': 1, 'low': 2}
+        
+        for service_id, rec in sorted(
+            recommended.items(), 
+            key=lambda item: relevance_order.get(item[1].get('relevance', 'medium'), 3)
+        ):
+            sorted_recommendations[service_id] = rec
+            
+        return sorted_recommendations
     
-    def get_cloud_replacement_services(self, service_names):
+    def _create_recommendation(self, service, goal_id, goal_info, relevance, reason, include_personality):
+        """Create a recommendation object with personality if available"""
+        recommendation = {
+            'id': service.get('id'),
+            'name': service.get('name', service.get('id')),
+            'description': service.get('description', ''),
+            'goal': goal_id,
+            'goal_name': goal_info.get('name', goal_id),
+            'goal_description': goal_info.get('description', ''),
+            'relevance': relevance,
+            'reason': reason,
+            'vm_requirements': service.get('vm_requirements', {})
+        }
+        
+        # Add personality-driven recommendation if available and requested
+        if include_personality and 'personality_recommendation' in service:
+            recommendation['personality_recommendation'] = service.get('personality_recommendation')
+        elif include_personality:
+            # Generate a generic personality recommendation based on goal
+            recommendation['personality_recommendation'] = (
+                f"I think you'd really enjoy {service.get('name')} for your "
+                f"{goal_info.get('name', goal_id).lower()} needs! "
+                f"{reason if reason else goal_info.get('persona_description', '')}"
+            )
+            
+        # Add dependency information
+        if 'dependencies' in service:
+            recommendation['dependencies'] = service.get('dependencies', [])
+            
+        return recommendation
+    
+    def get_cloud_replacement_services(self, service_names, include_personality=True):
         """
         Get recommended services to replace specific cloud services
         
         Args:
             service_names (list): List of cloud service IDs to replace
+            include_personality (bool): Whether to include personality-driven recommendations
             
         Returns:
             dict: Dictionary with recommended services and explanations
         """
         recommended = {}
         
-        for service_name in service_names:
-            if service_name in self.cloud_replacements:
-                replacement_info = self.cloud_replacements[service_name]
-                for service_id in replacement_info['services']:
-                    service = self.get_service_by_id(service_id)
-                    if service and service_id not in recommended:
-                        recommended[service_id] = {
-                            'name': service.get('name', service_id),
-                            'description': service.get('description', ''),
-                            'replaces': service_name,
-                            'replacement_description': replacement_info['description'],
-                            'resources': service.get('resources', {})
-                        }
+        # Get services that can replace the requested cloud services
+        for cloud_service_id in service_names:
+            if cloud_service_id in self.cloud_replacements:
+                cloud_info = self.cloud_replacements[cloud_service_id]
+                
+                # Find services that list this cloud service in their replaces_services
+                for service_id, service in self.services.items():
+                    if 'replaces_services' in service:
+                        for replacement in service.get('replaces_services', []):
+                            if replacement['id'] == cloud_service_id and service_id not in recommended:
+                                # Create recommendation with personality
+                                recommended[service_id] = self._create_replacement_recommendation(
+                                    service,
+                                    cloud_service_id,
+                                    cloud_info,
+                                    replacement.get('quality', 'good'),
+                                    replacement.get('reason', ''),
+                                    include_personality
+                                )
+                                break
         
-        return recommended
+        # Sort recommendations by quality
+        sorted_recommendations = {}
+        quality_order = {'excellent': 0, 'good': 1, 'fair': 2, 'poor': 3}
+        
+        for service_id, rec in sorted(
+            recommended.items(), 
+            key=lambda item: quality_order.get(item[1].get('quality', 'good'), 4)
+        ):
+            sorted_recommendations[service_id] = rec
+            
+        return sorted_recommendations
+    
+    def _create_replacement_recommendation(self, service, cloud_id, cloud_info, quality, reason, include_personality):
+        """Create a replacement recommendation object with personality if available"""
+        recommendation = {
+            'id': service.get('id'),
+            'name': service.get('name', service.get('id')),
+            'description': service.get('description', ''),
+            'replaces': cloud_id,
+            'replaces_name': cloud_info.get('name', cloud_id),
+            'replacement_description': cloud_info.get('description', ''),
+            'quality': quality,
+            'reason': reason,
+            'vm_requirements': service.get('vm_requirements', {})
+        }
+        
+        # Add personality-driven recommendation if available and requested
+        if include_personality and 'personality_recommendation' in service:
+            recommendation['personality_recommendation'] = service.get('personality_recommendation')
+        elif include_personality:
+            # Generate a generic personality recommendation based on cloud service
+            recommendation['personality_recommendation'] = (
+                f"I think you'd really love {service.get('name')} as a replacement for "
+                f"{cloud_info.get('name', cloud_id)}! "
+                f"{reason if reason else cloud_info.get('persona_description', '')}"
+            )
+            
+        # Add dependency information
+        if 'dependencies' in service:
+            recommendation['dependencies'] = service.get('dependencies', [])
+            
+        return recommendation
     
     def estimate_resource_requirements(self, service_ids):
         """
@@ -186,17 +326,121 @@ class GoalMapper:
             dict: Dictionary with total resource requirements
         """
         total_resources = {
-            'cpu_cores': 0,
-            'memory_mb': 0,
-            'storage_gb': 0
+            'cores': 0,
+            'memory': 0,
+            'disk': 0
         }
         
         for service_id in service_ids:
             service = self.get_service_by_id(service_id)
-            if service and 'resources' in service:
-                resources = service['resources']
-                total_resources['cpu_cores'] += resources.get('cpu_cores', 0)
-                total_resources['memory_mb'] += resources.get('memory_mb', 0)
-                total_resources['storage_gb'] += resources.get('storage_gb', 0)
+            if service and 'vm_requirements' in service:
+                requirements = service['vm_requirements']
+                total_resources['cores'] += requirements.get('cores', 0)
+                total_resources['memory'] += requirements.get('memory', 0)
+                total_resources['disk'] += requirements.get('disk', 0)
         
         return total_resources
+    
+    def get_service_dependencies(self, service_id):
+        """
+        Get all dependencies for a specific service
+        
+        Args:
+            service_id (str): Service ID to get dependencies for
+            
+        Returns:
+            list: List of dependency dictionaries
+        """
+        service = self.get_service_by_id(service_id)
+        if not service or 'dependencies' not in service:
+            return []
+            
+        dependencies = []
+        for dep in service.get('dependencies', []):
+            dep_service = self.get_service_by_id(dep['id'])
+            if dep_service:
+                dependencies.append({
+                    'id': dep['id'],
+                    'name': dep_service.get('name', dep['id']),
+                    'required': dep['required'],
+                    'description': dep.get('description', ''),
+                    'service': dep_service
+                })
+            else:
+                # Dependency service not found in catalog
+                dependencies.append({
+                    'id': dep['id'],
+                    'name': dep['id'],
+                    'required': dep['required'],
+                    'description': dep.get('description', ''),
+                    'service': None
+                })
+                
+        return dependencies
+    
+    def get_all_required_dependencies(self, service_id, processed_services=None):
+        """
+        Get all required dependencies for a service, including transitive dependencies
+        
+        Args:
+            service_id (str): Service ID to get dependencies for
+            processed_services (list): List of already processed service IDs (to prevent cycles)
+            
+        Returns:
+            list: List of dependency dictionaries
+        """
+        if processed_services is None:
+            processed_services = []
+            
+        if service_id in processed_services:
+            return []  # Prevent circular dependencies
+            
+        processed_services.append(service_id)
+        
+        direct_deps = self.get_service_dependencies(service_id)
+        all_deps = []
+        
+        for dep in direct_deps:
+            if dep['required'] and dep['id'] not in [d['id'] for d in all_deps]:
+                all_deps.append(dep)
+                
+                # Get transitive dependencies
+                if dep['service']:
+                    transitive_deps = self.get_all_required_dependencies(
+                        dep['id'], processed_services.copy()
+                    )
+                    
+                    # Add only new dependencies
+                    for trans_dep in transitive_deps:
+                        if trans_dep['id'] not in [d['id'] for d in all_deps]:
+                            all_deps.append(trans_dep)
+                            
+        return all_deps
+    
+    def get_all_goals(self):
+        """
+        Get all defined user goals
+        
+        Returns:
+            dict: Dictionary of all goals with their descriptions
+        """
+        return {goal_id: {
+            'id': goal_id,
+            'name': info.get('name', goal_id),
+            'description': info.get('description', ''),
+            'persona_description': info.get('persona_description', '')
+        } for goal_id, info in self.goal_mappings.items()}
+    
+    def get_all_cloud_services(self):
+        """
+        Get all defined cloud services that can be replaced
+        
+        Returns:
+            dict: Dictionary of all cloud services with their descriptions
+        """
+        return {service_id: {
+            'id': service_id,
+            'name': info.get('name', service_id),
+            'description': info.get('description', ''),
+            'persona_description': info.get('persona_description', '')
+        } for service_id, info in self.cloud_replacements.items()}

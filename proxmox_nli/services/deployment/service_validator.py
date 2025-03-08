@@ -33,6 +33,43 @@ class ServiceValidator:
                     "os_template": {"type": "string"}
                 }
             },
+            "dependencies": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": ["id", "required"],
+                    "properties": {
+                        "id": {"type": "string"},
+                        "required": {"type": "boolean"},
+                        "description": {"type": "string"}
+                    }
+                }
+            },
+            "user_goals": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": ["id", "relevance"],
+                    "properties": {
+                        "id": {"type": "string"},
+                        "relevance": {"type": "string", "enum": ["low", "medium", "high"]},
+                        "reason": {"type": "string"}
+                    }
+                }
+            },
+            "replaces_services": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": ["id", "quality"],
+                    "properties": {
+                        "id": {"type": "string"},
+                        "quality": {"type": "string", "enum": ["poor", "fair", "good", "excellent"]},
+                        "reason": {"type": "string"}
+                    }
+                }
+            },
+            "personality_recommendation": {"type": "string"},
             "deployment": {
                 "type": "object",
                 "required": ["method"],

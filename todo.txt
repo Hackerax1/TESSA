@@ -58,7 +58,7 @@
   - [X] Add support for scheduling backups.
 
 - [ ] **Unit Testing:**
-  - [ ] Implement unit tests for NLU engine.
+  - [X] Implement unit tests for NLU engine.
   - [ ] Implement unit tests for command execution.
   - [ ] Implement unit tests for API interaction.
   - [ ] Add tests for hardware detection and compatibility scripts.
