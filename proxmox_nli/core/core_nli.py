@@ -123,3 +123,7 @@ class ProxmoxNLI(BaseNLI):
         
         # Generate response
         return self.response_generator.generate_response(query, intent, result)
+
+    def get_recent_activity(self, limit=100):
+        """Get recent audit logs with the specified limit"""
+        return self.audit_logger.get_recent_logs(limit)

@@ -32,72 +32,72 @@ class EntityExtractor:
         """Initialize entity extraction patterns and resources"""
         # Define known entity types for validation
         self.entity_types = {
-            'VM_ID', 'NODE', 'CONTAINER_NAME', 'CONTAINER_ID', 'IMAGE_NAME', 'COMMAND',
-            'SERVICE_NAME', 'PARAMS', 'DOCKER_PARAMS', 'POOL_NAME', 'DATASET_NAME',
-            'DEVICES', 'RAID_LEVEL', 'SNAPSHOT_NAME', 'PROPERTIES', 'SCHEDULE',
-            'RECURSIVE', 'BACKUP_ID', 'VM_NAME', 'NEW_VM_ID', 'PORT'
+            'vm_name', 'node', 'container_name', 'container_id', 'image_name', 'command',
+            'service_name', 'params', 'docker_params', 'pool_name', 'dataset_name',
+            'devices', 'raid_level', 'snapshot_name', 'properties', 'schedule',
+            'recursive', 'backup_id', 'source_vm', 'target_vm', 'port'
         }
         
         # Regex patterns for common entity extraction
         self.patterns = {
-            'VM_ID': [
-                r'(?:vm|virtual\s+machine)\s+(\w+)',
-                r'vm[-_]?id\s*[=:]\s*(\w+)',
-                r'\bvm[-_]?(\d+)\b'
+            'vm_name': [
+                r'\b((?:vm|virtual\s*machine)?[-_]?\d+)\b',  # Matches vm-123, vm_123, 123
+                r'(?:vm|virtual\s+machine)\s+(?:named|called)?\s*["\']?([^"\'\s]+)["\']?',  # Matches quoted or unquoted names
+                r'(?:vm|virtual\s+machine)[-_]?id\s*[=:]\s*([^"\'\s]+)',  # Matches vm-id=value
+                r'["\']([^"\']+)["\']\s+(?:vm|virtual\s+machine)'  # Matches quoted names before vm
             ],
-            'VM_NAME': [
-                r'(?:vm|virtual\s+machine)\s+(?:named|called)\s+["\']([^"\']+)["\']',
-                r'["\']([^"\']+)["\']\s+(?:vm|virtual\s+machine)'
-            ],
-            'NODE': [
+            'node': [
                 r'node\s+(\w+)',
                 r'(?:on|to|from)\s+(?:node|host|server)\s+(\w+)',
                 r'node[-_]?id\s*[=:]\s*(\w+)'
             ],
-            'CONTAINER_NAME': [
+            'container_name': [
                 r'container\s+(?:named|called)?\s+["\']?([a-zA-Z0-9_-]+)["\']?',
                 r'container[-_]name\s*[=:]\s*["\']?([^"\']+)["\']?'
             ],
-            'CONTAINER_ID': [
+            'container_id': [
                 r'container\s+(?:id|number)\s+(\d+)',
                 r'container[-_]?id\s*[=:]\s*(\d+)',
                 r'\bct[-_]?(\d+)\b'
             ],
-            'IMAGE_NAME': [
+            'image_name': [
                 r'image\s+([a-zA-Z0-9_/.-]+(?::[a-zA-Z0-9_.-]+)?)',
                 r'docker\s+image\s+([a-zA-Z0-9_/.-]+(?::[a-zA-Z0-9_.-]+)?)',
                 r'using\s+(?:image|docker\s+image)\s+([a-zA-Z0-9_/.-]+(?::[a-zA-Z0-9_.-]+)?)'
             ],
-            'SERVICE_NAME': [
+            'service_name': [
                 r'service\s+["\']?([a-zA-Z0-9_-]+)["\']?',
                 r'deploy\s+["\']?([a-zA-Z0-9_-]+)["\']?',
                 r'install\s+["\']?([a-zA-Z0-9_-]+)["\']?'
             ],
-            'BACKUP_ID': [
+            'backup_id': [
                 r'backup\s+(?:id|name)?\s+["\']?([a-zA-Z0-9_-]+)["\']?',
                 r'from\s+backup\s+["\']?([a-zA-Z0-9_-]+)["\']?'
             ],
-            'POOL_NAME': [
+            'pool_name': [
                 r'pool\s+["\']?([a-zA-Z0-9\-_]+)["\']?',
                 r'zfs\s+pool\s+["\']?([a-zA-Z0-9\-_]+)["\']?'
             ],
-            'DATASET_NAME': [
+            'dataset_name': [
                 r'dataset\s+["\']?([a-zA-Z0-9\-_/]+)["\']?',
                 r'zfs\s+dataset\s+["\']?([a-zA-Z0-9\-_/]+)["\']?'
             ],
-            'SNAPSHOT_NAME': [
+            'snapshot_name': [
                 r'snapshot\s+["\']?([a-zA-Z0-9\-_]+)["\']?',
                 r'named\s+["\']?([a-zA-Z0-9\-_]+)["\']?(?:\s+snapshot)'
             ],
-            'PORT': [
+            'port': [
                 r'port\s+(\d+)',
                 r'on\s+port\s+(\d+)',
                 r'ports?\s+(\d+(?::\d+)?)'
             ],
-            'NEW_VM_ID': [
-                r'new\s+(?:vm|id)\s+(\w+)',
-                r'to\s+(?:vm|id)\s+(\w+)',
-                r'as\s+(?:vm|id)\s+(\w+)'
+            'source_vm': [
+                r'(?:clone|copy)\s+(?:vm|virtual\s+machine)?[-_]?([a-zA-Z0-9-_]+)',
+                r'from\s+(?:vm|virtual\s+machine)?[-_]?([a-zA-Z0-9-_]+)'
+            ],
+            'target_vm': [
+                r'(?:to|as|named?)\s+(?:vm|virtual\s+machine)?[-_]?([a-zA-Z0-9-_]+)',
+                r'(?:with|the)\s+name\s+(?:vm|virtual\s+machine)?[-_]?([a-zA-Z0-9-_]+)'
             ]
         }
         
@@ -114,122 +114,112 @@ class EntityExtractor:
         
         # Lowercase the query for case-insensitive matching
         query_lower = query.lower()
-        
-        # Tokenize and preprocess the query if NLTK is available
-        if lemmatizer:
-            try:
-                tokens = word_tokenize(query_lower)
-                filtered_tokens = [lemmatizer.lemmatize(token) for token in tokens if token not in stop_words]
-                preprocessed_query = ' '.join(filtered_tokens)
-            except Exception as e:
-                logger.warning(f"Tokenization failed: {str(e)}")
-                preprocessed_query = query_lower
-        else:
-            # Fallback simple preprocessing
-            preprocessed_query = query_lower
-        
-        # Extract entities using regex patterns
-        for entity_type, patterns in self.patterns.items():
-            for pattern in patterns:
-                match = re.search(pattern, preprocessed_query, re.IGNORECASE)
-                if match and match.group(1):
-                    # Store the entity and break out of the pattern loop
-                    entities[entity_type] = match.group(1).strip()
-                    break
-        
-        # Extract command for execution
-        if 'COMMAND' not in entities:
-            # Look for commands in quotes
-            command_match = re.search(r'(?:run|execute)\s+(?:command\s+)?[\'"]([^\'"]+)[\'"]', query)
-            if command_match:
-                entities['COMMAND'] = command_match.group(1)
-            else:
-                # Look for common command patterns at the beginning of a quote
-                for cmd in self.common_commands:
-                    cmd_match = re.search(r'[\'"](' + re.escape(cmd) + r'\s+[^\'"]*)[\'""]', query)
-                    if cmd_match:
-                        entities['COMMAND'] = cmd_match.group(1)
-                        break
-        
-        # Extract parameters for VM creation
-        if any(kw in preprocessed_query for kw in ['create vm', 'create virtual machine', 'new vm', 'new virtual machine']):
-            params = self._extract_vm_creation_params(preprocessed_query)
+
+        # First extract any VM parameters (memory, CPU, disk)
+        if any(word in query_lower for word in ['with', 'using', 'having', 'gb', 'mb', 'ram', 'memory', 'cpu', 'core', 'cores']):
+            params = self._extract_vm_creation_params(query_lower)
             if params:
-                entities['PARAMS'] = params
-        
-        # Extract parameters for Docker container run
-        if any(kw in preprocessed_query for kw in ['run container', 'create container', 'docker container']):
-            docker_params = self._extract_docker_params(preprocessed_query)
-            if docker_params:
-                entities['DOCKER_PARAMS'] = docker_params
-        
-        # Extract ZFS-related entities
-        self._extract_zfs_entities(preprocessed_query, entities)
-        
-        # Extract lists of devices
-        devices_match = re.findall(r'device[s]?\s+([/a-zA-Z0-9\-_\s,]+)', preprocessed_query, re.IGNORECASE)
-        if devices_match:
-            # Split devices by comma or space
-            devices = re.split(r'[,\s]+', devices_match[0].strip())
-            entities['DEVICES'] = [d for d in devices if d and d.startswith('/')]
-        
-        # If the query contains a recursive flag
-        if 'recursive' in preprocessed_query:
-            entities['RECURSIVE'] = True
-            
+                entities.update(params)
+
+        # Special handling for clone/copy operations
+        if any(word in query_lower for word in ['clone', 'copy']):
+            # First try to find source VM
+            source_match = re.search(r'(?:clone|copy)\s+(?:vm|virtual\s+machine)?[-_]?([a-zA-Z0-9-_]+)', query_lower)
+            if source_match:
+                source_value = source_match.group(1).strip()
+                if not source_value.lower().startswith('vm-'):
+                    source_value = f"vm-{source_value}"
+                entities['source_vm'] = source_value
+                entities['vm_name'] = source_value  # Use source VM as current context
+
+            # Look for target VM after "to" or "as"
+            target_match = re.search(r'\s+(?:to|as)\s+(?:vm[-_]?)?([a-zA-Z0-9-_]+)', query_lower)
+            if target_match:
+                target_value = target_match.group(1).strip()
+                if not target_value.lower().startswith('vm-'):
+                    target_value = f"vm-{target_value}"
+                entities['target_vm'] = target_value
+                
+        # Process other entities
+        for entity_type, patterns in self.patterns.items():
+            # Skip source/target VM as we already processed them
+            if entity_type in ['source_vm', 'target_vm']:
+                continue
+                
+            for pattern in patterns:
+                match = re.search(pattern, query_lower, re.IGNORECASE)
+                if match and match.group(1):
+                    value = match.group(1).strip()
+                    # Only add vm- prefix for vm_name if needed and not in a "new" context
+                    if entity_type == 'vm_name':
+                        if 'new' in query_lower or 'create' in query_lower:
+                            # For new VMs, keep the name as is
+                            entities[entity_type] = value
+                        elif not value.lower().startswith('vm-'):
+                            # For existing VMs, ensure vm- prefix
+                            entities[entity_type] = f"vm-{value}"
+                        else:
+                            entities[entity_type] = value
+                    else:
+                        entities[entity_type] = value
+                    break
+
         return entities
-        
+
     def _extract_vm_creation_params(self, preprocessed_query):
-        """Extract parameters for VM creation"""
+        """Extract parameters for VM creation or modification"""
         params = {}
         
-        # Extract RAM
-        ram_match = re.search(r'(\d+)\s*(?:GB|G|mb|MB|M)(?:\s+of)?(?:\s+RAM|\s+memory)?', preprocessed_query)
-        if ram_match:
-            memory = int(ram_match.group(1))
-            unit = ram_match.group(0).lower()
-            # Convert to MB
-            if 'gb' in unit or 'g' in unit:
-                memory = memory * 1024
-            params['memory'] = memory
+        # Extract RAM/memory with improved pattern
+        ram_patterns = [
+            r'(\d+)\s*(?:GB|G|mb|MB|M|gb|g|gib)\s*(?:of\s+)?(?:RAM|memory|ram)?',  # e.g., 2GB RAM
+            r'(?:RAM|memory|ram)\s+(?:of\s+)?(\d+)\s*(?:GB|G|mb|MB|M|gb|g|gib)',  # e.g., RAM of 2GB
+            r'(?:with|using|having)\s+(\d+)\s*(?:GB|G|mb|MB|M|gb|g|gib)\s*(?:of\s+)?(?:RAM|memory|ram)?'  # e.g., with 2GB
+        ]
+        
+        for pattern in ram_patterns:
+            ram_match = re.search(pattern, preprocessed_query)
+            if ram_match:
+                memory = int(ram_match.group(1))
+                match_text = ram_match.group(0).lower()
+                # Convert to MB for consistency
+                if any(unit in match_text for unit in ['gb', 'g', 'gib']):
+                    memory *= 1024
+                params['memory'] = memory
+                break
         
         # Extract CPU cores
-        cpu_match = re.search(r'(\d+)\s*(?:CPU|cpu|core|cores|processor|processors)', preprocessed_query)
-        if cpu_match:
-            params['cores'] = int(cpu_match.group(1))
+        cpu_patterns = [
+            r'(\d+)\s*(?:CPU|cpu|core|cores|processor|processors)',
+            r'(?:CPU|cpu|core|cores|processor|processors)\s*(?:count|number)?\s*(?:of)?\s*(\d+)'
+        ]
+        
+        for pattern in cpu_patterns:
+            cpu_match = re.search(pattern, preprocessed_query)
+            if cpu_match:
+                params['cores'] = int(cpu_match.group(1))
+                break
         
         # Extract disk size
-        disk_match = re.search(r'(\d+)\s*(?:GB|G|TB|T)(?:\s+of)?(?:\s+disk|\s+storage|\s+hdd|\s+ssd)?', preprocessed_query)
-        if disk_match:
-            disk_size = int(disk_match.group(1))
-            unit = disk_match.group(0).lower()
-            # Convert to GB
-            if 'tb' in unit or 't' in unit:
-                disk_size = disk_size * 1024
-            params['disk'] = disk_size
+        disk_patterns = [
+            r'(\d+)\s*(?:GB|G|TB|T)\s*(?:disk|storage|hdd|ssd)',
+            r'(?:disk|storage|hdd|ssd)\s*(?:of|size|capacity)?\s*(\d+)\s*(?:GB|G|TB|T)',
+            r'(?:with|using|having)\s+(\d+)\s*(?:GB|G|TB|T)\s*(?:disk|storage|hdd|ssd)?'
+        ]
         
-        # Extract OS/template
-        templates = {
-            'ubuntu': ['ubuntu', 'debian'],
-            'centos': ['centos', 'rhel', 'redhat'],
-            'debian': ['debian'],
-            'alpine': ['alpine'],
-            'windows': ['windows', 'win'],
-            'fedora': ['fedora']
-        }
-        
-        for template, keywords in templates.items():
-            if any(kw in preprocessed_query for kw in keywords):
-                params['template'] = template
+        for pattern in disk_patterns:
+            disk_match = re.search(pattern, preprocessed_query)
+            if disk_match:
+                disk_size = int(disk_match.group(1))
+                match_text = disk_match.group(0).lower()
+                # Convert to GB for consistency
+                if 'tb' in match_text or 't' in match_text:
+                    disk_size *= 1024
+                params['disk'] = disk_size
                 break
-                
-        # Extract OS version if specified
-        version_match = re.search(r'(?:version|v)\s+(\d+(?:\.\d+)?)', preprocessed_query)
-        if version_match and 'template' in params:
-            params['version'] = version_match.group(1)
-            
-        return params if params else None
-    
+        
+        return params
+
     def _extract_docker_params(self, preprocessed_query):
         """Extract parameters for Docker container creation"""
         params = {}
@@ -288,14 +278,14 @@ class EntityExtractor:
         raid_levels = ['mirror', 'raidz', 'raidz1', 'raidz2', 'raidz3', 'stripe']
         for level in raid_levels:
             if level in preprocessed_query:
-                entities['RAID_LEVEL'] = level
+                entities['raid_level'] = level
                 break
         
         # Schedule for auto-snapshots
         schedules = ['hourly', 'daily', 'weekly', 'monthly', 'yearly']
         for schedule in schedules:
             if schedule in preprocessed_query:
-                entities['SCHEDULE'] = schedule
+                entities['schedule'] = schedule
                 break
                 
         # Properties
@@ -305,37 +295,37 @@ class EntityExtractor:
             for prop, value in prop_matches:
                 properties[prop] = value
             if properties:
-                entities['PROPERTIES'] = properties
+                entities['properties'] = properties
                 
     def validate_entities(self, entities, intent):
         """Validate extracted entities against the required entities for the intent"""
         # Define required entities for each intent
         required_entities = {
-            'start_vm': ['VM_ID'],
-            'stop_vm': ['VM_ID'],
-            'restart_vm': ['VM_ID'],
-            'vm_status': ['VM_ID'],
-            'delete_vm': ['VM_ID'],
-            'clone_vm': ['VM_ID'],
-            'snapshot_vm': ['VM_ID'],
-            'start_container': ['CONTAINER_ID'],
-            'stop_container': ['CONTAINER_ID'],
-            'node_status': ['NODE'],
-            'start_docker_container': ['CONTAINER_NAME', 'VM_ID'],
-            'stop_docker_container': ['CONTAINER_NAME', 'VM_ID'],
-            'docker_container_logs': ['CONTAINER_NAME', 'VM_ID'],
-            'pull_docker_image': ['IMAGE_NAME', 'VM_ID'],
-            'run_docker_container': ['IMAGE_NAME', 'VM_ID'],
-            'run_cli_command': ['COMMAND', 'VM_ID'],
-            'deploy_service': ['SERVICE_NAME'],
-            'service_status': ['SERVICE_NAME'],
-            'stop_service': ['SERVICE_NAME'],
-            'start_service': ['SERVICE_NAME'],
-            'create_zfs_pool': ['POOL_NAME', 'DEVICES'],
-            'create_zfs_dataset': ['DATASET_NAME'],
-            'create_zfs_snapshot': ['DATASET_NAME'],
-            'backup_vm': ['VM_ID'],
-            'restore_backup': ['BACKUP_ID']
+            'start_vm': ['vm_name'],
+            'stop_vm': ['vm_name'],
+            'restart_vm': ['vm_name'],
+            'vm_status': ['vm_name'],
+            'delete_vm': ['vm_name'],
+            'clone_vm': ['source_vm', 'target_vm'],
+            'snapshot_vm': ['vm_name'],
+            'start_container': ['container_id'],
+            'stop_container': ['container_id'],
+            'node_status': ['node'],
+            'start_docker_container': ['container_name', 'vm_name'],
+            'stop_docker_container': ['container_name', 'vm_name'],
+            'docker_container_logs': ['container_name', 'vm_name'],
+            'pull_docker_image': ['image_name', 'vm_name'],
+            'run_docker_container': ['image_name', 'vm_name'],
+            'run_cli_command': ['command', 'vm_name'],
+            'deploy_service': ['service_name'],
+            'service_status': ['service_name'],
+            'stop_service': ['service_name'],
+            'start_service': ['service_name'],
+            'create_zfs_pool': ['pool_name', 'devices'],
+            'create_zfs_dataset': ['dataset_name'],
+            'create_zfs_snapshot': ['dataset_name'],
+            'backup_vm': ['vm_name'],
+            'restore_backup': ['backup_id']
         }
         
         if intent not in required_entities:

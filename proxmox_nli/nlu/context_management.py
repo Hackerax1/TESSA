@@ -31,19 +31,19 @@ class ContextManager:
         
         # Define reference resolution patterns
         self.reference_patterns = {
-            'VM_ID': [
+            'vm_name': [
                 r'it', r'that vm', r'this vm', r'that machine', r'this machine',
                 r'that one', r'this one', r'the vm', r'the machine', r'the server',
             ],
-            'NODE': [
+            'node': [
                 r'that node', r'this node', r'there', r'that host', r'this host',
                 r'that server', r'this server', r'the node', r'the host', r'the server'
             ],
-            'CONTAINER_NAME': [
+            'container_name': [
                 r'that container', r'this container', r'it', r'that one', 'this one',
                 r'the container'
             ],
-            'SERVICE_NAME': [
+            'service_name': [
                 r'that service', r'this service', r'it', r'that app', r'this app',
                 r'the service', r'the application'
             ]
@@ -59,7 +59,7 @@ class ContextManager:
         
         # Track context decay (seconds until context becomes less relevant)
         self.context_decay_time = 300  # 5 minutes
-        
+
     def update_context(self, intent, entities):
         """Update the conversation context
         
@@ -73,21 +73,21 @@ class ContextManager:
         self.context['last_query_time'] = datetime.now()
 
         # Update specific context based on the intent and entities
-        if 'VM_ID' in entities:
-            self.context['current_vm'] = entities['VM_ID']
-            if 'VM_NAME' in entities:
-                self.context['current_vm_name'] = entities['VM_NAME']
+        if 'vm_name' in entities:
+            vm_name = entities['vm_name']
+            self.context['current_vm'] = vm_name  # Store the full VM name/ID
+            self.context['current_vm_name'] = vm_name  # Also store as VM name
         
-        if 'NODE' in entities:
-            self.context['current_node'] = entities['NODE']
+        if 'node' in entities:
+            self.context['current_node'] = entities['node']
         
-        if 'CONTAINER_NAME' in entities:
-            self.context['current_container'] = entities['CONTAINER_NAME']
+        if 'container_name' in entities:
+            self.context['current_container'] = entities['container_name']
         
-        if 'SERVICE_NAME' in entities:
-            self.context['current_service'] = entities['SERVICE_NAME']
-            if 'VM_ID' in entities:
-                self.context['current_service_vm'] = entities['VM_ID']
+        if 'service_name' in entities:
+            self.context['current_service'] = entities['service_name']
+            if 'vm_name' in entities:
+                self.context['current_service_vm'] = entities['vm_name']
 
         # Add to conversation history
         self.conversation_history.append({
@@ -102,9 +102,9 @@ class ContextManager:
             self.conversation_history.pop(0)
             
         # Ensure favorite VMs list contains unique entries
-        if 'VM_ID' in entities and entities['VM_ID']:
-            self._update_favorites('vm', entities['VM_ID'], entities.get('VM_NAME'))
-    
+        if 'vm_name' in entities and entities['vm_name']:
+            self._update_favorites('vm', entities['vm_name'])
+
     def set_context(self, context_data):
         """Set specific context values
         
@@ -140,34 +140,32 @@ class ContextManager:
         
         # If we have context and need to resolve references
         if needs_resolution:
-            # Resolve VM_ID references
-            if 'VM_ID' in needs_resolution and self.context['current_vm']:
-                entities['VM_ID'] = self.context['current_vm']
-                if self.context['current_vm_name']:
-                    entities['VM_NAME'] = self.context['current_vm_name']
+            # Resolve VM name references
+            if 'vm_name' in needs_resolution and self.context['current_vm']:
+                entities['vm_name'] = self.context['current_vm']
             
-            # Resolve NODE references
-            if 'NODE' in needs_resolution and self.context['current_node']:
-                entities['NODE'] = self.context['current_node']
+            # Resolve node references
+            if 'node' in needs_resolution and self.context['current_node']:
+                entities['node'] = self.context['current_node']
             
-            # Resolve CONTAINER_NAME references
-            if 'CONTAINER_NAME' in needs_resolution and self.context['current_container']:
-                entities['CONTAINER_NAME'] = self.context['current_container']
+            # Resolve container references
+            if 'container_name' in needs_resolution and self.context['current_container']:
+                entities['container_name'] = self.context['current_container']
             
-            # Resolve SERVICE_NAME references
-            if 'SERVICE_NAME' in needs_resolution and self.context['current_service']:
-                entities['SERVICE_NAME'] = self.context['current_service']
+            # Resolve service references
+            if 'service_name' in needs_resolution and self.context['current_service']:
+                entities['service_name'] = self.context['current_service']
                 if self.context['current_service_vm']:
-                    entities['VM_ID'] = self.context['current_service_vm']
-            
+                    entities['vm_name'] = self.context['current_service_vm']
+        
         # Try more advanced resolution for missing entities
-        if 'VM_ID' not in entities:
+        if 'vm_name' not in entities:
             entities = self._infer_vm_from_query(query_lower, entities)
         
-        if 'NODE' not in entities:
+        if 'node' not in entities:
             entities = self._infer_node_from_query(query_lower, entities)
         
-        if 'SERVICE_NAME' not in entities and any(kw in query_lower for kw in ['service', 'app', 'application']):
+        if 'service_name' not in entities and any(kw in query_lower for kw in ['service', 'app', 'application']):
             entities = self._infer_service_from_query(query_lower, entities)
         
         # If intent implies continuation of previous command, provide relevant context
@@ -218,61 +216,61 @@ class ContextManager:
     def _infer_vm_from_query(self, query_lower, entities):
         """Try to infer VM ID from the query using favorites and user history"""
         # If there are favorite VMs, try to match based on VM names or descriptions
-        if self.context.get('favorite_vms') and 'VM_ID' not in entities:
+        if self.context.get('favorite_vms') and 'vm_name' not in entities:
             # Check if the query contains an implicit reference to a favorite VM
             for vm in self.context['favorite_vms']:
                 if vm.get('vm_name') and vm['vm_name'].lower() in query_lower:
-                    entities['VM_ID'] = vm['vm_id']
-                    entities['VM_NAME'] = vm['vm_name']
+                    entities['vm_name'] = vm['vm_id']
+                    entities['vm_name'] = vm['vm_name']
                     break
             
             # If no match and there's only one favorite VM, and the query seems to need a VM
-            if 'VM_ID' not in entities and len(self.context['favorite_vms']) == 1:
+            if 'vm_name' not in entities and len(self.context['favorite_vms']) == 1:
                 vm_keywords = ['vm', 'machine', 'virtual', 'on', 'server']
                 if any(kw in query_lower for kw in vm_keywords):
-                    entities['VM_ID'] = self.context['favorite_vms'][0]['vm_id']
+                    entities['vm_name'] = self.context['favorite_vms'][0]['vm_id']
                     if self.context['favorite_vms'][0].get('vm_name'):
-                        entities['VM_NAME'] = self.context['favorite_vms'][0]['vm_name']
+                        entities['vm_name'] = self.context['favorite_vms'][0]['vm_name']
         
         return entities
     
     def _infer_node_from_query(self, query_lower, entities):
         """Try to infer node name from the query using favorites and user history"""
         # If there are favorite nodes, try to match based on node names
-        if self.context.get('favorite_nodes') and 'NODE' not in entities:
+        if self.context.get('favorite_nodes') and 'node' not in entities:
             # Check if the query contains an implicit reference to a favorite node
             for node in self.context['favorite_nodes']:
                 if node['node_name'].lower() in query_lower:
-                    entities['NODE'] = node['node_name']
+                    entities['node'] = node['node_name']
                     break
             
             # If no match and there's only one favorite node, and the query seems to need a node
-            if 'NODE' not in entities and len(self.context['favorite_nodes']) == 1:
+            if 'node' not in entities and len(self.context['favorite_nodes']) == 1:
                 node_keywords = ['node', 'host', 'server', 'cluster']
                 if any(kw in query_lower for kw in node_keywords):
-                    entities['NODE'] = self.context['favorite_nodes'][0]['node_name']
+                    entities['node'] = self.context['favorite_nodes'][0]['node_name']
         
         return entities
     
     def _infer_service_from_query(self, query_lower, entities):
         """Try to infer service ID from the query using quick access services"""
         # If there are quick access services, try to match
-        if self.context.get('quick_services') and 'SERVICE_NAME' not in entities:
+        if self.context.get('quick_services') and 'service_name' not in entities:
             # Try to match service name in query
             for service in self.context['quick_services']:
                 if service['service_name'].lower() in query_lower:
-                    entities['SERVICE_NAME'] = service['service_name']
+                    entities['service_name'] = service['service_name']
                     if service.get('vm_id'):
-                        entities['VM_ID'] = service['vm_id']
+                        entities['vm_name'] = service['vm_id']
                     break
                 
             # If no match and there's only one service, use it for service-related queries
-            if 'SERVICE_NAME' not in entities and len(self.context['quick_services']) == 1:
+            if 'service_name' not in entities and len(self.context['quick_services']) == 1:
                 service_keywords = ['service', 'app', 'application', 'container', 'deployed']
                 if any(kw in query_lower for kw in service_keywords):
-                    entities['SERVICE_NAME'] = self.context['quick_services'][0]['service_name']
+                    entities['service_name'] = self.context['quick_services'][0]['service_name']
                     if self.context['quick_services'][0].get('vm_id'):
-                        entities['VM_ID'] = self.context['quick_services'][0]['vm_id']
+                        entities['vm_name'] = self.context['quick_services'][0]['vm_id']
         
         return entities
     
@@ -290,7 +288,7 @@ class ContextManager:
             prev_entities = prev_interaction.get('entities', {})
             
             # Copy relevant context entities if they're missing from current entities
-            for key in ['VM_ID', 'NODE', 'CONTAINER_NAME', 'SERVICE_NAME']:
+            for key in ['vm_name', 'node', 'container_name', 'service_name']:
                 if key not in entities and key in prev_entities:
                     entities[key] = prev_entities[key]
                     

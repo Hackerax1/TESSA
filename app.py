@@ -4,10 +4,14 @@ from flask_socketio import SocketIO, emit
 import os
 from proxmox_nli.core import ProxmoxNLI
 from proxmox_nli.core.voice_handler import VoiceHandler, VoiceProfile
+from proxmox_nli.services.goal_mapper import GoalMapper
 from dotenv import load_dotenv
 import logging
 import threading
 import time
+import json
+import re
+import subprocess
 
 # Load environment variables from .env file
 load_dotenv()
@@ -24,12 +28,14 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 # Initialize the ProxmoxNLI instance (will be properly configured on app start)
 proxmox_nli = None
 voice_handler = VoiceHandler()
+status_monitor_thread = None
 
 def monitor_vm_status():
     """Background task to monitor VM status and emit updates"""
     while True:
         try:
             if proxmox_nli:
+                # Get VM list and status
                 result = proxmox_nli.commands.list_vms()
                 if result['success']:
                     socketio.emit('vm_status_update', {'vms': result['vms']})
@@ -37,7 +43,7 @@ def monitor_vm_status():
                 # Get cluster status
                 cluster_status = proxmox_nli.commands.get_cluster_status()
                 if cluster_status['success']:
-                    socketio.emit('cluster_status_update', cluster_status)
+                    socketio.emit('cluster_status_update', {'status': cluster_status['nodes']})
         except Exception as e:
             logger.error(f"Error in status monitor: {str(e)}")
         time.sleep(5)  # Update every 5 seconds
@@ -46,6 +52,23 @@ def monitor_vm_status():
 def home():
     """Render the home page"""
     return render_template('index.html')
+
+@app.route('/initial-status')
+def get_initial_status():
+    """Get initial VM and cluster status"""
+    try:
+        vm_result = proxmox_nli.commands.list_vms()
+        cluster_result = proxmox_nli.commands.get_cluster_status()
+        return jsonify({
+            'success': True,
+            'vm_status': vm_result.get('vms', []) if vm_result.get('success') else [],
+            'cluster_status': {
+                'nodes': cluster_result.get('nodes', []) if cluster_result.get('success') else []
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error getting initial status: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/query', methods=['POST'])
 def process_query():
@@ -356,14 +379,121 @@ def deploy_services():
     services = data.get('services', [])
 
     try:
-        # Implement the logic to deploy services based on goals and resources
-        # This is a placeholder implementation
+        # Use the GoalMapper to deploy services based on goals and resources
+        goal_mapper = GoalMapper()
+        
+        # Log the deployment request
         logger.info(f"Deploying services with goals: {goals}, other goals: {other_goals}, resources: {resources}, services: {services}")
-        # Example: proxmox_nli.deploy_services(goals, resources, services)
+        
+        # Here we would call proxmox_nli to actually deploy the services
+        # For now, we'll just return success
         return jsonify({'success': True})
     except Exception as e:
         logger.error(f"Error deploying services: {e}")
         return jsonify({'error': str(e)}), 500
+
+@app.route('/recommend-services', methods=['POST'])
+def recommend_services():
+    """Recommend services based on user goals"""
+    data = request.json
+    goals = data.get('goals', [])
+    cloud_services = data.get('cloudServices', [])
+    
+    try:
+        goal_mapper = GoalMapper()
+        
+        # Get recommendations based on goals
+        goal_recommendations = goal_mapper.get_recommended_services(goals)
+        
+        # Get recommendations based on cloud services to replace
+        cloud_recommendations = {}
+        if cloud_services:
+            cloud_recommendations = goal_mapper.get_cloud_replacement_services(cloud_services)
+            
+        # Merge recommendations, prioritizing cloud service replacements
+        recommendations = {**goal_recommendations, **cloud_recommendations}
+        
+        # Convert to list format for the frontend
+        result = []
+        for service_id, service_info in recommendations.items():
+            result.append({
+                'id': service_id,
+                'name': service_info.get('name', service_id),
+                'description': service_info.get('description', ''),
+                'goal': service_info.get('goal', ''),
+                'goal_description': service_info.get('goal_description', ''),
+                'replaces': service_info.get('replaces', ''),
+                'replacement_description': service_info.get('replacement_description', ''),
+                'resources': service_info.get('resources', {})
+            })
+            
+        # Estimate total resource requirements
+        total_resources = goal_mapper.estimate_resource_requirements([r['id'] for r in result])
+            
+        return jsonify({
+            'success': True, 
+            'recommendations': result,
+            'total_resources': total_resources
+        })
+    except Exception as e:
+        logger.error(f"Error recommending services: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/detect-resources', methods=['GET'])
+def detect_resources():
+    """
+    Detect available system resources for the setup wizard.
+    Returns CPU cores, RAM, disk space, and network speed.
+    """
+    try:
+        # Detect CPU cores
+        cpu_cores = os.cpu_count() or 4  # Default to 4 if detection fails
+        
+        # Detect RAM (in GB)
+        ram_gb = 8  # Default value
+        try:
+            if os.name == 'posix':  # Linux/Mac
+                mem_info = subprocess.check_output(['free', '-g']).decode('utf-8')
+                ram_gb = int(re.search(r'Mem:\s+(\d+)', mem_info).group(1))
+            elif os.name == 'nt':  # Windows
+                mem_info = subprocess.check_output(['wmic', 'OS', 'get', 'TotalVisibleMemorySize', '/Value']).decode('utf-8')
+                ram_kb = int(re.search(r'TotalVisibleMemorySize=(\d+)', mem_info).group(1))
+                ram_gb = ram_kb // (1024 * 1024)  # Convert KB to GB
+        except Exception as e:
+            logging.warning(f"Failed to detect RAM: {e}")
+        
+        # Detect disk space (in GB)
+        disk_gb = 500  # Default value
+        try:
+            if os.name == 'posix':  # Linux/Mac
+                disk_info = subprocess.check_output(['df', '-h', '/']).decode('utf-8')
+                disk_gb = int(re.search(r'/\s+\d+[KMGT]\s+\d+[KMGT]\s+\d+[KMGT]\s+\d+%\s+/', disk_info).group(1))
+            elif os.name == 'nt':  # Windows
+                disk_info = subprocess.check_output(['wmic', 'logicaldisk', 'get', 'size', '/Value']).decode('utf-8')
+                # Sum up all disk sizes
+                disk_bytes = sum([int(size) for size in re.findall(r'Size=(\d+)', disk_info)])
+                disk_gb = disk_bytes // (1024 * 1024 * 1024)  # Convert bytes to GB
+        except Exception as e:
+            logging.warning(f"Failed to detect disk space: {e}")
+        
+        # Estimate network speed (in Mbps) - this is just an estimate
+        network_speed = 100  # Default to 100 Mbps
+        
+        return jsonify({
+            'success': True,
+            'resources': {
+                'cpu_cores': cpu_cores,
+                'ram_gb': ram_gb,
+                'disk_gb': disk_gb,
+                'network_speed': network_speed
+            }
+        })
+    except Exception as e:
+        logging.error(f"Error detecting system resources: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
 
 @socketio.on('connect')
 def handle_connect():
@@ -376,28 +506,25 @@ def handle_disconnect():
     logger.info(f"Client disconnected: {request.sid}")
 
 def start_app(host, user, password, realm='pam', verify_ssl=False, debug=False):
-    """Start the Flask application with the given Proxmox credentials"""
-    global proxmox_nli
+    """Start the Flask application with the given configuration"""
+    global proxmox_nli, status_monitor_thread
     
-    # Initialize ProxmoxNLI with the provided credentials
-    proxmox_nli = ProxmoxNLI(host, user, password, realm, verify_ssl)
+    # Initialize ProxmoxNLI
+    proxmox_nli = ProxmoxNLI(
+        host=host,
+        user=user,
+        password=password,
+        realm=realm,
+        verify_ssl=verify_ssl
+    )
     
-    # Create templates directory if it doesn't exist
-    templates_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates')
-    if not os.path.exists(templates_dir):
-        os.makedirs(templates_dir)
+    # Start the status monitor in a background thread
+    if not status_monitor_thread or not status_monitor_thread.is_alive():
+        status_monitor_thread = threading.Thread(target=monitor_vm_status, daemon=True)
+        status_monitor_thread.start()
     
-    # Create voice profiles directory if it doesn't exist
-    voice_profiles_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'voice_profiles')
-    if not os.path.exists(voice_profiles_dir):
-        os.makedirs(voice_profiles_dir, exist_ok=True)
-    
-    # Start the background monitoring thread
-    monitor_thread = threading.Thread(target=monitor_vm_status, daemon=True)
-    monitor_thread.start()
-    
-    # Start the Flask application with SocketIO
-    socketio.run(app, host='0.0.0.0', port=5000, debug=debug)
+    # Start the Flask app
+    socketio.run(app, debug=debug, host='0.0.0.0', port=int(os.getenv('API_PORT', 5000)))
 
 if __name__ == '__main__':
     import argparse
