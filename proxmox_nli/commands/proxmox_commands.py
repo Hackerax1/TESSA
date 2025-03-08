@@ -543,3 +543,43 @@ class ProxmoxCommands:
         from ..core.network_manager import NetworkManager
         network_mgr = NetworkManager(self.api)
         return network_mgr.analyze_network_security()
+
+    def auto_configure_node(self, node: str = None) -> dict:
+        """Automatically configure initial Proxmox network and storage settings"""
+        from ..core.auto_configurator import ProxmoxAutoConfigurator
+        configurator = ProxmoxAutoConfigurator(self.api)
+        return configurator.auto_configure(node)
+        
+    def configure_network(self, node: str, use_dhcp: bool = None) -> dict:
+        """Configure network settings for a node using auto-detection"""
+        from ..core.auto_configurator import ProxmoxAutoConfigurator
+        configurator = ProxmoxAutoConfigurator(self.api)
+        
+        # Update DHCP setting if provided
+        if use_dhcp is not None:
+            configurator.toggle_dhcp(use_dhcp)
+            
+        return configurator.configure_networking(node)
+        
+    def set_network_profile(self, profile_name: str) -> dict:
+        """Set the default network profile for auto-configuration"""
+        from ..core.auto_configurator import ProxmoxAutoConfigurator
+        configurator = ProxmoxAutoConfigurator(self.api)
+        return configurator.set_network_profile(profile_name)
+        
+    def create_network_profile(self, name: str, subnet: str, gateway: str, dns_servers: list) -> dict:
+        """Create a new network profile for auto-configuration"""
+        from ..core.auto_configurator import ProxmoxAutoConfigurator
+        configurator = ProxmoxAutoConfigurator(self.api)
+        return configurator.create_network_profile(name, subnet, gateway, dns_servers)
+        
+    def detect_network_interfaces(self, node: str) -> dict:
+        """Detect available network interfaces on a node"""
+        from ..core.auto_configurator import ProxmoxAutoConfigurator
+        configurator = ProxmoxAutoConfigurator(self.api)
+        interfaces = configurator._detect_network_interfaces(node)
+        return {
+            "success": True,
+            "message": f"Detected {len(interfaces)} network interfaces on node {node}",
+            "interfaces": interfaces
+        }

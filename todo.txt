@@ -23,18 +23,18 @@
 - [ ] **Hardware Detection & Compatibility:**
   - [X] Create Python scripts for automatic hardware detection and configuration recommendation.
   - [X] Implement fallback options for partially compatible hardware.
-  - [ ] Build a hardware compatibility database with community contributions.
+  - [X] Build a hardware compatibility database with community contributions.
   - [X] Develop driver auto-installation system for common hardware components.
-  - [ ] Create a pre-installation compatibility checker tool.
+  - [X] Create a pre-installation compatibility checker tool.
 
 # Medium Priority - Usability & Integration
 
-- [ ] **Automated Installation & Configuration:**
+- [X] **Automated Installation & Configuration:**
   - [X] Enhance installer.py script for unattended installation.
   - [X] Implement configuration validation and error handling.
-  - [ ] Automate initial Proxmox configuration (network, storage).
+  - [X] Automate initial Proxmox configuration (network, storage).
   - [ ] Create bootable USB image with auto-start setup wizard.
-  - [ ] Implement self-configuring networking (DHCP + common static configs).
+  - [X] Implement self-configuring networking (DHCP + common static configs).
   - [X] Generate QR code during installation for easy first access.
 
 - [X] **Web Interface Enhancements:**
@@ -59,7 +59,7 @@
 
 - [ ] **Unit Testing:**
   - [X] Implement unit tests for NLU engine.
-  - [ ] Implement unit tests for command execution.
+  - [X] Implement unit tests for command execution.
   - [X] Implement unit tests for API interaction.
   - [ ] Add tests for hardware detection and compatibility scripts.
 

@@ -30,12 +30,11 @@ __pycache__/
 venv/
 ENV/
 env/
-
 .venv
-
 
 todo
 
 data/
 
 logs/
+
