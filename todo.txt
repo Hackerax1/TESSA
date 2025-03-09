@@ -84,11 +84,11 @@
   - [X] Allow users to customize the voice accent, pace, and tone.
   - [X] Add occasional humor and personality quirks in responses.
 
-- [ ] **Comprehensive Documentation:**
-  - [ ] Create detailed documentation for all features and commands.
-  - [ ] Provide examples and tutorials.
-  - [ ] Add hardware compatibility guides and recommendations.
-  - [ ] Create beginner-friendly setup guides with visual aids using Mermaid.
+- [X] **Comprehensive Documentation:**
+  - [X] Create detailed documentation for all features and commands.
+  - [X] Provide examples and tutorials.
+  - [X] Add hardware compatibility guides and recommendations.
+  - [X] Create beginner-friendly setup guides with visual aids using Mermaid.
 
 - [X] **Plugin System:**
   - [X] Design and implement a plugin system for extending functionality.
@@ -100,10 +100,12 @@
   - [ ] Add support for other DNS providers.
 
 - [ ] **Service Catalog Expansion:**
-  - [ ] Add more services to the service catalog (#proxmox_nli\services\catalog).
+  - [ ] Add more services to the service catalog (#proxmox_nli\services\catalog) with emphasis on FOSS options.
   - [X] Implement service dependency management.
   - [X] Organize services by user goals rather than technical categories.
-  - [ ] Add TESSA service recommendations with personality ("I think you'd really enjoy Nextcloud for your photos").
+  - [X] Add TESSA service recommendations with personality ("I think you'd really enjoy Nextcloud for your photos").
+  - [X] Prioritize recommending FOSS services over closed source or freemium alternatives.
+  - [X] Exclude Portainer from the service catalog and recommendations.
 
 # Future Considerations
 

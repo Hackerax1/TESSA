@@ -50,41 +50,52 @@ class GoalBasedCatalog:
         for service in services:
             service_id = service['id']
             
+            # Skip excluded services if goal mapper is available
+            if self.goal_mapper and self.goal_mapper.is_excluded_service(service_id):
+                logger.info(f"Skipping excluded service: {service_id}")
+                continue
+            
             # Add to goal index
             if 'user_goals' in service:
                 for goal in service.get('user_goals', []):
                     goal_id = goal['id']
+                    is_foss = self.goal_mapper.is_foss_service(service) if self.goal_mapper else True
                     self.goal_index[goal_id].append({
                         'id': service_id,
                         'service': service,
                         'relevance': goal.get('relevance', 'medium'),
-                        'reason': goal.get('reason', '')
+                        'reason': goal.get('reason', ''),
+                        'is_foss': is_foss
                     })
             
             # Add to cloud replacement index
             if 'replaces_services' in service:
                 for replacement in service.get('replaces_services', []):
                     cloud_id = replacement['id']
+                    is_foss = self.goal_mapper.is_foss_service(service) if self.goal_mapper else True
                     self.cloud_replacement_index[cloud_id].append({
                         'id': service_id,
                         'service': service,
                         'quality': replacement.get('quality', 'good'),
-                        'reason': replacement.get('reason', '')
+                        'reason': replacement.get('reason', ''),
+                        'is_foss': is_foss
                     })
         
-        # Sort the indexes by relevance and quality
+        # Sort the indexes by FOSS status first (FOSS first), then by relevance/quality
         for goal_id, services in self.goal_index.items():
             relevance_order = {'high': 0, 'medium': 1, 'low': 2}
             self.goal_index[goal_id] = sorted(
                 services, 
-                key=lambda s: relevance_order.get(s.get('relevance', 'medium'), 3)
+                key=lambda s: (not s.get('is_foss', True), 
+                               relevance_order.get(s.get('relevance', 'medium'), 3))
             )
             
         for cloud_id, services in self.cloud_replacement_index.items():
             quality_order = {'excellent': 0, 'good': 1, 'fair': 2, 'poor': 3}
             self.cloud_replacement_index[cloud_id] = sorted(
                 services, 
-                key=lambda s: quality_order.get(s.get('quality', 'good'), 4)
+                key=lambda s: (not s.get('is_foss', True),
+                               quality_order.get(s.get('quality', 'good'), 4))
             )
             
         logger.info(f"Built goal indexes for {len(self.goal_index)} goals and {len(self.cloud_replacement_index)} cloud services")
@@ -255,10 +266,19 @@ class GoalBasedCatalog:
         service = self.service_catalog.get_service(service_id)
         if not service:
             return {}
+        
+        # Skip excluded services if goal mapper is available
+        if self.goal_mapper and self.goal_mapper.is_excluded_service(service_id):
+            logger.info(f"Skipping excluded service info: {service_id}")
+            return {}
             
         # Enhance with goal information
         service_info = service.copy()
         service_info['goals'] = []
+        
+        # Add FOSS status if goal mapper is available
+        if self.goal_mapper:
+            service_info['is_foss'] = self.goal_mapper.is_foss_service(service)
         
         # Add goals information
         for goal_id, services in self.goal_index.items():
@@ -325,7 +345,24 @@ class GoalBasedCatalog:
             
         return self.goal_mapper.get_recommended_services(goal_ids, include_personality)
     
-    def categorize_service_catalog(self) -> Dict[str, List[Dict]]:
+    def get_service_recommendations_for_cloud(self, cloud_service_ids: List[str], include_personality: bool = True) -> Dict[str, Dict]:
+        """
+        Get service recommendations for replacing cloud services
+        
+        Args:
+            cloud_service_ids: List of cloud service IDs to replace
+            include_personality: Whether to include personality-driven recommendations
+            
+        Returns:
+            Dictionary mapping service IDs to recommendation information
+        """
+        if not self.goal_mapper:
+            logger.error("No goal mapper provided to goal-based catalog")
+            return {}
+            
+        return self.goal_mapper.get_cloud_replacement_services(cloud_service_ids, include_personality)
+    
+    def categorize_service_catalog(self) -> Dict[str, Dict]:
         """
         Categorize the entire service catalog by primary user goals
         Instead of technical categories, group by what users want to accomplish
@@ -350,6 +387,10 @@ class GoalBasedCatalog:
             
             # Add services to this goal category
             for service in goal['services']:
+                # Skip excluded services if goal mapper is available
+                if self.goal_mapper and self.goal_mapper.is_excluded_service(service['id']):
+                    continue
+                
                 # Find the relevance of this service to this goal
                 relevance = 'medium'
                 reason = ''
@@ -360,20 +401,29 @@ class GoalBasedCatalog:
                             reason = service_goal.get('reason', '')
                             break
                 
-                goal_categories[goal_id]['services'].append({
+                # Add FOSS status if goal mapper is available
+                is_foss = False
+                if self.goal_mapper:
+                    is_foss = self.goal_mapper.is_foss_service(service)
+                
+                service_info = {
                     'id': service['id'],
                     'name': service['name'],
                     'description': service['description'],
                     'relevance': relevance,
-                    'reason': reason
-                })
+                    'reason': reason,
+                    'is_foss': is_foss
+                }
                 
-        # Sort services within each category by relevance
+                goal_categories[goal_id]['services'].append(service_info)
+                
+        # Sort services within each category by FOSS status first, then by relevance
         relevance_order = {'high': 0, 'medium': 1, 'low': 2}
         for goal_id, category in goal_categories.items():
             category['services'] = sorted(
                 category['services'],
-                key=lambda s: relevance_order.get(s.get('relevance', 'medium'), 3)
+                key=lambda s: (not s.get('is_foss', True), 
+                               relevance_order.get(s.get('relevance', 'medium'), 3))
             )
         
         return goal_categories

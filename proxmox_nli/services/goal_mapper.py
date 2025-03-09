@@ -24,6 +24,9 @@ class GoalMapper:
         self.services = {}
         self.load_services()
         
+        # Define services to exclude from recommendations
+        self.excluded_services = ['portainer']
+        
         # Define goal to service mappings with more detailed descriptions
         self.goal_mappings = {
             'media': {
@@ -160,6 +163,42 @@ class GoalMapper:
     def get_service_by_id(self, service_id):
         """Get service details by ID"""
         return self.services.get(service_id)
+        
+    def is_foss_service(self, service):
+        """
+        Determine if a service is FOSS (Free and Open Source Software)
+        
+        Args:
+            service (dict): Service definition dictionary
+            
+        Returns:
+            bool: True if service is FOSS, False otherwise
+        """
+        # Check if service has an explicit license_type field
+        if 'license_type' in service:
+            license_type = service['license_type'].lower()
+            return 'foss' in license_type or 'open source' in license_type or 'free' in license_type
+        
+        # Check keywords for indicators of FOSS
+        if 'keywords' in service:
+            keywords = [k.lower() for k in service.get('keywords', [])]
+            if any(k in keywords for k in ['open source', 'foss', 'free software']):
+                return True
+                
+        # Default most services in our catalog to be FOSS unless explicitly marked
+        return service.get('is_foss', True)
+    
+    def is_excluded_service(self, service_id):
+        """
+        Check if a service should be excluded from recommendations
+        
+        Args:
+            service_id (str): Service ID to check
+            
+        Returns:
+            bool: True if service should be excluded, False otherwise
+        """
+        return service_id.lower() in self.excluded_services
     
     def get_recommended_services(self, goals, include_personality=True):
         """
@@ -179,33 +218,68 @@ class GoalMapper:
             if goal in self.goal_mappings:
                 goal_info = self.goal_mappings[goal]
                 
+                # Collect all matching services for this goal to prioritize FOSS options
+                matching_services = []
+                
                 # Get services that match this goal from their user_goals attribute
                 for service_id, service in self.services.items():
+                    # Skip excluded services
+                    if self.is_excluded_service(service_id):
+                        continue
+                        
                     if 'user_goals' in service:
                         for service_goal in service.get('user_goals', []):
                             if service_goal['id'] == goal and service_id not in recommended:
-                                # Create recommendation with personality
-                                recommended[service_id] = self._create_recommendation(
-                                    service, 
-                                    goal, 
-                                    goal_info,
-                                    service_goal.get('relevance', 'medium'),
-                                    service_goal.get('reason', ''),
-                                    include_personality
-                                )
+                                # Add service to matching services with its information
+                                matching_services.append({
+                                    'id': service_id,
+                                    'service': service,
+                                    'relevance': service_goal.get('relevance', 'medium'),
+                                    'reason': service_goal.get('reason', ''),
+                                    'is_foss': self.is_foss_service(service)
+                                })
                                 break
+                
+                # Sort by FOSS status first (FOSS first), then by relevance
+                sorted_services = sorted(
+                    matching_services,
+                    key=lambda s: (not s['is_foss'], self._get_relevance_order(s['relevance']))
+                )
+                
+                # Add sorted services to recommendations
+                for match in sorted_services:
+                    service_id = match['id']
+                    if service_id not in recommended:
+                        recommended[service_id] = self._create_recommendation(
+                            match['service'], 
+                            goal, 
+                            goal_info,
+                            match['relevance'],
+                            match['reason'],
+                            include_personality
+                        )
+                        # Add FOSS status to the recommendation
+                        recommended[service_id]['is_foss'] = match['is_foss']
         
-        # Sort recommendations by relevance
+        # Sort recommendations by FOSS status first, then by relevance
         sorted_recommendations = {}
-        relevance_order = {'high': 0, 'medium': 1, 'low': 2}
-        
         for service_id, rec in sorted(
             recommended.items(), 
-            key=lambda item: relevance_order.get(item[1].get('relevance', 'medium'), 3)
+            key=lambda item: (not item[1].get('is_foss', True), self._get_relevance_order(item[1].get('relevance', 'medium')))
         ):
             sorted_recommendations[service_id] = rec
             
         return sorted_recommendations
+    
+    def _get_relevance_order(self, relevance):
+        """Helper method to get numeric order for relevance values"""
+        relevance_order = {'high': 0, 'medium': 1, 'low': 2}
+        return relevance_order.get(relevance, 3)
+        
+    def _get_quality_order(self, quality):
+        """Helper method to get numeric order for quality values"""
+        quality_order = {'excellent': 0, 'good': 1, 'fair': 2, 'poor': 3}
+        return quality_order.get(quality, 4)
     
     def _create_recommendation(self, service, goal_id, goal_info, relevance, reason, include_personality):
         """Create a recommendation object with personality if available"""
@@ -218,7 +292,8 @@ class GoalMapper:
             'goal_description': goal_info.get('description', ''),
             'relevance': relevance,
             'reason': reason,
-            'vm_requirements': service.get('vm_requirements', {})
+            'vm_requirements': service.get('vm_requirements', {}),
+            'is_foss': self.is_foss_service(service)
         }
         
         # Add personality-driven recommendation if available and requested
@@ -226,10 +301,12 @@ class GoalMapper:
             recommendation['personality_recommendation'] = service.get('personality_recommendation')
         elif include_personality:
             # Generate a generic personality recommendation based on goal
+            foss_note = " It's completely open-source too!" if recommendation['is_foss'] else ""
             recommendation['personality_recommendation'] = (
                 f"I think you'd really enjoy {service.get('name')} for your "
                 f"{goal_info.get('name', goal_id).lower()} needs! "
                 f"{reason if reason else goal_info.get('persona_description', '')}"
+                f"{foss_note}"
             )
             
         # Add dependency information
@@ -256,29 +333,54 @@ class GoalMapper:
             if cloud_service_id in self.cloud_replacements:
                 cloud_info = self.cloud_replacements[cloud_service_id]
                 
+                # Collect all matching services for this cloud service to prioritize FOSS options
+                matching_services = []
+                
                 # Find services that list this cloud service in their replaces_services
                 for service_id, service in self.services.items():
+                    # Skip excluded services
+                    if self.is_excluded_service(service_id):
+                        continue
+                        
                     if 'replaces_services' in service:
                         for replacement in service.get('replaces_services', []):
                             if replacement['id'] == cloud_service_id and service_id not in recommended:
-                                # Create recommendation with personality
-                                recommended[service_id] = self._create_replacement_recommendation(
-                                    service,
-                                    cloud_service_id,
-                                    cloud_info,
-                                    replacement.get('quality', 'good'),
-                                    replacement.get('reason', ''),
-                                    include_personality
-                                )
+                                # Add service to matching services with its information
+                                matching_services.append({
+                                    'id': service_id,
+                                    'service': service,
+                                    'quality': replacement.get('quality', 'good'),
+                                    'reason': replacement.get('reason', ''),
+                                    'is_foss': self.is_foss_service(service)
+                                })
                                 break
+                
+                # Sort by FOSS status first (FOSS first), then by quality
+                sorted_services = sorted(
+                    matching_services,
+                    key=lambda s: (not s['is_foss'], self._get_quality_order(s['quality']))
+                )
+                
+                # Add sorted services to recommendations
+                for match in sorted_services:
+                    service_id = match['id']
+                    if service_id not in recommended:
+                        recommended[service_id] = self._create_replacement_recommendation(
+                            match['service'],
+                            cloud_service_id,
+                            cloud_info,
+                            match['quality'],
+                            match['reason'],
+                            include_personality
+                        )
+                        # Add FOSS status to the recommendation
+                        recommended[service_id]['is_foss'] = match['is_foss']
         
-        # Sort recommendations by quality
+        # Sort recommendations by FOSS status first, then by quality
         sorted_recommendations = {}
-        quality_order = {'excellent': 0, 'good': 1, 'fair': 2, 'poor': 3}
-        
         for service_id, rec in sorted(
             recommended.items(), 
-            key=lambda item: quality_order.get(item[1].get('quality', 'good'), 4)
+            key=lambda item: (not item[1].get('is_foss', True), self._get_quality_order(item[1].get('quality', 'good')))
         ):
             sorted_recommendations[service_id] = rec
             
@@ -295,7 +397,8 @@ class GoalMapper:
             'replacement_description': cloud_info.get('description', ''),
             'quality': quality,
             'reason': reason,
-            'vm_requirements': service.get('vm_requirements', {})
+            'vm_requirements': service.get('vm_requirements', {}),
+            'is_foss': self.is_foss_service(service)
         }
         
         # Add personality-driven recommendation if available and requested
@@ -303,10 +406,12 @@ class GoalMapper:
             recommendation['personality_recommendation'] = service.get('personality_recommendation')
         elif include_personality:
             # Generate a generic personality recommendation based on cloud service
+            foss_note = " As a bonus, it's completely open-source!" if recommendation['is_foss'] else ""
             recommendation['personality_recommendation'] = (
                 f"I think you'd really love {service.get('name')} as a replacement for "
                 f"{cloud_info.get('name', cloud_id)}! "
                 f"{reason if reason else cloud_info.get('persona_description', '')}"
+                f"{foss_note}"
             )
             
         # Add dependency information

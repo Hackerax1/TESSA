@@ -1,6 +1,7 @@
 import os
 import subprocess
 from datetime import datetime
+from typing import List, Dict, Any, Optional
 
 class ProxmoxCommands:
     def __init__(self, api):
@@ -264,6 +265,16 @@ class ProxmoxCommands:
             "get network recommendations for SERVICE_TYPE - Get network configuration recommendations",
             "configure network for service ID of type TYPE on vm ID - Configure service networking",
             "analyze network security - Get network security analysis and recommendations",
+            
+            # SSH Device Management Commands
+            "scan network for SSH devices - Scan your network for SSH-accessible devices",
+            "discover SSH devices on network - Discover and add SSH devices with basic authentication",
+            "list SSH devices - Show all discovered SSH devices",
+            "add SSH device HOSTNAME with username USER - Add a device manually for SSH access", 
+            "execute command 'COMMAND' on device HOSTNAME - Run a command on an SSH device",
+            "run command 'COMMAND' on all raspberry_pi devices - Run a command on a group of devices",
+            "setup SSH keys for device HOSTNAME - Configure passwordless SSH access",
+            "setup SSH keys for all linux_server devices - Configure SSH keys for a device group",
             
             "help - Show this help message"
         ]
@@ -583,3 +594,159 @@ class ProxmoxCommands:
             "message": f"Detected {len(interfaces)} network interfaces on node {node}",
             "interfaces": interfaces
         }
+
+    # SSH Device Management Commands
+    def scan_network_for_devices(self, subnet: str = None) -> dict:
+        """Scan network for SSH-accessible devices
+        
+        Args:
+            subnet (str, optional): Subnet to scan in CIDR notation. Defaults to local subnet.
+        
+        Returns:
+            dict: Scan results
+        """
+        from .ssh_commands import SSHCommands
+        ssh_commands = SSHCommands(self.api)
+        return ssh_commands.scan_network(subnet)
+        
+    def discover_ssh_devices(self, subnet: str = None, username: str = "root", password: str = None) -> dict:
+        """Discover and add SSH devices on the network
+        
+        Args:
+            subnet (str, optional): Subnet to scan in CIDR notation. Defaults to local subnet.
+            username (str, optional): Default username for connections. Defaults to "root".
+            password (str, optional): Default password for connections. Defaults to None.
+        
+        Returns:
+            dict: Discovery results
+        """
+        from .ssh_commands import SSHCommands
+        ssh_commands = SSHCommands(self.api)
+        return ssh_commands.discover_devices(subnet, username, password)
+        
+    def list_ssh_devices(self, device_type: str = None) -> dict:
+        """List all SSH devices or devices of a specific type
+        
+        Args:
+            device_type (str, optional): Filter by device type. Defaults to None.
+        
+        Returns:
+            dict: List of devices
+        """
+        from .ssh_commands import SSHCommands
+        ssh_commands = SSHCommands(self.api)
+        return ssh_commands.list_devices(device_type)
+    
+    def get_ssh_device_groups(self) -> dict:
+        """Get devices grouped by their type
+        
+        Returns:
+            dict: Device groups
+        """
+        from .ssh_commands import SSHCommands
+        ssh_commands = SSHCommands(self.api)
+        return ssh_commands.get_device_groups()
+    
+    def add_ssh_device(self, hostname: str, name: str = None, username: str = "root",
+                       password: str = None, port: int = 22,
+                       description: str = "", tags: List[str] = None) -> dict:
+        """Add an SSH device manually
+        
+        Args:
+            hostname (str): IP or hostname of the device
+            name (str, optional): User-friendly name. Defaults to hostname.
+            username (str, optional): Username for SSH. Defaults to "root".
+            password (str, optional): Password for SSH. Defaults to None.
+            port (int, optional): SSH port. Defaults to 22.
+            description (str, optional): Description of the device. Defaults to "".
+            tags (List[str], optional): Tags for the device. Defaults to None.
+        
+        Returns:
+            dict: Result of operation
+        """
+        from .ssh_commands import SSHCommands
+        ssh_commands = SSHCommands(self.api)
+        return ssh_commands.add_device(hostname, name, username, password, port, description, tags)
+    
+    def remove_ssh_device(self, hostname: str) -> dict:
+        """Remove an SSH device
+        
+        Args:
+            hostname (str): IP or hostname of the device
+        
+        Returns:
+            dict: Result of operation
+        """
+        from .ssh_commands import SSHCommands
+        ssh_commands = SSHCommands(self.api)
+        return ssh_commands.remove_device(hostname)
+    
+    def execute_ssh_command(self, hostname: str, command: str) -> dict:
+        """Execute a command on an SSH device
+        
+        Args:
+            hostname (str): IP or hostname of the device
+            command (str): Command to execute
+        
+        Returns:
+            dict: Command execution results
+        """
+        from .ssh_commands import SSHCommands
+        ssh_commands = SSHCommands(self.api)
+        return ssh_commands.execute_command(hostname, command)
+    
+    def execute_ssh_command_on_multiple(self, hostnames: List[str], command: str) -> dict:
+        """Execute a command on multiple SSH devices
+        
+        Args:
+            hostnames (List[str]): List of IPs or hostnames
+            command (str): Command to execute
+        
+        Returns:
+            dict: Command execution results for each device
+        """
+        from .ssh_commands import SSHCommands
+        ssh_commands = SSHCommands(self.api)
+        return ssh_commands.execute_command_on_multiple(hostnames, command)
+    
+    def execute_ssh_command_on_group(self, group_name: str, command: str) -> dict:
+        """Execute a command on a group of SSH devices
+        
+        Args:
+            group_name (str): Group name (device type)
+            command (str): Command to execute
+        
+        Returns:
+            dict: Command execution results for each device
+        """
+        from .ssh_commands import SSHCommands
+        ssh_commands = SSHCommands(self.api)
+        return ssh_commands.execute_command_on_group(group_name, command)
+    
+    def setup_ssh_keys(self, hostnames: List[str], key_path: str = None) -> dict:
+        """Set up SSH key authentication for multiple devices
+        
+        Args:
+            hostnames (List[str]): List of IPs or hostnames
+            key_path (str, optional): Path to existing SSH key. Defaults to None.
+        
+        Returns:
+            dict: Results of key setup
+        """
+        from .ssh_commands import SSHCommands
+        ssh_commands = SSHCommands(self.api)
+        return ssh_commands.setup_ssh_keys(hostnames, key_path)
+    
+    def setup_ssh_keys_for_group(self, group_name: str, key_path: str = None) -> dict:
+        """Set up SSH key authentication for a group of devices
+        
+        Args:
+            group_name (str): Group name (device type)
+            key_path (str, optional): Path to existing SSH key. Defaults to None.
+        
+        Returns:
+            dict: Results of key setup
+        """
+        from .ssh_commands import SSHCommands
+        ssh_commands = SSHCommands(self.api)
+        return ssh_commands.setup_ssh_keys_for_group(group_name, key_path)
