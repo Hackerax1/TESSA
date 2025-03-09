@@ -5,7 +5,7 @@ import os
 from proxmox_nli.core import ProxmoxNLI
 from proxmox_nli.core.voice_handler import VoiceHandler, VoiceProfile
 from proxmox_nli.services.goal_mapper import GoalMapper
-from proxmox_nli.core.auth import AuthManager
+from proxmox_nli.core.security.auth import AuthManager
 from functools import wraps
 from dotenv import load_dotenv
 import logging

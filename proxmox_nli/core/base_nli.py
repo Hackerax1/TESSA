@@ -11,7 +11,7 @@ from ..services.service_catalog import ServiceCatalog
 from ..services.service_manager import ServiceManager
 from ..plugins.plugin_manager import PluginManager
 from .response_generator import ResponseGenerator
-from .audit_logger import AuditLogger
+from .events.audit_logger import AuditLogger
 from .user_preferences import UserPreferencesManager
 from prometheus_client import start_http_server
 import importlib.util

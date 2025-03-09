@@ -4,11 +4,11 @@ Provides interactive guidance for deploying services with best practices.
 """
 import logging
 from typing import Dict, List, Optional
-from ..services.service_catalog import ServiceCatalog
-from ..services.dependency_manager import DependencyManager
-from ..services.goal_based_catalog import GoalBasedCatalog
-from ..services.goal_based_setup import GoalBasedSetupWizard
-from ..services.goal_mapper import GoalMapper
+from ...services.service_catalog import ServiceCatalog
+from ...services.dependency_manager import DependencyManager
+from ...services.goal_based_catalog import GoalBasedCatalog
+from ...services.goal_based_setup import GoalBasedSetupWizard
+from ...services.goal_mapper import GoalMapper
 
 logger = logging.getLogger(__name__)
 

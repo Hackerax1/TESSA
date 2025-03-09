@@ -433,19 +433,19 @@ class ProxmoxCommands:
 
     def configure_cloudflare_domain(self, domain_name, email, api_key=None):
         """Configure a domain with Cloudflare"""
-        from ..core.cloudflare_manager import CloudflareManager
+        from ..core.network.cloudflare_manager import CloudflareManager
         cf_manager = CloudflareManager()
         return cf_manager.configure_domain(domain_name, email, api_key)
 
     def setup_cloudflare_tunnel(self, domain_name, tunnel_name="homelab"):
         """Set up a Cloudflare tunnel for a domain"""
-        from ..core.cloudflare_manager import CloudflareManager
+        from ..core.network.cloudflare_manager import CloudflareManager
         cf_manager = CloudflareManager()
         return cf_manager.create_tunnel(domain_name, tunnel_name)
 
     def list_cloudflare_domains(self):
         """List all configured Cloudflare domains"""
-        from ..core.cloudflare_manager import CloudflareManager
+        from ..core.network.cloudflare_manager import CloudflareManager
         cf_manager = CloudflareManager()
         return {
             "success": True,
@@ -455,7 +455,7 @@ class ProxmoxCommands:
 
     def list_cloudflare_tunnels(self):
         """List all configured Cloudflare tunnels"""
-        from ..core.cloudflare_manager import CloudflareManager
+        from ..core.network.cloudflare_manager import CloudflareManager
         cf_manager = CloudflareManager()
         return {
             "success": True,
@@ -465,67 +465,67 @@ class ProxmoxCommands:
 
     def remove_cloudflare_domain(self, domain_name):
         """Remove a domain from Cloudflare configuration"""
-        from ..core.cloudflare_manager import CloudflareManager
+        from ..core.network.cloudflare_manager import CloudflareManager
         cf_manager = CloudflareManager()
         return cf_manager.remove_domain(domain_name)
 
     def analyze_vm_resources(self, vm_id: str, days: int = 7) -> dict:
         """Analyze VM resource usage and provide optimization recommendations"""
-        from ..core.resource_analyzer import ResourceAnalyzer
+        from ..core.monitoring.resource_analyzer import ResourceAnalyzer
         analyzer = ResourceAnalyzer(self.api)
         return analyzer.analyze_vm_resources(vm_id, days)
 
     def get_cluster_efficiency(self) -> dict:
         """Get cluster efficiency metrics and recommendations"""
-        from ..core.resource_analyzer import ResourceAnalyzer
+        from ..core.monitoring.resource_analyzer import ResourceAnalyzer
         analyzer = ResourceAnalyzer(self.api)
         return analyzer.get_cluster_efficiency()
 
     def configure_backup(self, vm_id: str, schedule: dict = None) -> dict:
         """Configure automated backups for a VM"""
-        from ..core.backup_manager import BackupManager
+        from ..core.storage.backup_manager import BackupManager
         backup_mgr = BackupManager(self.api)
         return backup_mgr.configure_backup(vm_id, schedule)
 
     def create_backup(self, vm_id: str) -> dict:
         """Create a backup of a VM"""
-        from ..core.backup_manager import BackupManager
+        from ..core.storage.backup_manager import BackupManager
         backup_mgr = BackupManager(self.api)
         return backup_mgr.create_backup(vm_id)
 
     def verify_backup(self, vm_id: str) -> dict:
         """Verify a VM's backup integrity"""
-        from ..core.backup_manager import BackupManager
+        from ..core.storage.backup_manager import BackupManager
         backup_mgr = BackupManager(self.api)
         return backup_mgr.verify_backup(vm_id)
 
     def restore_backup(self, vm_id: str, backup_file: str = None) -> dict:
         """Restore a VM from backup"""
-        from ..core.backup_manager import BackupManager
+        from ..core.storage.backup_manager import BackupManager
         backup_mgr = BackupManager(self.api)
         return backup_mgr.restore_backup(vm_id, backup_file)
 
     def configure_remote_storage(self, storage_type: str, config: dict) -> dict:
         """Configure remote backup storage"""
-        from ..core.backup_manager import BackupManager
+        from ..core.storage.backup_manager import BackupManager
         backup_mgr = BackupManager(self.api)
         return backup_mgr.configure_remote_storage(storage_type, config)
 
     def get_backup_status(self, vm_id: str = None) -> dict:
         """Get backup status for VMs"""
-        from ..core.backup_manager import BackupManager
+        from ..core.storage.backup_manager import BackupManager
         backup_mgr = BackupManager(self.api)
         return backup_mgr.get_backup_status(vm_id)
 
     def setup_network_segmentation(self) -> dict:
         """Set up initial network segmentation with VLANs"""
-        from ..core.network_manager import NetworkManager
+        from ..core.network.network_manager import NetworkManager
         network_mgr = NetworkManager(self.api)
         return network_mgr.setup_network_segmentation()
 
     def create_network_segment(self, name: str, vlan_id: int, subnet: str, purpose: str) -> dict:
         """Create a new network segment"""
-        from ..core.network_manager import NetworkManager, NetworkSegment
+        from ..core.network.network_manager import NetworkManager, NetworkSegment
         network_mgr = NetworkManager(self.api)
         segment = NetworkSegment(
             name=name,
@@ -539,31 +539,31 @@ class ProxmoxCommands:
 
     def get_network_recommendations(self, service_type: str) -> dict:
         """Get network configuration recommendations for a service"""
-        from ..core.network_manager import NetworkManager
+        from ..core.network.network_manager import NetworkManager
         network_mgr = NetworkManager(self.api)
         return network_mgr.get_network_recommendations(service_type)
 
     def configure_service_network(self, service_id: str, service_type: str, vm_id: str) -> dict:
         """Configure network for a service"""
-        from ..core.network_manager import NetworkManager
+        from ..core.network.network_manager import NetworkManager
         network_mgr = NetworkManager(self.api)
         return network_mgr.configure_service_network(service_id, service_type, vm_id)
 
     def analyze_network_security(self) -> dict:
         """Analyze network security and provide recommendations"""
-        from ..core.network_manager import NetworkManager
+        from ..core.network.network_manager import NetworkManager
         network_mgr = NetworkManager(self.api)
         return network_mgr.analyze_network_security()
 
     def auto_configure_node(self, node: str = None) -> dict:
         """Automatically configure initial Proxmox network and storage settings"""
-        from ..core.auto_configurator import ProxmoxAutoConfigurator
+        from ..core.automation.auto_configurator import ProxmoxAutoConfigurator
         configurator = ProxmoxAutoConfigurator(self.api)
         return configurator.auto_configure(node)
         
     def configure_network(self, node: str, use_dhcp: bool = None) -> dict:
         """Configure network settings for a node using auto-detection"""
-        from ..core.auto_configurator import ProxmoxAutoConfigurator
+        from ..core.automation.auto_configurator import ProxmoxAutoConfigurator
         configurator = ProxmoxAutoConfigurator(self.api)
         
         # Update DHCP setting if provided
@@ -574,19 +574,19 @@ class ProxmoxCommands:
         
     def set_network_profile(self, profile_name: str) -> dict:
         """Set the default network profile for auto-configuration"""
-        from ..core.auto_configurator import ProxmoxAutoConfigurator
+        from ..core.automation.auto_configurator import ProxmoxAutoConfigurator
         configurator = ProxmoxAutoConfigurator(self.api)
         return configurator.set_network_profile(profile_name)
         
     def create_network_profile(self, name: str, subnet: str, gateway: str, dns_servers: list) -> dict:
         """Create a new network profile for auto-configuration"""
-        from ..core.auto_configurator import ProxmoxAutoConfigurator
+        from ..core.automation.auto_configurator import ProxmoxAutoConfigurator
         configurator = ProxmoxAutoConfigurator(self.api)
         return configurator.create_network_profile(name, subnet, gateway, dns_servers)
         
     def detect_network_interfaces(self, node: str) -> dict:
         """Detect available network interfaces on a node"""
-        from ..core.auto_configurator import ProxmoxAutoConfigurator
+        from ..core.automation.auto_configurator import ProxmoxAutoConfigurator
         configurator = ProxmoxAutoConfigurator(self.api)
         interfaces = configurator._detect_network_interfaces(node)
         return {

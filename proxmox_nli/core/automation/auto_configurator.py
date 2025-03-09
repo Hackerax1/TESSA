@@ -10,9 +10,9 @@ import re
 from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass
 
-from ..api.proxmox_api import ProxmoxAPI
-from .network_manager import NetworkManager, NetworkSegment
-from ..commands.proxmox_commands import ProxmoxCommands
+from ...api.proxmox_api import ProxmoxAPI
+from ..network.network_manager import NetworkManager, NetworkSegment
+from ...commands.proxmox_commands import ProxmoxCommands
 
 logger = logging.getLogger(__name__)
 

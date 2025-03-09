@@ -308,7 +308,7 @@ class ServiceManager:
         Set up Cloudflare service with domain and tunnel configuration
         """
         # Import cloudflare manager
-        from ..core.cloudflare_manager import CloudflareManager
+        from ..core.network.cloudflare_manager import CloudflareManager
         cf_manager = CloudflareManager()
         
         # First configure the domain
@@ -339,7 +339,7 @@ class ServiceManager:
         """
         Remove Cloudflare service configuration
         """
-        from ..core.cloudflare_manager import CloudflareManager
+        from ..core.network.cloudflare_manager import CloudflareManager
         cf_manager = CloudflareManager()
         
         # Remove domain configuration

@@ -7,8 +7,8 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 from prometheus_client import Summary
 from .base_nli import BaseNLI
 from .command_executor import CommandExecutor
-from .service_handler import ServiceHandler
-from .user_manager import UserManager
+from .services.service_handler import ServiceHandler
+from .security.user_manager import UserManager
 
 REQUEST_TIME = Summary('request_processing_seconds', 'Time spent processing request')
 
