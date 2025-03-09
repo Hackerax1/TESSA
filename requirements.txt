@@ -23,4 +23,6 @@ Pillow
 docker
 pytest>=7.0.0
 pytest-mock>=3.10.0
+networkx>=2.8.0
+matplotlib>=3.5.0
 

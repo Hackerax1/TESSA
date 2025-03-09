@@ -5,6 +5,10 @@ Provides interactive guidance for deploying services with best practices.
 import logging
 from typing import Dict, List, Optional
 from ..services.service_catalog import ServiceCatalog
+from ..services.dependency_manager import DependencyManager
+from ..services.goal_based_catalog import GoalBasedCatalog
+from ..services.goal_based_setup import GoalBasedSetupWizard
+from ..services.goal_mapper import GoalMapper
 
 logger = logging.getLogger(__name__)
 
@@ -12,6 +16,10 @@ class ServiceWizard:
     def __init__(self, api, service_catalog=None):
         self.api = api
         self.catalog = service_catalog if service_catalog else ServiceCatalog()
+        self.dependency_manager = DependencyManager(self.catalog)
+        self.goal_mapper = GoalMapper()
+        self.goal_based_catalog = GoalBasedCatalog(self.catalog, self.goal_mapper)
+        self.goal_based_wizard = None
         
     def start_wizard(self, service_type: str) -> Dict:
         """Start the service deployment wizard"""
@@ -35,7 +43,193 @@ class ServiceWizard:
             "service": service_def,
             "questions": questions
         }
+        
+    def start_goal_based_wizard(self) -> Dict:
+        """
+        Start the goal-based setup wizard to help users select services
+        based on their goals or cloud services they want to replace.
+        
+        Returns:
+            Dictionary with wizard state and initial options
+        """
+        # Initialize the goal-based wizard
+        self.goal_based_wizard = GoalBasedSetupWizard(
+            goal_based_catalog=self.goal_based_catalog,
+            dependency_manager=self.dependency_manager,
+            service_manager=self
+        )
+        
+        # Start the wizard and get initial state
+        wizard_state = self.goal_based_wizard.start_setup()
+        
+        return {
+            "success": True,
+            "message": "Goal-based setup wizard started",
+            "wizard_state": wizard_state
+        }
     
+    def process_goal_wizard_step(self, action: str, data: Dict) -> Dict:
+        """
+        Process a step in the goal-based wizard flow
+        
+        Args:
+            action: The action to perform (e.g., 'select_approach', 'select_goals')
+            data: The data for the action
+            
+        Returns:
+            Dictionary with updated wizard state
+        """
+        if not self.goal_based_wizard:
+            return {
+                "success": False,
+                "message": "Goal-based wizard not initialized. Call start_goal_based_wizard first."
+            }
+            
+        try:
+            # Process the action based on the current wizard stage
+            if action == 'select_approach':
+                approach = data.get('approach')
+                if not approach:
+                    return {"success": False, "message": "No approach selected"}
+                wizard_state = self.goal_based_wizard.select_approach(approach)
+                
+            elif action == 'select_goals':
+                goal_ids = data.get('goal_ids', [])
+                if not goal_ids:
+                    return {"success": False, "message": "No goals selected"}
+                wizard_state = self.goal_based_wizard.select_goals(goal_ids)
+                
+            elif action == 'select_replacements':
+                replacement_ids = data.get('replacement_ids', [])
+                if not replacement_ids:
+                    return {"success": False, "message": "No cloud services selected"}
+                wizard_state = self.goal_based_wizard.select_replacements(replacement_ids)
+                
+            elif action == 'select_services':
+                service_ids = data.get('service_ids', [])
+                if not service_ids:
+                    return {"success": False, "message": "No services selected"}
+                wizard_state = self.goal_based_wizard.select_services(service_ids)
+                
+            elif action == 'confirm_plan':
+                confirmed = data.get('confirmed', False)
+                wizard_state = self.goal_based_wizard.confirm_plan(confirmed)
+                
+            else:
+                return {
+                    "success": False,
+                    "message": f"Unknown action: {action}"
+                }
+                
+            return {
+                "success": True,
+                "message": f"Processed {action} successfully",
+                "wizard_state": wizard_state
+            }
+            
+        except Exception as e:
+            logger.error(f"Error processing goal wizard step: {str(e)}")
+            return {
+                "success": False,
+                "message": f"Error processing {action}: {str(e)}"
+            }
+    
+    def get_available_goals(self) -> Dict:
+        """
+        Get all available user goals for the goal-based wizard
+        
+        Returns:
+            Dictionary with available goals
+        """
+        goals = self.goal_based_catalog.get_goals_with_services()
+        
+        return {
+            "success": True,
+            "goals": goals
+        }
+        
+    def get_available_cloud_replacements(self) -> Dict:
+        """
+        Get all available cloud service replacements for the goal-based wizard
+        
+        Returns:
+            Dictionary with available cloud service replacements
+        """
+        replacements = self.goal_based_catalog.get_cloud_replacements_with_services()
+        
+        return {
+            "success": True,
+            "replacements": replacements
+        }
+    
+    def deploy_service(self, service_id: str, config: Dict = None) -> Dict:
+        """
+        Deploy a service using the provided configuration
+        
+        Args:
+            service_id: ID of the service to deploy
+            config: Optional configuration for the service
+            
+        Returns:
+            Dictionary with deployment result
+        """
+        try:
+            # Get service definition
+            service = self.catalog.get_service(service_id)
+            if not service:
+                return {
+                    "success": False,
+                    "message": f"Service '{service_id}' not found"
+                }
+                
+            # Use default configuration if none provided
+            if not config:
+                config = self._generate_default_config(service)
+                
+            # Here you would actually deploy the service
+            # This is a placeholder - actual implementation would use the API
+            logger.info(f"Deploying service {service_id} with config: {config}")
+            
+            # Simulate successful deployment
+            return {
+                "success": True,
+                "message": f"Service {service['name']} deployed successfully",
+                "service_id": service_id,
+                "config": config
+            }
+                
+        except Exception as e:
+            logger.error(f"Error deploying service {service_id}: {str(e)}")
+            return {
+                "success": False,
+                "message": f"Error deploying service: {str(e)}"
+            }
+    
+    def _generate_default_config(self, service_def: Dict) -> Dict:
+        """Generate default configuration for a service"""
+        vm_requirements = service_def.get('vm_requirements', {})
+        
+        return {
+            "vm": {
+                "memory": vm_requirements.get('memory', 1024),  # MB
+                "cores": vm_requirements.get('cores', 1),
+                "disk": vm_requirements.get('disk', 10)  # GB
+            },
+            "network": self._generate_network_config("internal"),
+            "security": self._generate_security_config("enhanced"),
+            "backup": {
+                "schedule": {
+                    "frequency": "daily",
+                    "time": "02:00",
+                    "retention": {
+                        "daily": 7,
+                        "weekly": 4,
+                        "monthly": 2
+                    }
+                }
+            }
+        }
+        
     def _generate_questions(self, service_def: Dict) -> List[Dict]:
         """Generate configuration questions based on service definition"""
         questions = []

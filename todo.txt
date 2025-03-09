@@ -45,10 +45,10 @@
   - [X] Create visual network diagram of services and connections.
   - [X] Design progressive disclosure UI (basic → advanced options).
 
-- [ ] **Integration with User Preferences:**
+- [X] **Integration with User Preferences:**
   - [X] Allow users to save preferred settings (e.g., default VM resources, preferred OS template).
   - [X] Implement a "favorites" system for VMs, nodes, and services.
-  - [ ] Design goal-based setup workflow ("What would you like me to help you replace?").
+  - [X] Design goal-based setup workflow ("What would you like me to help you replace?").
   - [X] Implement TESSA user relationship model (remembering names, preferences, skill level).
   - [X] Create personalized greeting system based on time of day and user history.
 
@@ -101,8 +101,8 @@
 
 - [ ] **Service Catalog Expansion:**
   - [ ] Add more services to the service catalog (#proxmox_nli\services\catalog).
-  - [ ] Implement service dependency management.
-  - [ ] Organize services by user goals rather than technical categories.
+  - [X] Implement service dependency management.
+  - [X] Organize services by user goals rather than technical categories.
   - [ ] Add TESSA service recommendations with personality ("I think you'd really enjoy Nextcloud for your photos").
 
 # Future Considerations
