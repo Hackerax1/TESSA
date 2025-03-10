@@ -276,6 +276,13 @@ class ProxmoxCommands:
             "setup SSH keys for device HOSTNAME - Configure passwordless SSH access",
             "setup SSH keys for all linux_server devices - Configure SSH keys for a device group",
             
+            # Environment Merger Commands
+            "merge existing proxmox environment - Detect, analyze, and import an existing Proxmox setup",
+            "discover proxmox environment - Discover details about the existing Proxmox configuration",
+            "analyze proxmox environment - Analyze the existing environment for merge points",
+            "set environment merge options - Configure which elements to include in merger",
+            "get merge history - View history of previously merged environments",
+            
             "help - Show this help message"
         ]
         return {"success": True, "message": "Available commands", "commands": commands}
@@ -1063,3 +1070,73 @@ class ProxmoxCommands:
         from ..core.network.dns_manager import DNSManager
         dns_manager = DNSManager(self.api)
         return dns_manager.update_dns_servers(servers)
+
+    # Environment Merger Commands
+    def merge_existing_proxmox(self, conflict_resolution: str = None) -> dict:
+        """Merge an existing Proxmox environment into TESSA
+        
+        This detects, analyzes and imports configurations from an existing Proxmox environment.
+        
+        Args:
+            conflict_resolution: How to resolve conflicts - "ask", "tessa_priority", "existing_priority", "merge"
+            
+        Returns:
+            dict: Results of the merge operation
+        """
+        from ..core.integration.environment_merger import EnvironmentMerger
+        merger = EnvironmentMerger(self.api)
+        return merger.merge_existing_environment(conflict_resolution)
+    
+    def discover_proxmox_environment(self) -> dict:
+        """Discover details about the existing Proxmox environment
+        
+        Returns:
+            dict: Discovered environment details
+        """
+        from ..core.integration.environment_merger import EnvironmentMerger
+        merger = EnvironmentMerger(self.api)
+        return merger.discover_environment()
+    
+    def analyze_proxmox_environment(self) -> dict:
+        """Analyze the existing Proxmox environment for potential merge points
+        
+        Returns:
+            dict: Analysis results with recommendations
+        """
+        from ..core.integration.environment_merger import EnvironmentMerger
+        merger = EnvironmentMerger(self.api)
+        discovery = merger.discover_environment()
+        if not discovery['success']:
+            return discovery
+        return merger.analyze_environment(discovery)
+    
+    def set_environment_merge_options(self, options: dict) -> dict:
+        """Set options for merging environments
+        
+        Args:
+            options: Dictionary with option flags:
+                - storage_pools: Whether to merge storage pools
+                - network_config: Whether to merge network configurations
+                - virtual_machines: Whether to merge VM inventory
+                - containers: Whether to merge container inventory
+                - users_and_permissions: Whether to merge users and permissions
+                - backups: Whether to merge backup configurations
+                - firewall_rules: Whether to merge firewall rules
+                - ha_settings: Whether to merge HA settings
+                
+        Returns:
+            dict: Updated merge options
+        """
+        from ..core.integration.environment_merger import EnvironmentMerger
+        merger = EnvironmentMerger(self.api)
+        return merger.set_merge_options(options)
+    
+    def get_merge_history(self) -> dict:
+        """Get history of previously merged environments
+        
+        Returns:
+            dict: History of merged environments
+        """
+        from ..core.integration.environment_merger import EnvironmentMerger
+        merger = EnvironmentMerger(self.api)
+        return merger.get_merge_history()

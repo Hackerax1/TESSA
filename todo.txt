@@ -36,7 +36,7 @@
   - [ ] Create bootable USB image with auto-start setup wizard.
   - [X] Implement self-configuring networking (DHCP + common static configs).
   - [X] Generate QR code during installation for easy first access.
-  - [ ] Add support for merging existing Proxmox environments into TESSA.
+  - [X] Add support for merging existing Proxmox environments into TESSA.
 
 - [X] **Web Interface Enhancements:**
   - [X] Implement real-time updates with WebSockets for VM/container status.
@@ -98,9 +98,14 @@
   - [X] Create a basic plugin API.
 
 - [ ] **Domain Management and SSL:**
-  - [ ] Improve Cloudflare integration for automated DNS and SSL management.
+  - [ ] Improve Cloudflare integration for automated DNS and SSL management (to help users transition off the cloud).
   - [ ] Implement commands for managing DNS records.
   - [ ] Add support for other DNS providers.
+
+- [ ] **Buddy Backups:**
+  - [ ] Implement buddy backup system for users to back up each other's data securely.
+  - [ ] Add encryption for buddy backups.
+  - [ ] Create a user-friendly interface for managing buddy backups.
 
 - [ ] **Service Catalog Expansion:**
   - [ ] Add more services to the service catalog (#proxmox_nli\services\catalog) with emphasis on FOSS options.
