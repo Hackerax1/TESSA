@@ -750,3 +750,316 @@ class ProxmoxCommands:
         from .ssh_commands import SSHCommands
         ssh_commands = SSHCommands(self.api)
         return ssh_commands.setup_ssh_keys_for_group(group_name, key_path)
+
+    def create_vlan(self, name: str, vlan_id: int, subnet: str, purpose: str) -> dict:
+        """Create a new VLAN"""
+        from ..core.network.network_manager import NetworkManager, NetworkSegment
+        network_mgr = NetworkManager(self.api)
+        segment = NetworkSegment(
+            name=name,
+            vlan_id=vlan_id,
+            subnet=subnet,
+            purpose=purpose,
+            security_level="medium",
+            allowed_services=["http", "https"]
+        )
+        return network_mgr.create_network_segment(segment)
+
+    def configure_firewall_rule(self, rule: dict) -> dict:
+        """Configure a firewall rule"""
+        from ..core.network.network_manager import NetworkManager
+        network_mgr = NetworkManager(self.api)
+        return network_mgr.api.api_request('POST', 'nodes/localhost/firewall/rules', rule)
+
+    def ssh_into_device(self, hostname: str, username: str = "root", port: int = 22) -> dict:
+        """SSH into a device on the network"""
+        from ..core.network.network_manager import NetworkManager
+        network_mgr = NetworkManager(self.api)
+        return network_mgr.api.api_request('POST', f'nodes/localhost/ssh', {
+            'hostname': hostname,
+            'username': username,
+            'port': port
+        })
+
+    def setup_pxe_service(self) -> dict:
+        """Set up PXE service for network booting"""
+        from ..core.network.network_manager import NetworkManager
+        network_mgr = NetworkManager(self.api)
+        return network_mgr.api.api_request('POST', 'nodes/localhost/pxe', {
+            'enable': True
+        })
+
+    # Enhanced Network Management Commands
+    def create_vlan(self, name: str, vlan_id: int, subnet: str, purpose: str = "general") -> dict:
+        """Create a new VLAN
+        
+        Args:
+            name: Name of the VLAN
+            vlan_id: VLAN ID (1-4094)
+            subnet: Subnet in CIDR notation (e.g., 192.168.10.0/24)
+            purpose: Purpose of the VLAN
+        
+        Returns:
+            dict: Result of the operation
+        """
+        from ..core.network.vlan_handler import VLANHandler
+        vlan_handler = VLANHandler(self.api)
+        return vlan_handler.create_vlan(vlan_id, name, subnet)
+
+    def list_vlans(self) -> dict:
+        """List all configured VLANs
+        
+        Returns:
+            dict: List of VLANs
+        """
+        from ..core.network.vlan_handler import VLANHandler
+        vlan_handler = VLANHandler(self.api)
+        return vlan_handler.list_vlans()
+
+    def delete_vlan(self, vlan_id: int, bridge: str = "vmbr0") -> dict:
+        """Delete a VLAN
+        
+        Args:
+            vlan_id: VLAN ID to delete
+            bridge: Bridge interface (default: vmbr0)
+        
+        Returns:
+            dict: Result of the operation
+        """
+        from ..core.network.vlan_handler import VLANHandler
+        vlan_handler = VLANHandler(self.api)
+        return vlan_handler.delete_vlan(vlan_id, bridge)
+
+    def assign_vm_to_vlan(self, vm_id: int, vlan_id: int) -> dict:
+        """Assign a VM to a VLAN
+        
+        Args:
+            vm_id: ID of the VM
+            vlan_id: ID of the VLAN
+        
+        Returns:
+            dict: Result of the operation
+        """
+        from ..core.network.vlan_handler import VLANHandler
+        vlan_handler = VLANHandler(self.api)
+        return vlan_handler.assign_vm_to_vlan(vm_id, vlan_id)
+
+    # Enhanced Firewall Management
+    def add_firewall_rule(self, rule: dict) -> dict:
+        """Add a firewall rule
+        
+        Args:
+            rule: Firewall rule definition including:
+                - action: ACCEPT, DROP, REJECT
+                - type: in, out
+                - proto: Protocol (tcp, udp, etc.)
+                - dport: Destination port(s)
+                - source: Source address (optional)
+                - dest: Destination address (optional)
+                - comment: Rule description
+        
+        Returns:
+            dict: Result of the operation
+        """
+        from ..core.network.firewall_manager import FirewallManager
+        fw_manager = FirewallManager(self.api)
+        return fw_manager.add_rule(rule)
+
+    def list_firewall_rules(self) -> dict:
+        """List all firewall rules
+        
+        Returns:
+            dict: List of firewall rules
+        """
+        from ..core.network.firewall_manager import FirewallManager
+        fw_manager = FirewallManager(self.api)
+        return fw_manager.list_rules()
+
+    def delete_firewall_rule(self, rule_id: int) -> dict:
+        """Delete a firewall rule
+        
+        Args:
+            rule_id: ID of the rule to delete
+        
+        Returns:
+            dict: Result of the operation
+        """
+        from ..core.network.firewall_manager import FirewallManager
+        fw_manager = FirewallManager(self.api)
+        return fw_manager.delete_rule(rule_id)
+
+    def add_service_firewall_rules(self, service_name: str, ports: List[int], sources: List[str] = None) -> dict:
+        """Add firewall rules for a service
+        
+        Args:
+            service_name: Name of the service (for comments)
+            ports: List of ports to allow
+            sources: List of source IPs/networks (None for any)
+        
+        Returns:
+            dict: Result of the operation
+        """
+        from ..core.network.firewall_manager import FirewallManager
+        fw_manager = FirewallManager(self.api)
+        return fw_manager.add_service_rules(service_name, ports, sources)
+
+    def get_firewall_status(self) -> dict:
+        """Get firewall status
+        
+        Returns:
+            dict: Firewall status information
+        """
+        from ..core.network.firewall_manager import FirewallManager
+        fw_manager = FirewallManager(self.api)
+        return fw_manager.get_firewall_status()
+
+    # Enhanced SSH Management
+    def ssh_into_device(self, hostname: str, username: str = "root", port: int = 22) -> dict:
+        """SSH into a network device
+        
+        Args:
+            hostname: Hostname or IP address
+            username: SSH username
+            port: SSH port
+        
+        Returns:
+            dict: SSH connection information
+        """
+        try:
+            # Check if the host is reachable first
+            ping_cmd = f"ping -c 1 -W 2 {hostname}"
+            ping_result = self.api.api_request('POST', 'nodes/localhost/execute', {
+                'command': ping_cmd
+            })
+            
+            if not ping_result.get('success', False) or "0 received" in ping_result.get('data', ''):
+                return {
+                    'success': False,
+                    'message': f"Host {hostname} is not reachable"
+                }
+            
+            # Attempt SSH connection
+            ssh_cmd = f"ssh -o ConnectTimeout=5 -o BatchMode=yes -p {port} {username}@{hostname} echo 'Connection successful'"
+            result = self.api.api_request('POST', 'nodes/localhost/execute', {
+                'command': ssh_cmd
+            })
+            
+            if result.get('success', False) and "Connection successful" in result.get('data', ''):
+                return {
+                    'success': True,
+                    'message': f"Successfully connected to {hostname}",
+                    'connection': {
+                        'hostname': hostname,
+                        'username': username,
+                        'port': port
+                    }
+                }
+            else:
+                return {
+                    'success': False,
+                    'message': f"Failed to connect to {hostname}. Check credentials or SSH configuration."
+                }
+                
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f"Error connecting to {hostname}: {str(e)}"
+            }
+
+    # PXE Boot Service Management
+    def setup_pxe_service(self, network_interface: str = "vmbr0", subnet: str = None) -> dict:
+        """Set up PXE service for network booting
+        
+        Args:
+            network_interface: Network interface to serve PXE on
+            subnet: Subnet for DHCP (optional)
+        
+        Returns:
+            dict: Result of the operation
+        """
+        from ..core.network.pxe_manager import PXEManager
+        pxe_manager = PXEManager(self.api)
+        return pxe_manager.enable_pxe_service(network_interface, subnet)
+
+    def disable_pxe_service(self) -> dict:
+        """Disable PXE boot service
+        
+        Returns:
+            dict: Result of the operation
+        """
+        from ..core.network.pxe_manager import PXEManager
+        pxe_manager = PXEManager(self.api)
+        return pxe_manager.disable_pxe_service()
+
+    def get_pxe_status(self) -> dict:
+        """Get PXE service status
+        
+        Returns:
+            dict: Status of PXE services
+        """
+        from ..core.network.pxe_manager import PXEManager
+        pxe_manager = PXEManager(self.api)
+        return pxe_manager.get_pxe_status()
+
+    def upload_pxe_boot_image(self, image_type: str, image_path: str) -> dict:
+        """Upload a boot image for PXE
+        
+        Args:
+            image_type: Type of image (e.g., 'ubuntu', 'centos')
+            image_path: Local path to boot image
+        
+        Returns:
+            dict: Result of the operation
+        """
+        from ..core.network.pxe_manager import PXEManager
+        pxe_manager = PXEManager(self.api)
+        return pxe_manager.upload_boot_image(image_type, image_path)
+
+    def list_pxe_boot_images(self) -> dict:
+        """List available PXE boot images
+        
+        Returns:
+            dict: List of boot images
+        """
+        from ..core.network.pxe_manager import PXEManager
+        pxe_manager = PXEManager(self.api)
+        return pxe_manager.list_boot_images()
+
+    # DNS Management
+    def add_dns_record(self, hostname: str, ip_address: str, comment: str = None) -> dict:
+        """Add a DNS record
+        
+        Args:
+            hostname: Hostname to add
+            ip_address: IP address for hostname
+            comment: Optional comment
+        
+        Returns:
+            dict: Result of the operation
+        """
+        from ..core.network.dns_manager import DNSManager
+        dns_manager = DNSManager(self.api)
+        return dns_manager.add_dns_record(hostname, ip_address, comment)
+
+    def list_dns_records(self) -> dict:
+        """List all DNS records
+        
+        Returns:
+            dict: List of DNS records
+        """
+        from ..core.network.dns_manager import DNSManager
+        dns_manager = DNSManager(self.api)
+        return dns_manager.list_dns_records()
+
+    def update_dns_servers(self, servers: List[str]) -> dict:
+        """Update DNS servers
+        
+        Args:
+            servers: List of DNS server IP addresses
+        
+        Returns:
+            dict: Result of the operation
+        """
+        from ..core.network.dns_manager import DNSManager
+        dns_manager = DNSManager(self.api)
+        return dns_manager.update_dns_servers(servers)

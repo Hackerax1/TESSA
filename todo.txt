@@ -36,6 +36,7 @@
   - [ ] Create bootable USB image with auto-start setup wizard.
   - [X] Implement self-configuring networking (DHCP + common static configs).
   - [X] Generate QR code during installation for easy first access.
+  - [ ] Add support for merging existing Proxmox environments into TESSA.
 
 - [X] **Web Interface Enhancements:**
   - [X] Implement real-time updates with WebSockets for VM/container status.
@@ -73,9 +74,11 @@
   - [X] Implement commands for creating, deleting, and managing ZFS datasets.
   - [X] Add support for ZFS snapshots and replication.
 
-- [ ] **Networking Management:**
-  - [ ] Implement commands for creating and managing VLANs.
-  - [ ] Add support for firewall rule configuration.
+- [X] **Networking Management:**
+  - [X] Implement commands for creating and managing VLANs.
+  - [X] Add support for firewall rule configuration.
+  - [X] Add support for SSH into other devices on the network.
+  - [X] Add PXE service for network booting.
 
 - [X] **TESSA Voice & Personality:**
   - [X] Develop a consistent voice pattern and personality for TESSA.

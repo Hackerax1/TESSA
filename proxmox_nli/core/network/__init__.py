@@ -5,8 +5,9 @@ This module handles network configuration, VLAN management, and connectivity.
 """
 
 from .network_manager import NetworkManager
-from .vlan_handler import VLANHandler
 from .firewall_manager import FirewallManager
+from .vlan_handler import VLANHandler
 from .dns_manager import DNSManager
+from .pxe_manager import PXEManager
 
-__all__ = ['NetworkManager', 'VLANHandler', 'FirewallManager', 'DNSManager']
+__all__ = ['NetworkManager', 'FirewallManager', 'VLANHandler', 'DNSManager', 'PXEManager']
