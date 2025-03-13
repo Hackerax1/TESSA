@@ -1,0 +1,149 @@
+id: prometheus-stack
+name: Prometheus & Grafana Monitoring Stack
+description: Complete monitoring solution with Prometheus for metrics collection and Grafana for visualization
+keywords:
+  - monitoring
+  - metrics
+  - grafana
+  - prometheus
+  - visualization
+  - dashboards
+  - alerts
+vm_requirements:
+  memory: 2048
+  cores: 2
+  disk: 20
+  os_template: ubuntu-22.04
+deployment:
+  method: docker
+  docker_compose: |
+    version: '3.8'
+    services:
+      prometheus:
+        image: prom/prometheus:latest
+        container_name: prometheus
+        restart: unless-stopped
+        volumes:
+          - ./prometheus:/etc/prometheus
+          - prometheus_data:/prometheus
+        command:
+          - '--config.file=/etc/prometheus/prometheus.yml'
+          - '--storage.tsdb.path=/prometheus'
+          - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+          - '--web.console.templates=/usr/share/prometheus/consoles'
+          - '--storage.tsdb.retention.time=15d'
+        ports:
+          - "9090:9090"
+        
+      grafana:
+        image: grafana/grafana:latest
+        container_name: grafana
+        restart: unless-stopped
+        volumes:
+          - grafana_data:/var/lib/grafana
+          - ./grafana/provisioning:/etc/grafana/provisioning
+        environment:
+          - GF_SECURITY_ADMIN_USER=${ADMIN_USER:-admin}
+          - GF_SECURITY_ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
+          - GF_USERS_ALLOW_SIGN_UP=false
+        ports:
+          - "3000:3000"
+        depends_on:
+          - prometheus
+      
+      node-exporter:
+        image: prom/node-exporter:latest
+        container_name: node-exporter
+        restart: unless-stopped
+        volumes:
+          - /proc:/host/proc:ro
+          - /sys:/host/sys:ro
+          - /:/rootfs:ro
+        command:
+          - '--path.procfs=/host/proc'
+          - '--path.rootfs=/rootfs'
+          - '--path.sysfs=/host/sys'
+          - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+        ports:
+          - "9100:9100"
+
+    volumes:
+      prometheus_data:
+      grafana_data:
+
+  config_files:
+    - path: ./prometheus/prometheus.yml
+      content: |
+        global:
+          scrape_interval: 15s
+          evaluation_interval: 15s
+          
+        scrape_configs:
+          - job_name: 'prometheus'
+            static_configs:
+              - targets: ['localhost:9090']
+          
+          - job_name: 'node'
+            static_configs:
+              - targets: ['node-exporter:9100']
+          
+          - job_name: 'proxmox'
+            static_configs:
+              - targets: ['PROXMOX_HOST:8006']
+            scheme: https
+            tls_config:
+              insecure_skip_verify: true
+            metrics_path: /pve/metrics
+            params:
+              module: [default]
+
+    - path: ./grafana/provisioning/datasources/prometheus.yml
+      content: |
+        apiVersion: 1
+        datasources:
+          - name: Prometheus
+            type: prometheus
+            access: proxy
+            url: http://prometheus:9090
+            isDefault: true
+
+access_info: |
+  Prometheus & Grafana monitoring stack has been deployed!
+  
+  Access URLs:
+  - Grafana: http://<VM_IP>:3000
+  - Prometheus: http://<VM_IP>:9090
+  
+  Default Credentials:
+  Grafana:
+  - Username: admin
+  - Password: admin (change on first login)
+  
+  Initial Setup Steps:
+  1. Access Grafana and change the default password
+  2. Verify Prometheus data source is connected
+  3. Import recommended dashboards
+  4. Configure alerting rules as needed
+  5. Add additional Proxmox nodes to prometheus.yml if needed
+
+notes: |
+  This stack provides comprehensive monitoring:
+  - Prometheus for metrics collection and storage
+  - Grafana for visualization and alerting
+  - Node Exporter for system metrics
+  - Pre-configured for Proxmox monitoring
+  
+  Features:
+  - Real-time metrics visualization
+  - Historical data analysis
+  - Customizable dashboards
+  - Alert management
+  - Multi-node monitoring support
+  - REST API access
+  
+  Best Practices:
+  - Review and adjust retention periods based on storage capacity
+  - Set up authentication for Prometheus if exposed
+  - Configure automated backups for Grafana
+  - Regularly update alert thresholds
+  - Monitor the monitoring system itself

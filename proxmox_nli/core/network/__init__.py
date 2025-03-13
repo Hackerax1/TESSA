@@ -9,5 +9,6 @@ from .firewall_manager import FirewallManager
 from .vlan_handler import VLANHandler
 from .dns_manager import DNSManager
 from .pxe_manager import PXEManager
+from .cloudflare_manager import CloudflareManager
 
-__all__ = ['NetworkManager', 'FirewallManager', 'VLANHandler', 'DNSManager', 'PXEManager']
+__all__ = ['NetworkManager', 'FirewallManager', 'VLANHandler', 'DNSManager', 'PXEManager', 'CloudflareManager']
