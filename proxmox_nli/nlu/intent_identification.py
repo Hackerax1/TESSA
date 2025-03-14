@@ -133,6 +133,39 @@ class IntentIdentifier:
                 r'show\s+(?:all\s+)?(?:my\s+)?(?:deployed|installed)\s+services',
                 r'what\s+services\s+(?:are|do\s+I\s+have)\s+(?:running|deployed|installed)'
             ],
+            # Update-related patterns
+            'check_updates': [
+                r'check\s+(?:for\s+)?(?:available\s+)?updates(?:\s+for\s+(?:service\s+)?([a-zA-Z0-9-_]+))?',
+                r'see\s+(?:if\s+there\s+are\s+)?(?:any\s+)?(?:available\s+)?updates(?:\s+for\s+(?:service\s+)?([a-zA-Z0-9-_]+))?',
+                r'are\s+there\s+(?:any\s+)?updates(?:\s+for\s+(?:service\s+)?([a-zA-Z0-9-_]+))?',
+                r'(?:any|find)\s+updates(?:\s+for\s+(?:service\s+)?([a-zA-Z0-9-_]+))?'
+            ],
+            'list_updates': [
+                r'list\s+(?:all\s+)?(?:available\s+)?updates(?:\s+for\s+(?:service\s+)?([a-zA-Z0-9-_]+))?',
+                r'show\s+(?:all\s+)?(?:available\s+)?updates(?:\s+for\s+(?:service\s+)?([a-zA-Z0-9-_]+))?',
+                r'what\s+updates\s+(?:are|do\s+I\s+have)(?:\s+(?:available|for)\s+(?:service\s+)?([a-zA-Z0-9-_]+))?'
+            ],
+            'apply_updates': [
+                r'apply\s+(?:all\s+)?updates(?:\s+(?:for|to)\s+(?:service\s+)?([a-zA-Z0-9-_]+))?',
+                r'install\s+(?:all\s+)?updates(?:\s+(?:for|to)\s+(?:service\s+)?([a-zA-Z0-9-_]+))?',
+                r'update\s+(?:service\s+)?([a-zA-Z0-9-_]+)',
+                r'upgrade\s+(?:service\s+)?([a-zA-Z0-9-_]+)',
+                r'update\s+all\s+services',
+                r'upgrade\s+all\s+services',
+                r'install\s+all\s+(?:available\s+)?updates'
+            ],
+            'update_settings': [
+                r'(?:change|update|set|configure)\s+update\s+settings',
+                r'(?:enable|disable|turn\s+on|turn\s+off)\s+automatic\s+updates',
+                r'set\s+update\s+check\s+interval\s+(?:to\s+)?(\d+)(?:\s+hours)?',
+                r'configure\s+update\s+(?:options|preferences|settings)'
+            ],
+            'get_update_status': [
+                r'(?:get|show)\s+update\s+status',
+                r'check\s+update\s+settings',
+                r'show\s+update\s+configuration',
+                r'(?:what|how)\s+(?:are|is)\s+(?:the\s+)?update\s+settings'
+            ],
             'help': [
                 r'help',
                 r'commands',
@@ -240,6 +273,22 @@ class IntentIdentifier:
             service_match = re.search(r'(?:for|to)\s+(.+)$', preprocessed_query)
             return 'find_service', [service_match.group(1) if service_match else None]
 
+        # Update related intents
+        if ('check' in tokens or 'search' in tokens) and 'update' in tokens:
+            service_match = re.search(r'for\s+(?:service\s+)?(\w+)', preprocessed_query)
+            return 'check_updates', [service_match.group(1) if service_match else None]
+
+        if ('list' in tokens or 'show' in tokens) and 'update' in tokens:
+            service_match = re.search(r'for\s+(?:service\s+)?(\w+)', preprocessed_query)
+            return 'list_updates', [service_match.group(1) if service_match else None]
+
+        if ('apply' in tokens or 'install' in tokens) and 'update' in tokens:
+            service_match = re.search(r'(?:for|to)\s+(?:service\s+)?(\w+)', preprocessed_query)
+            return 'apply_updates', [service_match.group(1) if service_match else None]
+
+        if ('update' in tokens and 'settings' in tokens) or ('configure' in tokens and 'update' in tokens):
+            return 'update_settings', []
+
         if any(word in tokens for word in ['want', 'need', 'like', 'looking']):
             if any(word in tokens for word in ['install', 'setup', 'deploy']):
                 return 'find_service', [preprocessed_query]
@@ -247,11 +296,25 @@ class IntentIdentifier:
                 # This is a more generic "I want X" request that might be service-related
                 return 'find_service', [preprocessed_query]
 
-        if ('deploy' in tokens or 'install' in tokens or 'setup' in tokens) and not ('docker' in tokens):
+        if ('deploy' in tokens or 'install' in tokens or 'setup' in tokens) and not ('docker' in tokens) and not ('update' in tokens):
             # Try to extract service ID
             service_match = re.search(r'(?:deploy|install|setup)\s+(?:service\s+)?(\w+)', preprocessed_query)
             vm_match = re.search(r'(?:on|to)\s+(?:vm|virtual\s+machine)\s+(\w+)', preprocessed_query)
             return 'deploy_service', [service_match.group(1) if service_match else None, vm_match.group(1) if vm_match else None]
+
+        # Simple update command
+        if ('update' in tokens or 'upgrade' in tokens) and not ('settings' in tokens or 'configuration' in tokens):
+            # Check for "update all" pattern
+            if 'all' in tokens:
+                return 'apply_updates', [None]
+            # Check for "update X" pattern
+            service_match = re.search(r'(?:update|upgrade)\s+(?:service\s+)?(\w+)', preprocessed_query)
+            if service_match:
+                return 'apply_updates', [service_match.group(1)]
+        
+        # Update status check
+        if ('status' in tokens or 'settings' in tokens) and 'update' in tokens:
+            return 'get_update_status', []
 
         # Handle contextual commands like "start it" or "check its status"
         if 'it' in tokens or 'its' in tokens:
@@ -261,6 +324,8 @@ class IntentIdentifier:
                 return 'stop_vm', [self.context['current_vm']]
             elif ('status' in tokens or 'check' in tokens) and self.context.get('current_vm'):
                 return 'vm_status', [self.context['current_vm']]
+            elif ('update' in tokens or 'upgrade' in tokens) and self.context.get('current_service'):
+                return 'apply_updates', [self.context['current_service']]
 
         # Handle contextual commands for Docker containers
         if self.context.get('current_container') and self.context.get('current_vm'):
@@ -279,6 +344,10 @@ class IntentIdentifier:
                 return 'stop_service', [self.context['current_service'], self.context['current_service_vm']]
             elif 'remove' in tokens or 'uninstall' in tokens or 'delete' in tokens:
                 return 'remove_service', [self.context['current_service'], self.context['current_service_vm']]
+            elif 'update' in tokens or 'upgrade' in tokens:
+                return 'apply_updates', [self.context['current_service']]
+            elif 'check' in tokens and 'update' in tokens:
+                return 'check_updates', [self.context['current_service']]
 
         # Default to help intent if no other intent is identified
         return 'help', []

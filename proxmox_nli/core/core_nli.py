@@ -11,9 +11,12 @@ from .base_nli import BaseNLI
 from .command_executor import CommandExecutor
 from .response_generator import ResponseGenerator
 from .service_handler import ServiceHandler
+from .user_manager import UserManager
 from ..nlu.nlu_engine import NLU_Engine
 from ..nlu.ollama_client import OllamaClient
 from ..nlu.huggingface_client import HuggingFaceClient
+from ..commands.update_command import UpdateCommand
+from ..services.update_manager import UpdateManager
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -49,6 +52,13 @@ class ProxmoxNLI(BaseNLI):
         self.command_executor = CommandExecutor(self)
         self.service_handler = ServiceHandler(self)
         self.user_manager = UserManager(self)
+        
+        # Initialize update management components
+        self.update_manager = UpdateManager(self.service_manager)
+        self.update_command = UpdateCommand(self)
+        
+        # Start automatic update checking (once per day by default)
+        self.update_manager.start_checking()
 
     def execute_intent(self, intent, args, entities):
         """Execute the identified intent"""
@@ -56,7 +66,8 @@ class ProxmoxNLI(BaseNLI):
         safe_intents = ['list_vms', 'list_containers', 'cluster_status', 'node_status', 
                        'storage_info', 'list_docker_containers', 'list_docker_images', 
                        'docker_container_logs', 'vm_status', 'help', 'list_available_services',
-                       'list_deployed_services', 'find_service', 'service_status']
+                       'list_deployed_services', 'find_service', 'service_status',
+                       'check_updates', 'list_updates', 'get_update_status']
         
         if self.require_confirmation and intent not in safe_intents:
             # Store command for later execution
@@ -72,9 +83,50 @@ class ProxmoxNLI(BaseNLI):
         if intent in ['list_available_services', 'list_deployed_services', 'find_service', 
                      'deploy_service', 'service_status', 'stop_service', 'remove_service']:
             return self.service_handler.handle_service_intent(intent, args, entities)
+        
+        # Handle update-related intents through update command
+        elif intent in ['check_updates', 'list_updates', 'apply_updates', 'update_settings', 'get_update_status']:
+            return self._handle_update_intent(intent, args, entities)
             
         # Handle other commands through command executor
         return self.command_executor._execute_command(intent, args, entities)
+
+    def _handle_update_intent(self, intent, args, entities):
+        """Handle update-related intents"""
+        if not self.update_command:
+            return {"success": False, "message": "Update command handler not available"}
+        
+        # Convert entities to arguments expected by UpdateCommand methods
+        command_args = {}
+        
+        # Extract service ID if specified
+        if 'SERVICE_ID' in entities:
+            command_args['service_id'] = entities['SERVICE_ID']
+        
+        # Handle specific update intents
+        if intent == 'check_updates':
+            return self.update_command.check_updates(command_args)
+        elif intent == 'list_updates':
+            return self.update_command.list_updates(command_args)
+        elif intent == 'apply_updates':
+            # Check if "all" flag is set
+            if 'ALL' in entities and entities['ALL']:
+                command_args['all'] = True
+            return self.update_command.apply_updates(command_args)
+        elif intent == 'update_settings':
+            # Extract settings from entities
+            if 'AUTO_CHECK' in entities:
+                command_args['auto_check'] = entities['AUTO_CHECK'].lower() == 'true'
+            if 'CHECK_INTERVAL' in entities:
+                try:
+                    command_args['check_interval'] = float(entities['CHECK_INTERVAL'])
+                except ValueError:
+                    pass
+            return self.update_command.update_settings(command_args)
+        elif intent == 'get_update_status':
+            return self.update_command.get_update_status()
+        
+        return {"success": False, "message": f"Unknown update intent: {intent}"}
 
     def confirm_command(self, confirmed=True):
         """Handle command confirmation"""
@@ -107,6 +159,7 @@ class ProxmoxNLI(BaseNLI):
             'deploy_service': f"Are you sure you want to deploy service {entities.get('SERVICE_ID')} to VM {entities.get('VM_ID')}?",
             'stop_service': f"Are you sure you want to stop service {entities.get('SERVICE_ID')} on VM {entities.get('VM_ID')}?",
             'remove_service': f"Are you sure you want to remove service {entities.get('SERVICE_ID')} from VM {entities.get('VM_ID')}?",
+            'apply_updates': f"Are you sure you want to apply updates to {entities.get('SERVICE_ID', 'all services')}?",
         }
         return messages.get(intent, "Are you sure you want to execute this command?") + "\nReply with 'yes' to confirm or 'no' to cancel."
 

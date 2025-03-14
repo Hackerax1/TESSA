@@ -33,7 +33,6 @@
   - [ ] Build predictive resource allocation based on usage patterns
   - [ ] Implement automatic VM/container migration based on server load
   - [ ] Add power management recommendations for energy efficiency
-  - [ ] Create machine learning models for workload prediction
   - [ ] Implement performance benchmarking for optimal placement decisions
 
 - [ ] **Expanded Service Catalog Integration:**
@@ -189,6 +188,7 @@
   - [ ] Create predictive maintenance alerts based on hardware performance data.
   - [ ] Develop personality growth for TESSA based on household usage patterns.
   - [ ] Implement "getting to know you" conversations to personalize experiences.
+  - [ ] Create machine learning models for workload prediction
 
 - [ ] **TESSA Persona Evolution:**
   - [ ] Create TESSA backstory and consistent world model.

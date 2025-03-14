@@ -1,443 +1,671 @@
 """
 Service dependency visualization for Proxmox NLI.
-Provides visualization of service dependencies and relationships.
+Provides tools to visualize service dependencies and relationships.
 """
 import logging
-import json
 import os
-from typing import Dict, List, Optional, Tuple, Set
+from typing import Dict, List, Optional, Any, Set
+import json
 import networkx as nx
-import matplotlib.pyplot as plt
-import matplotlib
-matplotlib.use('Agg')  # Use non-interactive backend
-from io import BytesIO
-import base64
 
 logger = logging.getLogger(__name__)
 
 class DependencyVisualizer:
-    """Visualizes service dependencies."""
+    """Visualizes service dependencies and relationships."""
     
-    def __init__(self, dependency_manager):
+    def __init__(self, service_manager, output_dir=None):
         """Initialize the dependency visualizer.
         
         Args:
-            dependency_manager: DependencyManager instance
+            service_manager: ServiceManager instance to interact with services
+            output_dir: Directory to save visualization files (defaults to a subdirectory)
         """
-        self.dependency_manager = dependency_manager
-        self.output_dir = os.path.join(os.path.dirname(__file__), 'data', 'visualizations')
+        self.service_manager = service_manager
+        
+        # Set output directory
+        if output_dir:
+            self.output_dir = output_dir
+        else:
+            self.output_dir = os.path.join(os.path.dirname(__file__), 'data', 'visualizations')
+            
         os.makedirs(self.output_dir, exist_ok=True)
         
-    def generate_dependency_graph(self, service_id: str = None, include_optional: bool = True, 
-                                 output_format: str = 'png', highlight_service: str = None) -> Dict:
-        """Generate a dependency graph for a service.
+    def generate_dependency_graph(self, include_undeployed=False) -> Dict[str, Any]:
+        """Generate a dependency graph of all services.
         
         Args:
-            service_id: ID of the service to generate graph for, or None for all services
-            include_optional: Whether to include optional dependencies
-            output_format: Output format ('png', 'svg', or 'base64')
-            highlight_service: Service ID to highlight in the graph
+            include_undeployed: Whether to include undeployed services from the catalog
             
         Returns:
-            Dictionary with graph information and path to generated image
+            Dictionary with graph data
         """
-        try:
-            # Build the dependency graph
-            if service_id:
-                # Generate graph for a specific service
-                dependency_tree = self.dependency_manager.get_dependency_tree(service_id)
-                graph = self._build_graph_from_tree(dependency_tree, include_optional, highlight_service)
-                title = f"Dependencies for {dependency_tree.get('name', service_id)}"
-            else:
-                # Generate graph for all services
-                graph = self.dependency_manager.build_dependency_graph()
-                
-                # Remove optional dependencies if requested
-                if not include_optional:
-                    edges_to_remove = [(u, v) for u, v, d in graph.edges(data=True) 
-                                     if d.get('optional', False)]
-                    graph.remove_edges_from(edges_to_remove)
-                    
-                title = "Complete Service Dependency Graph"
-            
-            # Check if graph is empty
-            if len(graph.nodes()) == 0:
-                return {
-                    "success": False,
-                    "message": "No dependencies found to visualize",
-                    "explanation": "The selected service has no dependencies, or no services exist in the catalog."
-                }
-            
-            # Generate the visualization
-            output_path = None
-            if output_format == 'base64':
-                image_data = self._draw_graph(graph, title, return_base64=True)
-                
-                return {
-                    "success": True,
-                    "image_data": image_data,
-                    "node_count": len(graph.nodes()),
-                    "edge_count": len(graph.edges())
-                }
-            else:
-                output_filename = f"dependencies_{service_id if service_id else 'all'}.{output_format}"
-                output_path = os.path.join(self.output_dir, output_filename)
-                self._draw_graph(graph, title, output_path=output_path)
-                
-                return {
-                    "success": True,
-                    "output_path": output_path,
-                    "node_count": len(graph.nodes()),
-                    "edge_count": len(graph.edges())
-                }
-                
-        except Exception as e:
-            logger.error(f"Error generating dependency graph: {str(e)}")
+        # Get list of services
+        deployed_services = self.service_manager.list_deployed_services()
+        if not deployed_services.get("success"):
             return {
                 "success": False,
-                "message": f"Failed to generate dependency graph: {str(e)}"
+                "message": "Failed to get deployed services",
+                "graph": None
             }
-    
-    def generate_service_map(self, services: List[str] = None, group_by: str = 'category',
-                           output_format: str = 'png') -> Dict:
-        """Generate a map of selected services.
+            
+        # Create graph
+        graph = {
+            "nodes": [],
+            "edges": []
+        }
         
-        Args:
-            services: List of service IDs to include, or None for all services
-            group_by: How to group services ('category', 'goal', or None)
-            output_format: Output format ('png', 'svg', or 'base64')
+        # Add deployed services to graph
+        services = deployed_services.get("services", [])
+        processed_service_ids = set()
+        
+        for service in services:
+            service_id = service.get("service_id")
+            if not service_id:
+                continue
+                
+            # Add node for service
+            graph["nodes"].append({
+                "id": service_id,
+                "label": service.get("name", service_id),
+                "status": service.get("status", "unknown"),
+                "type": "deployed",
+                "vm_id": service.get("vm_id")
+            })
             
-        Returns:
-            Dictionary with map information and path to generated image
-        """
+            processed_service_ids.add(service_id)
+            
+            # Check dependencies in service definition
+            service_def = self.service_manager.catalog.get_service(service_id)
+            if not service_def:
+                continue
+                
+            dependencies = service_def.get("dependencies", [])
+            for dep in dependencies:
+                # Add edge for dependency
+                graph["edges"].append({
+                    "source": service_id,
+                    "target": dep,
+                    "type": "depends_on"
+                })
+                
+                # Make sure dependency is in the graph
+                if dep not in processed_service_ids and include_undeployed:
+                    dep_def = self.service_manager.catalog.get_service(dep)
+                    if dep_def:
+                        graph["nodes"].append({
+                            "id": dep,
+                            "label": dep_def.get("name", dep),
+                            "status": "not_deployed",
+                            "type": "catalog",
+                            "vm_id": None
+                        })
+                        processed_service_ids.add(dep)
+        
+        # Find and add implicit dependencies (services deployed on same VM)
+        vm_to_services = {}
+        for service in services:
+            vm_id = service.get("vm_id")
+            service_id = service.get("service_id")
+            if vm_id and service_id:
+                if vm_id not in vm_to_services:
+                    vm_to_services[vm_id] = []
+                vm_to_services[vm_id].append(service_id)
+        
+        # Add implicit dependency edges for services on the same VM
+        for vm_id, service_ids in vm_to_services.items():
+            if len(service_ids) > 1:
+                for i in range(len(service_ids)):
+                    for j in range(i+1, len(service_ids)):
+                        # Add bidirectional co-location edges
+                        graph["edges"].append({
+                            "source": service_ids[i],
+                            "target": service_ids[j],
+                            "type": "co_located"
+                        })
+                        graph["edges"].append({
+                            "source": service_ids[j],
+                            "target": service_ids[i],
+                            "type": "co_located"
+                        })
+        
+        # Save graph to file
+        graph_path = os.path.join(self.output_dir, 'dependency_graph.json')
         try:
-            # Get all services if not specified
-            if services is None:
-                services = [s['id'] for s in 
-                           self.dependency_manager.service_catalog.get_all_services()]
-                
-            # Filter to only existing services
-            services = [s for s in services if 
-                       self.dependency_manager.service_catalog.get_service(s) is not None]
-                
-            if not services:
-                return {
-                    "success": False,
-                    "message": "No services found to visualize"
-                }
-                
-            # Create the graph
-            graph = nx.Graph()
-            
-            # Add nodes with attributes
-            for service_id in services:
-                service = self.dependency_manager.service_catalog.get_service(service_id)
-                if not service:
-                    continue
-                    
-                service_name = service.get('name', service_id)
-                category = service.get('category', 'Other')
-                
-                # Get goals if available
-                goals = []
-                for goal in service.get('user_goals', []):
-                    goals.append(goal['id'])
-                    
-                # Add to graph
-                graph.add_node(service_id, 
-                             name=service_name, 
-                             category=category,
-                             goals=goals)
-            
-            # Add edges for dependencies
-            for service_id in services:
-                dependencies = self.dependency_manager.service_catalog.get_service_dependencies(service_id)
-                for dep in dependencies:
-                    if dep['id'] in services:
-                        graph.add_edge(service_id, dep['id'], 
-                                     optional=not dep['required'],
-                                     weight=2 if dep['required'] else 1)
-            
-            # Define node colors based on grouping
-            node_colors = {}
-            node_groups = {}
-            
-            if group_by == 'category':
-                # Group by service category
-                categories = set()
-                for _, data in graph.nodes(data=True):
-                    categories.add(data.get('category', 'Other'))
-                
-                # Assign colors to categories
-                color_map = plt.cm.get_cmap('tab20', len(categories))
-                for i, category in enumerate(categories):
-                    node_groups[category] = []
-                    node_colors[category] = color_map(i)
-                
-                # Group nodes
-                for node, data in graph.nodes(data=True):
-                    category = data.get('category', 'Other')
-                    node_groups[category].append(node)
-                    
-            elif group_by == 'goal':
-                # Group by primary goal
-                goals = set()
-                for _, data in graph.nodes(data=True):
-                    if data.get('goals'):
-                        # Use first goal as primary
-                        goals.add(data.get('goals')[0])
-                    else:
-                        goals.add('Other')
-                
-                # Assign colors to goals
-                color_map = plt.cm.get_cmap('tab20', len(goals))
-                for i, goal in enumerate(goals):
-                    node_groups[goal] = []
-                    node_colors[goal] = color_map(i)
-                
-                # Group nodes
-                for node, data in graph.nodes(data=True):
-                    if data.get('goals'):
-                        goal = data.get('goals')[0]
-                    else:
-                        goal = 'Other'
-                    node_groups[goal].append(node)
-            else:
-                # No grouping, just assign random colors
-                for node in graph.nodes():
-                    group = node[0].upper()  # Use first letter as group
-                    if group not in node_groups:
-                        node_groups[group] = []
-                        node_colors[group] = plt.cm.tab20(hash(group) % 20)
-                    node_groups[group].append(node)
-            
-            # Generate title
-            if len(services) == len(self.dependency_manager.service_catalog.get_all_services()):
-                title = "Complete Service Map"
-            else:
-                title = f"Service Map ({len(services)} services)"
-                
-            # Generate the visualization
-            if output_format == 'base64':
-                image_data = self._draw_service_map(graph, title, node_colors, node_groups, return_base64=True)
-                
-                return {
-                    "success": True,
-                    "image_data": image_data,
-                    "service_count": len(graph.nodes()),
-                    "dependency_count": len(graph.edges())
-                }
-            else:
-                output_filename = f"service_map_{group_by}.{output_format}"
-                output_path = os.path.join(self.output_dir, output_filename)
-                self._draw_service_map(graph, title, node_colors, node_groups, output_path=output_path)
-                
-                return {
-                    "success": True,
-                    "output_path": output_path,
-                    "service_count": len(graph.nodes()),
-                    "dependency_count": len(graph.edges())
-                }
-                
+            with open(graph_path, 'w') as f:
+                json.dump(graph, f, indent=2)
         except Exception as e:
-            logger.error(f"Error generating service map: {str(e)}")
+            logger.error(f"Error saving dependency graph: {str(e)}")
+        
+        return {
+            "success": True,
+            "graph": graph,
+            "graph_path": graph_path,
+            "services_count": len(processed_service_ids)
+        }
+    
+    def analyze_dependencies(self) -> Dict[str, Any]:
+        """Analyze service dependencies to find potential issues.
+        
+        Returns:
+            Dictionary with analysis results
+        """
+        # Generate dependency graph first
+        graph_result = self.generate_dependency_graph(include_undeployed=True)
+        if not graph_result.get("success"):
+            return graph_result
+            
+        graph = graph_result["graph"]
+        
+        # Create NetworkX graph for analysis
+        G = nx.DiGraph()
+        
+        # Add nodes
+        for node in graph["nodes"]:
+            G.add_node(node["id"], **node)
+            
+        # Add edges
+        for edge in graph["edges"]:
+            if edge["type"] == "depends_on":  # Only consider actual dependencies
+                G.add_edge(edge["source"], edge["target"], type=edge["type"])
+        
+        analysis = {
+            "missing_dependencies": [],
+            "circular_dependencies": [],
+            "critical_services": [],
+            "isolated_services": []
+        }
+        
+        # Check for missing dependencies (dependencies that aren't deployed)
+        deployed_service_ids = {n["id"] for n in graph["nodes"] if n["type"] == "deployed"}
+        for edge in graph["edges"]:
+            if edge["type"] == "depends_on" and edge["target"] not in deployed_service_ids:
+                service_node = next((n for n in graph["nodes"] if n["id"] == edge["source"]), None)
+                dependency_node = next((n for n in graph["nodes"] if n["id"] == edge["target"]), None)
+                
+                if service_node and dependency_node:
+                    analysis["missing_dependencies"].append({
+                        "service": service_node["label"],
+                        "service_id": edge["source"],
+                        "dependency": dependency_node["label"],
+                        "dependency_id": edge["target"]
+                    })
+        
+        # Check for circular dependencies
+        try:
+            cycles = list(nx.simple_cycles(G))
+            for cycle in cycles:
+                if len(cycle) > 1:  # Ignore self-loops
+                    cycle_services = []
+                    for service_id in cycle:
+                        service_node = next((n for n in graph["nodes"] if n["id"] == service_id), None)
+                        if service_node:
+                            cycle_services.append({
+                                "name": service_node["label"],
+                                "id": service_id
+                            })
+                    
+                    analysis["circular_dependencies"].append({
+                        "services": cycle_services,
+                        "length": len(cycle)
+                    })
+        except Exception as e:
+            logger.error(f"Error detecting circular dependencies: {str(e)}")
+        
+        # Find critical services (many dependents)
+        in_degree = dict(G.in_degree())
+        critical_threshold = 2  # Services with at least this many dependents
+        for node_id, degree in in_degree.items():
+            if degree >= critical_threshold:
+                service_node = next((n for n in graph["nodes"] if n["id"] == node_id), None)
+                if service_node:
+                    dependents = [G.nodes[pred]["label"] for pred in G.predecessors(node_id)]
+                    analysis["critical_services"].append({
+                        "service": service_node["label"],
+                        "service_id": node_id,
+                        "dependents_count": degree,
+                        "dependents": dependents
+                    })
+        
+        # Find isolated services (no dependencies and not depended upon)
+        for node in graph["nodes"]:
+            if node["type"] == "deployed" and node["id"] not in G:
+                analysis["isolated_services"].append({
+                    "service": node["label"],
+                    "service_id": node["id"]
+                })
+                
+        return {
+            "success": True,
+            "analysis": analysis
+        }
+        
+    def generate_dependency_report(self) -> Dict[str, Any]:
+        """Generate a natural language report on service dependencies.
+        
+        Returns:
+            Report dictionary with natural language dependency assessment
+        """
+        # Generate analysis first
+        analysis_result = self.analyze_dependencies()
+        if not analysis_result.get("success"):
             return {
                 "success": False,
-                "message": f"Failed to generate service map: {str(e)}"
+                "message": analysis_result.get("message", "Failed to analyze dependencies"),
+                "report": "Unable to generate a dependency report at this time."
+            }
+            
+        analysis = analysis_result["analysis"]
+        graph_result = self.generate_dependency_graph(include_undeployed=True)
+        graph = graph_result.get("graph", {})
+        nodes = graph.get("nodes", [])
+        
+        # Build report sections
+        sections = []
+        
+        # Overview section
+        deployed_count = len([n for n in nodes if n["type"] == "deployed"])
+        total_count = len(nodes)
+        
+        overview = "## Service Dependency Report\n\n"
+        overview += f"You have {deployed_count} deployed services"
+        if total_count > deployed_count:
+            overview += f" with {total_count - deployed_count} additional service dependencies from the catalog"
+        overview += ".\n\n"
+        
+        sections.append(overview)
+        
+        # Missing dependencies section
+        missing_deps = analysis.get("missing_dependencies", [])
+        if missing_deps:
+            missing_section = "### Missing Dependencies\n\n"
+            missing_section += f"There {'is' if len(missing_deps) == 1 else 'are'} {len(missing_deps)} service{'s' if len(missing_deps) != 1 else ''} with missing dependencies:\n\n"
+            
+            for dep in missing_deps:
+                missing_section += f"- **{dep['service']}** depends on **{dep['dependency']}**, which is not deployed\n"
+                
+            missing_section += "\nMissing dependencies may lead to service malfunctions. Consider deploying these dependencies.\n\n"
+            sections.append(missing_section)
+        
+        # Circular dependencies section
+        circular_deps = analysis.get("circular_dependencies", [])
+        if circular_deps:
+            circular_section = "### Circular Dependencies\n\n"
+            circular_section += f"Found {len(circular_deps)} circular {'dependency' if len(circular_deps) == 1 else 'dependencies'}:\n\n"
+            
+            for i, cycle in enumerate(circular_deps, 1):
+                cycle_names = [s['name'] for s in cycle['services']]
+                circular_section += f"{i}. {' → '.join(cycle_names)} → {cycle_names[0]}\n"
+                
+            circular_section += "\nCircular dependencies can cause deployment issues and service failures. Consider refactoring your architecture.\n\n"
+            sections.append(circular_section)
+        
+        # Critical services section
+        critical_services = analysis.get("critical_services", [])
+        if critical_services:
+            critical_section = "### Critical Services\n\n"
+            critical_section += f"Found {len(critical_services)} critical {'service' if len(critical_services) == 1 else 'services'} that other services depend on:\n\n"
+            
+            # Sort by number of dependents
+            critical_services.sort(key=lambda s: s['dependents_count'], reverse=True)
+            
+            for service in critical_services:
+                critical_section += f"- **{service['service']}** has {service['dependents_count']} {'dependent' if service['dependents_count'] == 1 else 'dependents'}"
+                if len(service['dependents']) <= 3:
+                    critical_section += f": {', '.join(service['dependents'])}"
+                critical_section += "\n"
+                
+            critical_section += "\nThese services are critical to your infrastructure. Ensure they have proper monitoring and high availability.\n\n"
+            sections.append(critical_section)
+        
+        # Isolated services section
+        isolated_services = analysis.get("isolated_services", [])
+        if isolated_services:
+            isolated_section = "### Isolated Services\n\n"
+            isolated_section += f"Found {len(isolated_services)} isolated {'service' if len(isolated_services) == 1 else 'services'} without dependencies:\n\n"
+            
+            for service in isolated_services:
+                isolated_section += f"- **{service['service']}**\n"
+                
+            isolated_section += "\nThese services operate independently. They may be stand-alone applications or may need integration with other services.\n\n"
+            sections.append(isolated_section)
+            
+        # Add recommendations section
+        rec_section = "### Recommendations\n\n"
+        recommendations = []
+        
+        if missing_deps:
+            recommendations.append("Deploy missing dependencies to ensure proper service operation")
+            
+        if circular_deps:
+            recommendations.append("Refactor services to eliminate circular dependencies")
+            
+        if critical_services:
+            recommendations.append("Implement high availability for critical services")
+            recommendations.append("Set up priority monitoring for services with many dependents")
+            
+        if isolated_services and len(isolated_services) > deployed_count / 2:
+            recommendations.append("Consider integrating isolated services to improve system cohesion")
+            
+        if recommendations:
+            for i, rec in enumerate(recommendations, 1):
+                rec_section += f"{i}. {rec}\n"
+        else:
+            rec_section += "Your service dependencies look good! No specific recommendations at this time.\n"
+            
+        sections.append(rec_section)
+        
+        # Combine all sections
+        full_report = '\n'.join(sections)
+        
+        return {
+            "success": True,
+            "report": full_report,
+            "analysis": analysis
+        }
+    
+    def generate_dot_graph(self, output_file=None) -> Dict[str, Any]:
+        """Generate a DOT format graph for visualization with Graphviz.
+        
+        Args:
+            output_file: Optional file path to save the DOT file (defaults to 'service_dependencies.dot')
+            
+        Returns:
+            Dictionary with DOT format graph and file path
+        """
+        # Generate dependency graph first
+        graph_result = self.generate_dependency_graph(include_undeployed=True)
+        if not graph_result.get("success"):
+            return graph_result
+            
+        graph = graph_result["graph"]
+        
+        # Create DOT format graph
+        dot_lines = ['digraph ServiceDependencies {']
+        dot_lines.append('  rankdir="LR";')  # Left to right layout
+        dot_lines.append('  node [shape=box, style=filled];')
+        dot_lines.append('')
+        
+        # Add nodes with styling
+        for node in graph["nodes"]:
+            node_id = node["id"]
+            label = node["label"]
+            status = node["status"]
+            node_type = node["type"]
+            
+            # Set node style based on type and status
+            if node_type == "deployed":
+                if status == "running" or "up" in status.lower():
+                    fillcolor = "palegreen"
+                elif "error" in status.lower() or "down" in status.lower() or status == "not running":
+                    fillcolor = "lightcoral"
+                else:
+                    fillcolor = "lightyellow"
+            else:
+                fillcolor = "lightgray"  # Undeployed services
+                
+            dot_lines.append(f'  "{node_id}" [label="{label}", fillcolor="{fillcolor}"];')
+            
+        dot_lines.append('')
+        
+        # Add edges
+        for edge in graph["edges"]:
+            source = edge["source"]
+            target = edge["target"]
+            edge_type = edge["type"]
+            
+            # Style depends_on and co_located edges differently
+            if edge_type == "depends_on":
+                dot_lines.append(f'  "{source}" -> "{target}" [color="black", penwidth=1.0];')
+            elif edge_type == "co_located":
+                dot_lines.append(f'  "{source}" -> "{target}" [color="blue", style="dashed", dir=none, constraint=false];')
+                
+        # Close graph
+        dot_lines.append('}')
+        dot_content = '\n'.join(dot_lines)
+        
+        # Save DOT file
+        if not output_file:
+            output_file = os.path.join(self.output_dir, 'service_dependencies.dot')
+            
+        try:
+            with open(output_file, 'w') as f:
+                f.write(dot_content)
+                
+            return {
+                "success": True,
+                "dot_content": dot_content,
+                "file_path": output_file,
+                "message": f"DOT graph saved to {output_file}"
+            }
+        except Exception as e:
+            logger.error(f"Error saving DOT graph: {str(e)}")
+            return {
+                "success": False,
+                "message": f"Error saving DOT graph: {str(e)}",
+                "dot_content": dot_content
             }
     
-    def _build_graph_from_tree(self, dependency_tree: Dict, include_optional: bool = True,
-                             highlight_service: str = None) -> nx.DiGraph:
-        """Build a NetworkX graph from a dependency tree.
+    def generate_mermaid_graph(self, output_file=None) -> Dict[str, Any]:
+        """Generate a Mermaid format graph for visualization.
         
         Args:
-            dependency_tree: Dependency tree dictionary
-            include_optional: Whether to include optional dependencies
-            highlight_service: Service ID to highlight
+            output_file: Optional file path to save the Mermaid file (defaults to 'service_dependencies.mmd')
             
         Returns:
-            NetworkX DiGraph instance
+            Dictionary with Mermaid format graph and file path
         """
-        graph = nx.DiGraph()
-        
-        # Add the root service
-        root_id = dependency_tree.get('id')
-        root_name = dependency_tree.get('name', root_id)
-        graph.add_node(root_id, name=root_name, 
-                     highlight=(root_id == highlight_service))
-        
-        # Process dependencies recursively
-        self._process_dependencies(graph, root_id, dependency_tree.get('dependencies', []), 
-                               include_optional, highlight_service, processed=set())
-        
-        return graph
-    
-    def _process_dependencies(self, graph: nx.DiGraph, parent_id: str, dependencies: List[Dict],
-                           include_optional: bool, highlight_service: str = None,
-                           processed: Set[str] = None):
-        """Process dependencies recursively.
-        
-        Args:
-            graph: NetworkX graph to add nodes and edges to
-            parent_id: ID of the parent service
-            dependencies: List of dependency dictionaries
-            include_optional: Whether to include optional dependencies
-            highlight_service: Service ID to highlight
-            processed: Set of already processed service IDs
-        """
-        if processed is None:
-            processed = set()
-        
-        for dep in dependencies:
-            dep_id = dep.get('id')
-            dep_name = dep.get('name', dep_id)
-            required = dep.get('required', True)
+        # Generate dependency graph first
+        graph_result = self.generate_dependency_graph(include_undeployed=True)
+        if not graph_result.get("success"):
+            return graph_result
             
-            # Skip optional dependencies if not included
-            if not include_optional and not required:
-                continue
-                
-            # Avoid cycles
-            if dep_id in processed:
-                continue
-                
-            # Add to processed set
-            processed.add(dep_id)
-                
-            # Add node if not already in graph
-            if dep_id not in graph:
-                graph.add_node(dep_id, name=dep_name, 
-                             highlight=(dep_id == highlight_service))
-                
-            # Add edge
-            graph.add_edge(parent_id, dep_id, optional=not required,
-                         weight=2 if required else 1)
+        graph = graph_result["graph"]
+        
+        # Create Mermaid format graph
+        mmd_lines = ['graph TD']  # Top-down layout
+        
+        # Add nodes with styling
+        for node in graph["nodes"]:
+            node_id = node["id"].replace("-", "_")  # Mermaid has issues with hyphens in IDs
+            label = node["label"]
+            status = node["status"]
+            node_type = node["type"]
             
-            # Process nested dependencies if present
-            if 'dependencies' in dep:
-                self._process_dependencies(graph, dep_id, dep.get('dependencies', []), 
-                                       include_optional, highlight_service, processed)
-    
-    def _draw_graph(self, graph: nx.Graph, title: str, output_path: str = None,
-                  return_base64: bool = False) -> Optional[str]:
-        """Draw a NetworkX graph.
-        
-        Args:
-            graph: NetworkX graph to draw
-            title: Title for the graph
-            output_path: Path to save the image to, or None
-            return_base64: Whether to return base64-encoded image data
-            
-        Returns:
-            Base64-encoded image data if return_base64 is True, otherwise None
-        """
-        plt.figure(figsize=(12, 8))
-        plt.title(title, fontsize=16)
-        
-        # Get position layout
-        pos = nx.spring_layout(graph, k=0.3, iterations=50)
-        
-        # Draw nodes
-        node_colors = []
-        for node in graph.nodes():
-            if graph.nodes[node].get('highlight', False):
-                node_colors.append('red')
+            # Set node style based on type and status
+            if node_type == "deployed":
+                if status == "running" or "up" in status.lower():
+                    style = "fill:#d0f0c0"  # Light green
+                elif "error" in status.lower() or "down" in status.lower() or status == "not running":
+                    style = "fill:#ffcccb"  # Light red
+                else:
+                    style = "fill:#ffffcc"  # Light yellow
             else:
-                node_colors.append('lightblue')
+                style = "fill:#f0f0f0"  # Light gray for undeployed
                 
-        nx.draw_networkx_nodes(graph, pos, node_size=1500, node_color=node_colors, alpha=0.8)
+            mmd_lines.append(f'    {node_id}["{label}"]:::{"deployed" if node_type == "deployed" else "undeployed"} style "{style}"')
+            
+        # Add class definitions
+        mmd_lines.append('    classDef deployed stroke:#009900,stroke-width:2px')
+        mmd_lines.append('    classDef undeployed stroke:#999999,stroke-width:1px,stroke-dasharray: 5 5')
         
-        # Draw edges with different styles for optional vs required
-        required_edges = [(u, v) for u, v, d in graph.edges(data=True) 
-                        if not d.get('optional', False)]
-        optional_edges = [(u, v) for u, v, d in graph.edges(data=True) 
-                        if d.get('optional', False)]
+        # Add edges
+        for edge in graph["edges"]:
+            source = edge["source"].replace("-", "_")
+            target = edge["target"].replace("-", "_")
+            edge_type = edge["type"]
+            
+            if edge_type == "depends_on":
+                mmd_lines.append(f'    {source} --> {target}')
+            elif edge_type == "co_located":
+                mmd_lines.append(f'    {source} -.- {target}')
+                
+        mmd_content = '\n'.join(mmd_lines)
         
-        nx.draw_networkx_edges(graph, pos, edgelist=required_edges, width=2, arrowsize=20)
-        nx.draw_networkx_edges(graph, pos, edgelist=optional_edges, width=1.5, 
-                             style='dashed', alpha=0.7, arrowsize=15)
-        
-        # Draw labels with service names
-        labels = {node: data.get('name', node) for node, data in graph.nodes(data=True)}
-        nx.draw_networkx_labels(graph, pos, labels=labels, font_size=10, 
-                              font_family='sans-serif')
-        
-        # Add legend
-        plt.plot([0], [0], color='black', linestyle='-', label='Required Dependency')
-        plt.plot([0], [0], color='black', linestyle='--', label='Optional Dependency')
-        if any(data.get('highlight', False) for _, data in graph.nodes(data=True)):
-            plt.scatter([0], [0], color='red', s=100, label='Highlighted Service')
-        plt.legend(loc='upper right', frameon=True, facecolor='white', edgecolor='gray')
-        
-        plt.axis('off')  # Turn off the axis
-        
-        if return_base64:
-            # Return as base64 string
-            buf = BytesIO()
-            plt.savefig(buf, format='png', bbox_inches='tight', dpi=300)
-            buf.seek(0)
-            img_base64 = base64.b64encode(buf.getvalue()).decode('utf-8')
-            plt.close()
-            return img_base64
-        elif output_path:
-            # Save to file
-            plt.savefig(output_path, bbox_inches='tight', dpi=300)
-            plt.close()
-            return None
+        # Save Mermaid file
+        if not output_file:
+            output_file = os.path.join(self.output_dir, 'service_dependencies.mmd')
+            
+        try:
+            with open(output_file, 'w') as f:
+                f.write(mmd_content)
+                
+            return {
+                "success": True,
+                "mermaid_content": mmd_content,
+                "file_path": output_file,
+                "message": f"Mermaid graph saved to {output_file}"
+            }
+        except Exception as e:
+            logger.error(f"Error saving Mermaid graph: {str(e)}")
+            return {
+                "success": False,
+                "message": f"Error saving Mermaid graph: {str(e)}",
+                "mermaid_content": mmd_content
+            }
     
-    def _draw_service_map(self, graph: nx.Graph, title: str, node_colors: Dict,
-                       node_groups: Dict, output_path: str = None,
-                       return_base64: bool = False) -> Optional[str]:
-        """Draw a service map with grouped nodes.
+    def get_service_impact(self, service_id: str) -> Dict[str, Any]:
+        """Analyze the impact of a service failure.
         
         Args:
-            graph: NetworkX graph to draw
-            title: Title for the graph
-            node_colors: Dictionary mapping groups to colors
-            node_groups: Dictionary mapping groups to lists of nodes
-            output_path: Path to save the image to, or None
-            return_base64: Whether to return base64-encoded image data
+            service_id: ID of the service to analyze impact for
             
         Returns:
-            Base64-encoded image data if return_base64 is True, otherwise None
+            Dictionary with impact analysis
         """
-        plt.figure(figsize=(14, 10))
-        plt.title(title, fontsize=16)
+        # Generate dependency graph first
+        graph_result = self.generate_dependency_graph(include_undeployed=True)
+        if not graph_result.get("success"):
+            return graph_result
+            
+        graph = graph_result["graph"]
         
-        # Get position layout
-        pos = nx.spring_layout(graph, k=0.4, iterations=100)
+        # Create NetworkX graph for analysis
+        G = nx.DiGraph()
         
-        # Draw edges
-        nx.draw_networkx_edges(graph, pos, width=1, alpha=0.5, edge_color='gray')
+        # Add nodes
+        for node in graph["nodes"]:
+            G.add_node(node["id"], **node)
+            
+        # Add edges (reversed direction to find dependents)
+        for edge in graph["edges"]:
+            if edge["type"] == "depends_on":
+                G.add_edge(edge["target"], edge["source"], type=edge["type"])
         
-        # Draw nodes with grouped colors
-        for group, nodes in node_groups.items():
-            if not nodes:
-                continue
-            nx.draw_networkx_nodes(graph, pos, nodelist=nodes,
-                                 node_color=[node_colors[group]] * len(nodes),
-                                 node_size=800, alpha=0.8, label=group)
+        # Check if service exists in graph
+        if service_id not in G:
+            return {
+                "success": False,
+                "message": f"Service '{service_id}' not found in dependency graph",
+                "impact": None
+            }
         
-        # Draw labels with service names
-        labels = {node: data.get('name', node) for node, data in graph.nodes(data=True)}
-        nx.draw_networkx_labels(graph, pos, labels=labels, font_size=9, 
-                              font_family='sans-serif')
+        # Find all dependents (direct and indirect)
+        try:
+            descendants = nx.descendants(G, service_id)
+            descendants = list(descendants)
+        except Exception as e:
+            logger.error(f"Error finding service dependents: {str(e)}")
+            descendants = []
+            
+        # If service has no dependents
+        if not descendants:
+            return {
+                "success": True,
+                "impacted_services": [],
+                "impact_level": "none",
+                "message": f"Service '{service_id}' has no dependents. If it fails, no other services will be affected."
+            }
+            
+        # Get details of impacted services
+        impacted_services = []
+        for desc_id in descendants:
+            node = G.nodes[desc_id]
+            impacted_services.append({
+                "id": desc_id,
+                "name": node.get("label", desc_id),
+                "status": node.get("status", "unknown"),
+                "type": node.get("type", "unknown")
+            })
+            
+        # Determine impact level based on number of dependents
+        if len(impacted_services) > 3:
+            impact_level = "critical"
+        elif len(impacted_services) > 1:
+            impact_level = "significant" 
+        else:
+            impact_level = "minimal"
+            
+        return {
+            "success": True,
+            "service_id": service_id,
+            "service_name": next((n["label"] for n in graph["nodes"] if n["id"] == service_id), service_id),
+            "impacted_services": impacted_services,
+            "impact_count": len(impacted_services),
+            "impact_level": impact_level
+        }
         
-        plt.legend(loc='upper right', frameon=True, facecolor='white', edgecolor='gray',
-                 bbox_to_anchor=(1.15, 1))
+    def generate_impact_report(self, service_id: str) -> Dict[str, Any]:
+        """Generate a natural language report on the impact of a service failure.
         
-        plt.axis('off')  # Turn off the axis
+        Args:
+            service_id: ID of the service to analyze impact for
+            
+        Returns:
+            Dictionary with natural language impact report
+        """
+        # Get impact analysis
+        impact_result = self.get_service_impact(service_id)
+        if not impact_result.get("success"):
+            return {
+                "success": False,
+                "message": impact_result.get("message", f"Failed to analyze impact for '{service_id}'"),
+                "report": f"Unable to generate an impact report for {service_id}."
+            }
+            
+        service_name = impact_result["service_name"]
+        impacted_services = impact_result["impacted_services"]
+        impact_level = impact_result["impact_level"]
         
-        if return_base64:
-            # Return as base64 string
-            buf = BytesIO()
-            plt.savefig(buf, format='png', bbox_inches='tight', dpi=300)
-            buf.seek(0)
-            img_base64 = base64.b64encode(buf.getvalue()).decode('utf-8')
-            plt.close()
-            return img_base64
-        elif output_path:
-            # Save to file
-            plt.savefig(output_path, bbox_inches='tight', dpi=300)
-            plt.close()
-            return None
+        # Build report
+        report = f"## Service Impact Analysis: {service_name}\n\n"
+        
+        if not impacted_services:
+            report += f"The {service_name} service does not have any dependents. If it fails, no other services will be directly affected.\n\n"
+            report += "This service can be safely restarted or maintained without disrupting other services."
+        else:
+            report += f"If the {service_name} service fails, it will impact {len(impacted_services)} other {'service' if len(impacted_services) == 1 else 'services'}.\n\n"
+            
+            # Add impact level description
+            if impact_level == "critical":
+                report += f"**Impact Level: Critical** - A failure of {service_name} would have widespread effects on your infrastructure.\n\n"
+            elif impact_level == "significant":
+                report += f"**Impact Level: Significant** - Multiple services depend on {service_name} and would be affected by its failure.\n\n"
+            else:
+                report += f"**Impact Level: Minimal** - Only a small number of services would be affected.\n\n"
+                
+            # List affected services
+            report += "### Affected Services\n\n"
+            for service in impacted_services:
+                report += f"- **{service['name']}** ({service['status']})\n"
+                
+            # Add recommendations
+            report += "\n### Recommendations\n\n"
+            
+            if impact_level == "critical":
+                report += "1. Implement high availability for this critical service\n"
+                report += "2. Schedule maintenance during low-usage periods\n"
+                report += "3. Develop a failure mitigation plan\n"
+                report += "4. Consider redesigning dependencies to reduce the impact of failure\n"
+            elif impact_level == "significant":
+                report += "1. Monitor this service closely\n"
+                report += "2. Schedule maintenance carefully\n"
+                report += "3. Test failure scenarios to ensure proper recovery\n"
+            else:
+                report += "1. Standard maintenance procedures should be sufficient\n"
+                report += "2. Notify the owners of affected services before performing maintenance\n"
+            
+        return {
+            "success": True,
+            "report": report,
+            "impact": impact_result
+        }
