@@ -18,6 +18,13 @@ class ProxmoxNLI {
         this.personalityEnabled = true;
         this.personalityLevel = 0.2; // Default 20%
         
+        // Add properties for command history
+        this.commandHistory = [];
+        this.favoriteCommands = [];
+        
+        // Add property for notification preferences
+        this.notificationPreferences = [];
+        
         // Initialize UI
         this.initializeEventListeners();
         this.setupSocketHandlers();
@@ -182,6 +189,45 @@ class ProxmoxNLI {
                 this.updateCloudServicesOptions();
             });
         });
+
+        // Add event listener for command history tab
+        const commandHistoryTab = document.getElementById('command-history-tab');
+        if (commandHistoryTab) {
+            commandHistoryTab.addEventListener('shown.bs.tab', () => {
+                this.loadCommandHistory();
+            });
+        }
+
+        // Add event listener for favorite commands tab
+        const favoriteCommandsTab = document.getElementById('favorite-commands-tab');
+        if (favoriteCommandsTab) {
+            favoriteCommandsTab.addEventListener('shown.bs.tab', () => {
+                this.loadFavoriteCommands();
+            });
+        }
+        
+        // Add event listener for notification preferences tab
+        const notificationPrefTab = document.getElementById('notification-pref-tab');
+        if (notificationPrefTab) {
+            notificationPrefTab.addEventListener('shown.bs.tab', () => {
+                this.loadNotificationPreferences();
+            });
+        }
+        
+        // Add event listeners for notification preferences buttons
+        const initNotificationPrefsBtn = document.getElementById('initialize-notification-prefs');
+        if (initNotificationPrefsBtn) {
+            initNotificationPrefsBtn.addEventListener('click', () => {
+                this.initializeNotificationPreferences();
+            });
+        }
+        
+        const saveNotificationPrefsBtn = document.getElementById('save-notification-prefs');
+        if (saveNotificationPrefsBtn) {
+            saveNotificationPrefsBtn.addEventListener('click', () => {
+                this.saveNotificationPreferences();
+            });
+        }
     }
 
     deployServices() {
@@ -1086,9 +1132,538 @@ class ProxmoxNLI {
             });
     }
 
+    // Add new methods for command history functionality
+    async loadCommandHistory() {
+        const commandHistoryList = document.getElementById('command-history-list');
+        if (!commandHistoryList) return;
+        
+        try {
+            // Get current user ID (in a real app, this would come from authentication)
+            const userId = localStorage.getItem('user_id') || 'default_user';
+            
+            const response = await this.fetchWithAuth(`/command-history/${userId}`);
+            const data = await response.json();
+            
+            if (data.success && data.history) {
+                this.commandHistory = data.history;
+                this.renderCommandHistory();
+            } else {
+                commandHistoryList.innerHTML = `
+                    <div class="alert alert-warning">
+                        Failed to load command history: ${data.message || 'Unknown error'}
+                    </div>`;
+            }
+        } catch (error) {
+            console.error('Error loading command history:', error);
+            commandHistoryList.innerHTML = `
+                <div class="alert alert-danger">
+                    Error loading command history: ${error.message}
+                </div>`;
+        }
+    }
+    
+    async loadFavoriteCommands() {
+        const favoriteCommandsList = document.getElementById('favorite-commands-list');
+        if (!favoriteCommandsList) return;
+        
+        try {
+            // Get current user ID (in a real app, this would come from authentication)
+            const userId = localStorage.getItem('user_id') || 'default_user';
+            
+            const response = await this.fetchWithAuth(`/favorite-commands/${userId}`);
+            const data = await response.json();
+            
+            if (data.success && data.commands) {
+                this.favoriteCommands = data.commands;
+                this.renderFavoriteCommands();
+            } else {
+                favoriteCommandsList.innerHTML = `
+                    <div class="alert alert-warning">
+                        Failed to load favorite commands: ${data.message || 'Unknown error'}
+                    </div>`;
+            }
+        } catch (error) {
+            console.error('Error loading favorite commands:', error);
+            favoriteCommandsList.innerHTML = `
+                <div class="alert alert-danger">
+                    Error loading favorite commands: ${error.message}
+                </div>`;
+        }
+    }
+    
+    renderCommandHistory() {
+        const commandHistoryList = document.getElementById('command-history-list');
+        if (!commandHistoryList || !this.commandHistory.length) {
+            commandHistoryList.innerHTML = '<p class="text-muted">No command history available.</p>';
+            return;
+        }
+        
+        let html = '<div class="list-group">';
+        
+        this.commandHistory.forEach(item => {
+            const timestamp = new Date(item.timestamp).toLocaleString();
+            const statusClass = item.success ? 'text-success' : 'text-danger';
+            const statusIcon = item.success ? 'check-circle-fill' : 'x-circle-fill';
+            const entitiesText = item.entities ? 
+                JSON.stringify(item.entities).substring(0, 50) : '';
+            
+            html += `
+                <div class="list-group-item">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h6 class="mb-1">${item.command}</h6>
+                        <small class="${statusClass}"><i class="bi bi-${statusIcon}"></i></small>
+                    </div>
+                    <p class="mb-1">
+                        <small class="text-muted">Intent: ${item.intent || 'Unknown'}</small>
+                    </p>
+                    <div class="d-flex justify-content-between">
+                        <small class="text-muted">${timestamp}</small>
+                        <div>
+                            <button class="btn btn-sm btn-primary" 
+                                    onclick="window.proxyApp.rerunCommand('${item.command.replace(/'/g, "\\'")}')">
+                                <i class="bi bi-arrow-repeat"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-primary" 
+                                    onclick="window.proxyApp.addToFavorites('${item.command.replace(/'/g, "\\'")}')">
+                                <i class="bi bi-star"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        html += `
+            <div class="mt-3 text-center">
+                <button class="btn btn-sm btn-danger" 
+                        onclick="window.proxyApp.clearCommandHistory()">
+                    <i class="bi bi-trash"></i> Clear History
+                </button>
+            </div>
+        `;
+        
+        commandHistoryList.innerHTML = html;
+    }
+    
+    renderFavoriteCommands() {
+        const favoriteCommandsList = document.getElementById('favorite-commands-list');
+        if (!favoriteCommandsList || !this.favoriteCommands.length) {
+            favoriteCommandsList.innerHTML = '<p class="text-muted">No favorite commands saved.</p>';
+            return;
+        }
+        
+        let html = '<div class="list-group">';
+        
+        this.favoriteCommands.forEach(item => {
+            const timestamp = new Date(item.created_at).toLocaleString();
+            
+            html += `
+                <div class="list-group-item">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h6 class="mb-1">${item.command_text}</h6>
+                        <small class="text-muted">${timestamp}</small>
+                    </div>
+                    <p class="mb-1">
+                        <small>${item.description || ''}</small>
+                    </p>
+                    <div class="text-end">
+                        <button class="btn btn-sm btn-primary" 
+                                onclick="window.proxyApp.rerunCommand('${item.command_text.replace(/'/g, "\\'")}')">
+                            <i class="bi bi-arrow-repeat"></i> Run
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" 
+                                onclick="window.proxyApp.removeFavoriteCommand(${item.id})">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        favoriteCommandsList.innerHTML = html;
+    }
+    
+    async rerunCommand(command) {
+        this.userInput.value = command;
+        this.chatForm.dispatchEvent(new Event('submit'));
+    }
+    
+    async addToFavorites(command) {
+        try {
+            // Get current user ID (in a real app, this would come from authentication)
+            const userId = localStorage.getItem('user_id') || 'default_user';
+            
+            // Ask for a description
+            const description = prompt('Add a description for this command (optional):');
+            
+            const response = await this.fetchWithAuth(`/favorite-commands/${userId}`, {
+                method: 'POST',
+                body: JSON.stringify({ 
+                    command_text: command,
+                    description: description
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                this.addMessage('Command added to favorites.', 'system');
+                this.loadFavoriteCommands();
+            } else {
+                this.addMessage(`Failed to add command to favorites: ${data.message}`, 'system');
+            }
+        } catch (error) {
+            console.error('Error adding to favorites:', error);
+            this.addMessage(`Error adding to favorites: ${error.message}`, 'system');
+        }
+    }
+    
+    async removeFavoriteCommand(commandId) {
+        try {
+            // Get current user ID (in a real app, this would come from authentication)
+            const userId = localStorage.getItem('user_id') || 'default_user';
+            
+            const response = await this.fetchWithAuth(`/favorite-commands/${userId}/${commandId}`, {
+                method: 'DELETE'
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                this.addMessage('Command removed from favorites.', 'system');
+                this.loadFavoriteCommands();
+            } else {
+                this.addMessage(`Failed to remove command from favorites: ${data.message}`, 'system');
+            }
+        } catch (error) {
+            console.error('Error removing favorite:', error);
+            this.addMessage(`Error removing favorite: ${error.message}`, 'system');
+        }
+    }
+    
+    async clearCommandHistory() {
+        if (!confirm('Are you sure you want to clear your command history?')) {
+            return;
+        }
+        
+        try {
+            // Get current user ID (in a real app, this would come from authentication)
+            const userId = localStorage.getItem('user_id') || 'default_user';
+            
+            const response = await this.fetchWithAuth(`/command-history/${userId}/clear`, {
+                method: 'POST'
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                this.addMessage('Command history cleared.', 'system');
+                this.loadCommandHistory();
+            } else {
+                this.addMessage(`Failed to clear command history: ${data.message}`, 'system');
+            }
+        } catch (error) {
+            console.error('Error clearing history:', error);
+            this.addMessage(`Error clearing history: ${error.message}`, 'system');
+        }
+    }
+
+    // Helper method for fetch with authentication
+    async fetchWithAuth(url, options = {}) {
+        // Get token from localStorage if available
+        const token = localStorage.getItem('token');
+        
+        const headers = {
+            'Content-Type': 'application/json',
+            ...(token && { 'Authorization': `Bearer ${token}` }),
+            ...(options.headers || {})
+        };
+        
+        return fetch(url, {
+            ...options,
+            headers
+        });
+    }
+    
+    // Notification preferences methods
+    async loadNotificationPreferences() {
+        const userId = localStorage.getItem('user_id') || 'default_user';
+        const loadingElement = document.getElementById('notification-preferences-loading');
+        const errorElement = document.getElementById('notification-preferences-error');
+        const containerElement = document.getElementById('notification-preferences-container');
+        
+        // Show loading state
+        loadingElement.classList.remove('d-none');
+        errorElement.classList.add('d-none');
+        containerElement.classList.add('d-none');
+        
+        try {
+            const response = await this.fetchWithAuth(`/notification-preferences/${userId}`);
+            const data = await response.json();
+            
+            if (data.success) {
+                this.notificationPreferences = data.preferences || [];
+                this.renderNotificationPreferences(data.grouped_preferences || {});
+                
+                // Hide loading, show container
+                loadingElement.classList.add('d-none');
+                containerElement.classList.remove('d-none');
+            } else {
+                // Show error
+                loadingElement.classList.add('d-none');
+                errorElement.classList.remove('d-none');
+                errorElement.textContent = data.message || 'Failed to load notification preferences';
+            }
+        } catch (error) {
+            console.error('Error loading notification preferences:', error);
+            // Show error
+            loadingElement.classList.add('d-none');
+            errorElement.classList.remove('d-none');
+            errorElement.textContent = `Error loading notification preferences: ${error.message}`;
+        }
+    }
+    
+    renderNotificationPreferences(groupedPreferences) {
+        // Define event type categories and their containers
+        const categories = {
+            'vm_': { 
+                container: document.getElementById('vm-events-prefs'),
+                title: 'Virtual Machine Events',
+                events: {
+                    'vm_state_change': 'VM State Changes (start/stop/restart)',
+                    'vm_creation': 'VM Creation',
+                    'vm_deletion': 'VM Deletion',
+                    'vm_error': 'VM Errors'
+                }
+            },
+            'backup_': { 
+                container: document.getElementById('backup-events-prefs'),
+                title: 'Backup Events',
+                events: {
+                    'backup_start': 'Backup Started',
+                    'backup_complete': 'Backup Completed',
+                    'backup_error': 'Backup Errors'
+                }
+            },
+            'security_': { 
+                container: document.getElementById('security-events-prefs'),
+                title: 'Security Events',
+                events: {
+                    'security_alert': 'Security Alerts',
+                    'login_failure': 'Login Failures',
+                    'login_success': 'Login Success'
+                }
+            },
+            'system_': { 
+                container: document.getElementById('system-events-prefs'),
+                title: 'System Events',
+                events: {
+                    'system_update': 'System Updates',
+                    'resource_warning': 'Resource Warnings',
+                    'disk_space_low': 'Low Disk Space'
+                }
+            },
+            'service_': { 
+                container: document.getElementById('service-events-prefs'),
+                title: 'Service Events',
+                events: {
+                    'service_start': 'Service Started',
+                    'service_stop': 'Service Stopped',
+                    'service_error': 'Service Errors'
+                }
+            }
+        };
+        
+        // Clear all containers
+        for (const category of Object.values(categories)) {
+            if (category.container) {
+                category.container.innerHTML = '';
+            }
+        }
+        
+        // If no preferences, show message in all containers
+        if (Object.keys(groupedPreferences).length === 0) {
+            for (const category of Object.values(categories)) {
+                if (category.container) {
+                    category.container.innerHTML = `
+                        <div class="alert alert-info">
+                            No notification preferences set. Click "Reset to Default" to initialize.
+                        </div>
+                    `;
+                }
+            }
+            return;
+        }
+        
+        // Process each event type and add to corresponding category
+        for (const [eventType, prefs] of Object.entries(groupedPreferences)) {
+            // Find which category this event belongs to
+            let category = null;
+            for (const [prefix, catInfo] of Object.entries(categories)) {
+                if (eventType.startsWith(prefix)) {
+                    category = catInfo;
+                    break;
+                }
+            }
+            
+            if (!category || !category.container) continue;
+            
+            // Get user-friendly event name from the mapping, or use prettified event type
+            const eventName = category.events[eventType] || this.prettifyEventType(eventType);
+            
+            // Create card for this event type with toggles for each channel
+            const card = document.createElement('div');
+            card.className = 'card mb-3';
+            card.innerHTML = `
+                <div class="card-header">
+                    <h6 class="mb-0">${eventName}</h6>
+                </div>
+                <div class="card-body">
+                    <div class="notification-channels" data-event="${eventType}">
+                        <!-- Will be populated with notification channels -->
+                    </div>
+                </div>
+            `;
+            
+            const channelsContainer = card.querySelector('.notification-channels');
+            
+            // Create toggle switches for each notification channel
+            const channels = {
+                'web': 'Web Notifications',
+                'email': 'Email Notifications',
+                'sms': 'SMS Notifications'
+            };
+            
+            // Map of preferences by channel for this event
+            const prefsByChannel = {};
+            prefs.forEach(pref => {
+                prefsByChannel[pref.channel] = pref;
+            });
+            
+            // Add controls for each channel
+            for (const [channel, channelName] of Object.entries(channels)) {
+                const pref = prefsByChannel[channel];
+                const isEnabled = pref ? pref.enabled : false;
+                
+                const channelToggle = document.createElement('div');
+                channelToggle.className = 'form-check form-switch mb-2';
+                channelToggle.innerHTML = `
+                    <input class="form-check-input notification-toggle" 
+                           type="checkbox" 
+                           id="${eventType}-${channel}" 
+                           data-event="${eventType}"
+                           data-channel="${channel}"
+                           ${isEnabled ? 'checked' : ''}>
+                    <label class="form-check-label" for="${eventType}-${channel}">
+                        ${channelName}
+                    </label>
+                `;
+                
+                channelsContainer.appendChild(channelToggle);
+            }
+            
+            category.container.appendChild(card);
+        }
+        
+        // Add event listeners for toggles
+        const toggles = document.querySelectorAll('.notification-toggle');
+        toggles.forEach(toggle => {
+            toggle.addEventListener('change', (e) => {
+                // We'll collect all changes and save them when the user clicks "Save" button
+                console.log(`Toggle ${e.target.dataset.event} - ${e.target.dataset.channel}: ${e.target.checked}`);
+            });
+        });
+    }
+    
+    prettifyEventType(eventType) {
+        // Convert snake_case to Title Case with spaces
+        return eventType
+            .split('_')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+    }
+    
+    async saveNotificationPreferences() {
+        try {
+            const userId = localStorage.getItem('user_id') || 'default_user';
+            const toggles = document.querySelectorAll('.notification-toggle');
+            
+            // Show saving indicator
+            this.addMessage('Saving notification preferences...', 'system');
+            
+            // Process each toggle and update preferences
+            const updatePromises = [];
+            
+            toggles.forEach(toggle => {
+                const eventType = toggle.dataset.event;
+                const channel = toggle.dataset.channel;
+                const enabled = toggle.checked;
+                
+                // Send update request
+                const promise = this.fetchWithAuth(`/notification-preferences/${userId}`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        event_type: eventType,
+                        channel: channel,
+                        enabled: enabled
+                    })
+                });
+                
+                updatePromises.push(promise);
+            });
+            
+            // Wait for all updates to complete
+            await Promise.all(updatePromises);
+            
+            // Reload preferences to confirm changes
+            await this.loadNotificationPreferences();
+            
+            // Show success message
+            this.addMessage('Notification preferences saved successfully!', 'system');
+            
+        } catch (error) {
+            console.error('Error saving notification preferences:', error);
+            this.addMessage(`Error saving notification preferences: ${error.message}`, 'system');
+        }
+    }
+    
+    async initializeNotificationPreferences() {
+        try {
+            const userId = localStorage.getItem('user_id') || 'default_user';
+            
+            if (!confirm('This will reset all notification preferences to default values. Continue?')) {
+                return;
+            }
+            
+            // Show initializing indicator
+            this.addMessage('Initializing default notification preferences...', 'system');
+            
+            // Call API to initialize defaults
+            const response = await this.fetchWithAuth(`/notification-preferences/${userId}/initialize`, {
+                method: 'POST'
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                // Reload preferences to show new defaults
+                await this.loadNotificationPreferences();
+                this.addMessage('Default notification preferences initialized successfully!', 'system');
+            } else {
+                this.addMessage(`Failed to initialize preferences: ${data.message}`, 'system');
+            }
+            
+        } catch (error) {
+            console.error('Error initializing notification preferences:', error);
+            this.addMessage(`Error initializing notification preferences: ${error.message}`, 'system');
+        }
+    }
+
 }
 
 // Initialize the application when the DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    window.app = new ProxmoxNLI();
+    window.proxyApp = new ProxmoxNLI();
 });

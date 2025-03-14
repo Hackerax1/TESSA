@@ -87,6 +87,19 @@
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="advanced-tab" data-bs-toggle="tab" data-bs-target="#advanced" type="button" role="tab" aria-controls="advanced" aria-selected="false">Advanced</button>
                     </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="logs-tab" data-bs-toggle="tab" data-bs-target="#logs" type="button" role="tab" aria-controls="logs" aria-selected="false">Logs</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="command-history-tab" data-bs-toggle="tab" data-bs-target="#command-history" type="button" role="tab" aria-controls="command-history" aria-selected="false">
+                            <i class="bi bi-clock-history"></i> History
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="favorite-commands-tab" data-bs-toggle="tab" data-bs-target="#favorite-commands" type="button" role="tab" aria-controls="favorite-commands" aria-selected="false">
+                            <i class="bi bi-star"></i> Favorites
+                        </button>
+                    </li>
                 </ul>
                 
                 <div class="tab-content" id="monitoringTabContent">
@@ -136,6 +149,53 @@
                                 <div class="resource-graph">
                                     <h4>Storage Usage</h4>
                                     <div id="storage-chart"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Logs Tab - Audit logs -->
+                    <div class="tab-pane fade" id="logs" role="tabpanel" aria-labelledby="logs-tab">
+                        <div class="status-container">
+                            <h3>Audit Logs</h3>
+                            <div id="audit-log">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Command History Tab -->
+                    <div class="tab-pane fade" id="command-history" role="tabpanel" aria-labelledby="command-history-tab">
+                        <div class="status-container">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h3>Command History</h3>
+                                <div>
+                                    <span class="badge bg-primary" data-bs-toggle="tooltip" title="Commands are stored locally and synchronized with your account">
+                                        <i class="bi bi-info-circle"></i> Info
+                                    </span>
+                                </div>
+                            </div>
+                            <p class="text-muted">Review, reuse, or save your previous commands</p>
+                            <div id="command-history-list">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Favorite Commands Tab -->
+                    <div class="tab-pane fade" id="favorite-commands" role="tabpanel" aria-labelledby="favorite-commands-tab">
+                        <div class="status-container">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h3>Favorite Commands</h3>
+                            </div>
+                            <p class="text-muted">Quick access to your saved commands</p>
+                            <div id="favorite-commands-list">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
                                 </div>
                             </div>
                         </div>
@@ -358,87 +418,651 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <form id="user-preferences-form">
-                        <div class="mb-3">
-                            <label for="userName" class="form-label">Your Name</label>
-                            <input type="text" class="form-control" id="userName" placeholder="John Doe">
+                    <ul class="nav nav-tabs mb-3" id="preferencesTab" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="general-pref-tab" data-bs-toggle="tab" data-bs-target="#general-pref" type="button" role="tab">General</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="voice-pref-tab" data-bs-toggle="tab" data-bs-target="#voice-pref" type="button" role="tab">Voice</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="notification-pref-tab" data-bs-toggle="tab" data-bs-target="#notification-pref" type="button" role="tab">Notifications</button>
+                        </li>
+                    </ul>
+                    
+                    <div class="tab-content" id="preferencesTabContent">
+                        <!-- General Preferences Tab -->
+                        <div class="tab-pane fade show active" id="general-pref" role="tabpanel" aria-labelledby="general-pref-tab">
+                            <form id="user-preferences-form">
+                                <div class="mb-3">
+                                    <label for="userName" class="form-label">Your Name</label>
+                                    <input type="text" class="form-control" id="userName" placeholder="John Doe">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="defaultVmTemplate" class="form-label">Default VM Template</label>
+                                    <select class="form-select" id="defaultVmTemplate">
+                                        <option value="ubuntu-2204">Ubuntu 22.04</option>
+                                        <option value="debian-12">Debian 12</option>
+                                        <option value="centos-stream-9">CentOS Stream 9</option>
+                                        <option value="win-2022">Windows Server 2022</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="defaultVmMemory" class="form-label">Default VM Memory (MB)</label>
+                                    <input type="number" class="form-control" id="defaultVmMemory" value="2048" min="512">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="defaultVmCores" class="form-label">Default VM CPU Cores</label>
+                                    <input type="number" class="form-control" id="defaultVmCores" value="2" min="1">
+                                </div>
+                            </form>
                         </div>
-                        <div class="mb-3">
-                            <label for="defaultVmTemplate" class="form-label">Default VM Template</label>
-                            <select class="form-select" id="defaultVmTemplate">
-                                <option value="ubuntu-2204">Ubuntu 22.04</option>
-                                <option value="debian-12">Debian 12</option>
-                                <option value="centos-stream-9">CentOS Stream 9</option>
-                                <option value="win-2022">Windows Server 2022</option>
-                            </select>
+                        
+                        <!-- Voice Settings Tab -->
+                        <div class="tab-pane fade" id="voice-pref" role="tabpanel" aria-labelledby="voice-pref-tab">
+                            <div class="mb-3">
+                                <label for="voice-profile" class="form-label">Voice Profile</label>
+                                <select class="form-select" id="voice-profile">
+                                    <option value="tessa_default">TESSA Default</option>
+                                    <option value="tessa_warm">TESSA Warm</option>
+                                    <option value="tessa_professional">TESSA Professional</option>
+                                    <!-- Dynamically populated with other profiles -->
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="voice-accent" class="form-label">Accent</label>
+                                <select class="form-select" id="voice-accent">
+                                    <option value="com">US English</option>
+                                    <option value="co.uk">British English</option>
+                                    <option value="com.au">Australian English</option>
+                                    <option value="ca">Canadian English</option>
+                                    <option value="co.in">Indian English</option>
+                                    <option value="ie">Irish English</option>
+                                    <option value="co.za">South African English</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="voice-speed" class="form-label">Speaking Speed</label>
+                                <select class="form-select" id="voice-speed">
+                                    <option value="false">Normal</option>
+                                    <option value="true">Slow</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="voice-style" class="form-label">Conversation Style</label>
+                                <select class="form-select" id="voice-style">
+                                    <option value="friendly">Friendly</option>
+                                    <option value="professional">Professional</option>
+                                    <option value="casual">Casual</option>
+                                    <option value="enthusiastic">Enthusiastic</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="personality-level" class="form-label">Personality Level</label>
+                                <input type="range" class="form-range" min="0" max="100" value="20" id="personality-level">
+                                <small class="form-text text-muted">Controls how often TESSA adds personality phrases to responses</small>
+                            </div>
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="enable-personality" checked>
+                                <label class="form-check-label" for="enable-personality">Enable Personality Quirks</label>
+                            </div>
+                            <button type="button" class="btn btn-primary" id="save-voice-settings">Save Voice Settings</button>
+                            <button type="button" class="btn btn-secondary ms-2" id="test-voice">Test Voice</button>
                         </div>
-                        <div class="mb-3">
-                            <label for="defaultVmMemory" class="form-label">Default VM Memory (MB)</label>
-                            <input type="number" class="form-control" id="defaultVmMemory" value="2048" min="512">
+                        
+                        <!-- Notification Preferences Tab -->
+                        <div class="tab-pane fade" id="notification-pref" role="tabpanel" aria-labelledby="notification-pref-tab">
+                            <div class="mb-3">
+                                <h5>Notification Settings</h5>
+                                <p class="text-muted">Choose how and when you'd like to be notified about events</p>
+                            </div>
+                            
+                            <div id="notification-preferences-loading" class="text-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <span class="ms-2">Loading notification settings...</span>
+                            </div>
+                            
+                            <div id="notification-preferences-error" class="alert alert-danger d-none">
+                                Failed to load notification preferences.
+                            </div>
+                            
+                            <div id="notification-preferences-container" class="d-none">
+                                <!-- Will be populated with notification preferences -->
+                                <div class="accordion" id="notification-categories">
+                                    <!-- VM Events Category -->
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header" id="vm-events-header">
+                                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#vm-events-collapse">
+                                                Virtual Machine Events
+                                            </button>
+                                        </h2>
+                                        <div id="vm-events-collapse" class="accordion-collapse collapse show" aria-labelledby="vm-events-header">
+                                            <div class="accordion-body">
+                                                <div id="vm-events-prefs">
+                                                    <!-- Will be populated dynamically -->
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Backup Events Category -->
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header" id="backup-events-header">
+                                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#backup-events-collapse">
+                                                Backup Events
+                                            </button>
+                                        </h2>
+                                        <div id="backup-events-collapse" class="accordion-collapse collapse" aria-labelledby="backup-events-header">
+                                            <div class="accordion-body">
+                                                <div id="backup-events-prefs">
+                                                    <!-- Will be populated dynamically -->
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Security Events Category -->
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header" id="security-events-header">
+                                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#security-events-collapse">
+                                                Security Events
+                                            </button>
+                                        </h2>
+                                        <div id="security-events-collapse" class="accordion-collapse collapse" aria-labelledby="security-events-header">
+                                            <div class="accordion-body">
+                                                <div id="security-events-prefs">
+                                                    <!-- Will be populated dynamically -->
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- System Events Category -->
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header" id="system-events-header">
+                                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#system-events-collapse">
+                                                System Events
+                                            </button>
+                                        </h2>
+                                        <div id="system-events-collapse" class="accordion-collapse collapse" aria-labelledby="system-events-header">
+                                            <div class="accordion-body">
+                                                <div id="system-events-prefs">
+                                                    <!-- Will be populated dynamically -->
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Service Events Category -->
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header" id="service-events-header">
+                                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#service-events-collapse">
+                                                Service Events
+                                            </button>
+                                        </h2>
+                                        <div id="service-events-collapse" class="accordion-collapse collapse" aria-labelledby="service-events-header">
+                                            <div class="accordion-body">
+                                                <div id="service-events-prefs">
+                                                    <!-- Will be populated dynamically -->
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-4">
+                                    <button type="button" id="initialize-notification-prefs" class="btn btn-outline-secondary">
+                                        <i class="bi bi-arrow-repeat"></i> Reset to Default
+                                    </button>
+                                    <button type="button" id="save-notification-prefs" class="btn btn-primary float-end">
+                                        <i class="bi bi-check-circle"></i> Save Notification Settings
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                        <div class="mb-3">
-                            <label for="defaultVmCores" class="form-label">Default VM CPU Cores</label>
-                            <input type="number" class="form-control" id="defaultVmCores" value="2" min="1">
-                        </div>
-                    </form>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                     <button type="button" class="btn btn-primary" id="save-preferences">Save Changes</button>
                 </div>
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5>TESSA Voice Settings</h5>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add the User Shortcuts Modal -->
+    <div class="modal fade" id="shortcutsModal" tabindex="-1" aria-labelledby="shortcutsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="shortcutsModalLabel">My Shortcuts</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="shortcuts-loading" class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading your shortcuts...</p>
                     </div>
-                    <div class="card-body">
+                    
+                    <div id="shortcuts-error" class="alert alert-danger d-none"></div>
+                    
+                    <div id="shortcuts-container" class="d-none">
+                        <!-- Categories will be rendered here -->
+                        <div class="accordion" id="shortcutCategories">
+                            <!-- Category items will be inserted here -->
+                        </div>
+                        
+                        <div class="mt-4">
+                            <button id="add-shortcut-btn" class="btn btn-primary">
+                                <i class="bi bi-plus-circle"></i> Add New Shortcut
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="initialize-shortcuts" class="btn btn-secondary">Reset to Default</button>
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Shortcut Modal -->
+    <div class="modal fade" id="addShortcutModal" tabindex="-1" aria-labelledby="addShortcutModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addShortcutModalLabel">Add New Shortcut</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="shortcut-form">
                         <div class="mb-3">
-                            <label for="voice-profile" class="form-label">Voice Profile</label>
-                            <select class="form-select" id="voice-profile">
-                                <option value="tessa_default">TESSA Default</option>
-                                <option value="tessa_warm">TESSA Warm</option>
-                                <option value="tessa_professional">TESSA Professional</option>
-                                <!-- Dynamically populated with other profiles -->
-                            </select>
+                            <label for="shortcut-name" class="form-label">Name</label>
+                            <input type="text" class="form-control" id="shortcut-name" required>
+                            <div class="form-text">A short, descriptive name for this shortcut</div>
                         </div>
+                        
                         <div class="mb-3">
-                            <label for="voice-accent" class="form-label">Accent</label>
-                            <select class="form-select" id="voice-accent">
-                                <option value="com">US English</option>
-                                <option value="co.uk">British English</option>
-                                <option value="com.au">Australian English</option>
-                                <option value="ca">Canadian English</option>
-                                <option value="co.in">Indian English</option>
-                                <option value="ie">Irish English</option>
-                                <option value="co.za">South African English</option>
-                            </select>
+                            <label for="shortcut-command" class="form-label">Command</label>
+                            <input type="text" class="form-control" id="shortcut-command" required>
+                            <div class="form-text">
+                                The command to execute. You can include placeholders like {{vm_id}} that will be 
+                                replaced when you use the shortcut.
+                            </div>
                         </div>
+                        
                         <div class="mb-3">
-                            <label for="voice-speed" class="form-label">Speaking Speed</label>
-                            <select class="form-select" id="voice-speed">
-                                <option value="false">Normal</option>
-                                <option value="true">Slow</option>
-                            </select>
+                            <label for="shortcut-description" class="form-label">Description</label>
+                            <textarea class="form-control" id="shortcut-description" rows="2"></textarea>
+                            <div class="form-text">Optional description of what this shortcut does</div>
                         </div>
+                        
                         <div class="mb-3">
-                            <label for="voice-style" class="form-label">Conversation Style</label>
-                            <select class="form-select" id="voice-style">
-                                <option value="friendly">Friendly</option>
-                                <option value="professional">Professional</option>
-                                <option value="casual">Casual</option>
-                                <option value="enthusiastic">Enthusiastic</option>
-                            </select>
+                            <label for="shortcut-category" class="form-label">Category</label>
+                            <input type="text" class="form-control" id="shortcut-category" list="shortcut-categories">
+                            <datalist id="shortcut-categories">
+                                <!-- Categories will be populated dynamically -->
+                            </datalist>
+                            <div class="form-text">Group related shortcuts together (e.g., "VM Management", "Backups")</div>
                         </div>
+                        
                         <div class="mb-3">
-                            <label for="personality-level" class="form-label">Personality Level</label>
-                            <input type="range" class="form-range" min="0" max="100" value="20" id="personality-level">
-                            <small class="form-text text-muted">Controls how often TESSA adds personality phrases to responses</small>
+                            <label for="shortcut-icon" class="form-label">Icon</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i id="shortcut-icon-preview" class="bi bi-star"></i></span>
+                                <input type="text" class="form-control" id="shortcut-icon" value="bi-star" list="shortcut-icons">
+                            </div>
+                            <datalist id="shortcut-icons">
+                                <option value="bi-hdd">Disk/VM</option>
+                                <option value="bi-pc-display">System</option>
+                                <option value="bi-cloud-arrow-up">Backup</option>
+                                <option value="bi-play-circle">Start</option>
+                                <option value="bi-stop-circle">Stop</option>
+                                <option value="bi-info-circle">Info</option>
+                                <option value="bi-graph-up">Stats</option>
+                                <option value="bi-gear">Settings</option>
+                                <option value="bi-shield-check">Security</option>
+                                <option value="bi-diagram-3">Network</option>
+                                <option value="bi-terminal">Console</option>
+                                <option value="bi-star">Star</option>
+                                <option value="bi-lightning">Power</option>
+                            </datalist>
+                            <div class="form-text">Choose an icon for this shortcut (Bootstrap Icons)</div>
                         </div>
-                        <div class="form-check form-switch mb-3">
-                            <input class="form-check-input" type="checkbox" id="enable-personality" checked>
-                            <label class="form-check-label" for="enable-personality">Enable Personality Quirks</label>
+
+                        <div class="mb-3">
+                            <label for="shortcut-key" class="form-label">Keyboard Shortcut (Optional)</label>
+                            <input type="text" class="form-control" id="shortcut-key" placeholder="e.g., Ctrl+Alt+S">
+                            <div class="form-text">Optional keyboard shortcut for this command</div>
                         </div>
-                        <button type="button" class="btn btn-primary" id="save-voice-settings">Save Voice Settings</button>
-                        <button type="button" class="btn btn-secondary ms-2" id="test-voice">Test Voice</button>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="save-shortcut-btn">Save Shortcut</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Shortcuts Panel to the sidebar -->
+    <div class="sidebar-panel" id="shortcuts-panel">
+        <h5 class="sidebar-title d-flex align-items-center justify-content-between">
+            My Shortcuts
+            <button class="btn btn-sm btn-outline-secondary" id="manage-shortcuts-btn">
+                <i class="bi bi-gear"></i>
+            </button>
+        </h5>
+        
+        <div id="sidebar-shortcuts-loading" class="text-center py-3">
+            <div class="spinner-border spinner-border-sm text-light" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+        
+        <div id="sidebar-shortcuts-error" class="alert alert-danger d-none"></div>
+        
+        <div id="sidebar-shortcuts-container">
+            <!-- Shortcut categories and buttons will be dynamically inserted here -->
+        </div>
+    </div>
+
+    <!-- Dashboards Tab in User Profile Section -->
+    <div class="tab-pane fade" id="dashboards-tab" role="tabpanel" aria-labelledby="dashboards-tab">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">Personal Dashboards</h5>
+            <button id="createDashboardBtn" class="btn btn-sm btn-primary">
+                <i class="bi bi-plus"></i> New Dashboard
+            </button>
+        </div>
+        
+        <div class="alert alert-info" id="noDashboardsMessage" style="display:none;">
+            You don't have any dashboards yet. Create your first dashboard to start customizing your experience.
+        </div>
+        
+        <div id="dashboardsList" class="list-group mb-3">
+            <!-- Dashboards will be loaded here -->
+        </div>
+        
+        <div id="selectedDashboard" style="display:none;">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 id="dashboardTitle">Dashboard Name</h5>
+                <div class="btn-group">
+                    <button id="addPanelBtn" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-grid"></i> Add Panel
+                    </button>
+                    <button id="editDashboardBtn" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-pencil"></i> Edit
+                    </button>
+                    <button id="deleteDashboardBtn" class="btn btn-sm btn-outline-danger">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div id="dashboardGrid" class="dashboard-grid">
+                <!-- Dashboard panels will be loaded here -->
+            </div>
+        </div>
+        
+        <!-- Dashboard Edit Modal -->
+        <div class="modal fade" id="dashboardModal" tabindex="-1" aria-labelledby="dashboardModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="dashboardModalLabel">Create Dashboard</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="dashboardForm">
+                            <input type="hidden" id="dashboardId" value="">
+                            <div class="mb-3">
+                                <label for="dashboardName" class="form-label">Dashboard Name</label>
+                                <input type="text" class="form-control" id="dashboardName" placeholder="My Dashboard">
+                            </div>
+                            <div class="mb-3">
+                                <label for="dashboardLayout" class="form-label">Layout Type</label>
+                                <select class="form-select" id="dashboardLayout">
+                                    <option value="grid">Grid Layout</option>
+                                    <option value="free">Free Layout</option>
+                                </select>
+                            </div>
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="defaultDashboard">
+                                <label class="form-check-label" for="defaultDashboard">
+                                    Set as default dashboard
+                                </label>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" id="saveDashboardBtn">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Panel Edit Modal -->
+        <div class="modal fade" id="panelModal" tabindex="-1" aria-labelledby="panelModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="panelModalLabel">Add Panel</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="panelForm">
+                            <input type="hidden" id="panelId" value="">
+                            <div class="mb-3">
+                                <label for="panelTitle" class="form-label">Panel Title</label>
+                                <input type="text" class="form-control" id="panelTitle" placeholder="Panel Title">
+                            </div>
+                            <div class="mb-3">
+                                <label for="panelType" class="form-label">Panel Type</label>
+                                <select class="form-select" id="panelType">
+                                    <option value="vm_status">VM Status</option>
+                                    <option value="system_metrics">System Metrics</option>
+                                    <option value="recent_commands">Recent Commands</option>
+                                    <option value="favorite_commands">Favorite Commands</option>
+                                    <option value="chart">Custom Chart</option>
+                                    <option value="node_status">Node Status</option>
+                                    <option value="backup_status">Backup Status</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="panelWidth" class="form-label">Width (1-12)</label>
+                                <input type="number" class="form-control" id="panelWidth" min="1" max="12" value="6">
+                            </div>
+                            <div class="mb-3">
+                                <label for="panelHeight" class="form-label">Height (units)</label>
+                                <input type="number" class="form-control" id="panelHeight" min="1" max="12" value="4">
+                            </div>
+                            <div id="panelConfigContainer">
+                                <!-- Dynamic panel configuration options will be loaded here -->
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" id="savePanelBtn">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Command History & Favorites Tab -->
+    <div class="tab-pane fade" id="command-history-tab" role="tabpanel" aria-labelledby="command-history-tab">
+        <ul class="nav nav-tabs" id="commandHistoryTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button" role="tab" aria-controls="history" aria-selected="true">Command History</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="favorites-tab" data-bs-toggle="tab" data-bs-target="#favorites" type="button" role="tab" aria-controls="favorites" aria-selected="false">Favorite Commands</button>
+            </li>
+        </ul>
+        
+        <div class="tab-content pt-3" id="commandHistoryTabsContent">
+            <!-- Command History -->
+            <div class="tab-pane fade show active" id="history" role="tabpanel" aria-labelledby="history-tab">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="successfulCommandsOnly">
+                            <label class="form-check-label" for="successfulCommandsOnly">Successful commands only</label>
+                        </div>
+                    </div>
+                    <div>
+                        <button id="clearHistoryBtn" class="btn btn-sm btn-outline-danger">
+                            <i class="bi bi-trash"></i> Clear History
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Command</th>
+                                <th>Intent</th>
+                                <th>Time</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="commandHistoryTable">
+                            <!-- Command history will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div id="noHistoryMessage" class="alert alert-info mt-3" style="display:none;">
+                    No command history found.
+                </div>
+            </div>
+            
+            <!-- Favorite Commands -->
+            <div class="tab-pane fade" id="favorites" role="tabpanel" aria-labelledby="favorites-tab">
+                <div class="mb-3">
+                    <button id="addFavoriteBtn" class="btn btn-sm btn-primary">
+                        <i class="bi bi-bookmark-plus"></i> Add Favorite
+                    </button>
+                </div>
+                
+                <div class="list-group" id="favoriteCommandsList">
+                    <!-- Favorite commands will be loaded here -->
+                </div>
+                
+                <div id="noFavoritesMessage" class="alert alert-info mt-3" style="display:none;">
+                    No favorite commands found. Add commands to your favorites for quick access.
+                </div>
+            </div>
+        </div>
+        
+        <!-- Add Favorite Modal -->
+        <div class="modal fade" id="favoriteCommandModal" tabindex="-1" aria-labelledby="favoriteCommandModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="favoriteCommandModalLabel">Add Favorite Command</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="favoriteCommandForm">
+                            <div class="mb-3">
+                                <label for="favoriteCommandText" class="form-label">Command</label>
+                                <input type="text" class="form-control" id="favoriteCommandText" placeholder="Enter command...">
+                            </div>
+                            <div class="mb-3">
+                                <label for="favoriteCommandDescription" class="form-label">Description (optional)</label>
+                                <input type="text" class="form-control" id="favoriteCommandDescription" placeholder="Command description...">
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" id="saveFavoriteBtn">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Device Sync Tab -->
+    <div class="tab-pane fade" id="device-sync-tab" role="tabpanel" aria-labelledby="device-sync-tab">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">Cross-Device Profile Synchronization</h5>
+            <button id="registerDeviceBtn" class="btn btn-sm btn-primary">
+                <i class="bi bi-plus"></i> Register Device
+            </button>
+        </div>
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0">Your Registered Devices</h6>
+            </div>
+            <div class="card-body">
+                <div id="devicesList" class="list-group">
+                    <!-- Devices will be loaded here -->
+                </div>
+                <div id="noDevicesMessage" class="alert alert-info mt-3" style="display:none;">
+                    No devices registered. Register this device to enable profile synchronization.
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">Synchronization Status</h6>
+            </div>
+            <div class="card-body">
+                <div id="syncStatus">
+                    <!-- Sync status will be shown here -->
+                </div>
+                <button id="syncNowBtn" class="btn btn-primary mt-3">
+                    <i class="bi bi-arrow-repeat"></i> Sync Now
+                </button>
+            </div>
+        </div>
+        
+        <!-- Register Device Modal -->
+        <div class="modal fade" id="deviceModal" tabindex="-1" aria-labelledby="deviceModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="deviceModalLabel">Register Device</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="deviceForm">
+                            <div class="mb-3">
+                                <label for="deviceName" class="form-label">Device Name</label>
+                                <input type="text" class="form-control" id="deviceName" placeholder="My Device">
+                            </div>
+                            <div class="mb-3">
+                                <label for="deviceType" class="form-label">Device Type</label>
+                                <select class="form-select" id="deviceType">
+                                    <option value="desktop">Desktop</option>
+                                    <option value="laptop">Laptop</option>
+                                    <option value="tablet">Tablet</option>
+                                    <option value="mobile">Mobile</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                            <div class="alert alert-info">
+                                <small>A unique device ID will be generated for this device.</small>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" id="saveDeviceBtn">Register</button>
                     </div>
                 </div>
             </div>

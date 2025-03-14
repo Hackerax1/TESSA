@@ -7,11 +7,6 @@
   - [X] Implement rate limiting and anti-CSRF measures in the web interface.
   - [X] Add TESSA security explanations in plain language ("I'm protecting your data by...").
 
-- [X] **Core VM & Container Management:**
-  - [X] Implement full VM lifecycle management (create, start, stop, restart, delete, clone, migrate).
-  - [X] Implement basic container management (start, stop, restart, delete, exec).
-  - [X] Add support for VM snapshots (create, revert, delete).
-  - [X] Implement TESSA self-referential responses ("I'll create that VM for you", "Let me manage those containers").
 
 - [X] **Service Deployment & Management:**
   - [X] Implement service deployment via Docker Compose.
@@ -27,16 +22,46 @@
   - [X] Develop driver auto-installation system for common hardware components.
   - [X] Create a pre-installation compatibility checker tool.
 
+- [ ] **Enhanced User Profiles and Preferences:**
+  - [ ] Implement personal dashboards with customizable metrics and panels
+  - [ ] Add command history and favorites system
+  - [ ] Create notification preferences configuration
+  - [ ] Develop user-specific shortcuts for common operations
+  - [ ] Implement cross-device profile synchronization
+
+- [ ] **AI-Driven Resource Optimization:**
+  - [ ] Build predictive resource allocation based on usage patterns
+  - [ ] Implement automatic VM/container migration based on server load
+  - [ ] Add power management recommendations for energy efficiency
+  - [ ] Create machine learning models for workload prediction
+  - [ ] Implement performance benchmarking for optimal placement decisions
+
+- [ ] **Expanded Service Catalog Integration:**
+  - [ ] Add service health monitoring with natural language status reports
+  - [ ] Implement update management through the NLI
+  - [ ] Create service dependency visualization
+  - [ ] Add custom service template creation and sharing
+  - [ ] Build service metrics dashboard with plain language explanations
+
+- [ ] **Improved Backup and Recovery Features:**
+  - [ ] Implement automated recovery testing
+  - [ ] Create sophisticated backup retention policy management
+  - [ ] Add off-site backup integration with cloud storage providers
+  - [ ] Develop backup verification and integrity checking
+  - [ ] Implement data deduplication for efficient backups
+
+- [ ] **Natural Language Security Management:**
+  - [ ] Add security audit commands and reporting
+  - [ ] Implement natural language permission management
+  - [ ] Develop certificate management through conversation
+  - [ ] Create firewall rule management via natural language
+  - [ ] Add security posture assessment and recommendations
+
 # Medium Priority - Usability & Integration
 
 - [ ] **Automated Installation & Configuration:**
-  - [X] Enhance installer.py script for unattended installation.
-  - [X] Implement configuration validation and error handling.
-  - [X] Automate initial Proxmox configuration (network, storage).
-  - [ ] Create bootable USB image with auto-start setup wizard.
-  - [X] Implement self-configuring networking (DHCP + common static configs).
-  - [X] Generate QR code during installation for easy first access.
-  - [X] Add support for merging existing Proxmox environments into TESSA.
+  - [ ] Create bootable USB image with auto-start setup wizard
+  - [ ] Add tests for hardware detection and compatibility scripts
 
 - [X] **Web Interface Enhancements:**
   - [X] Implement real-time updates with WebSockets for VM/container status.
@@ -58,17 +83,35 @@
   - [X] Integrate with Proxmox Backup Server (if available).
   - [X] Add support for scheduling backups.
 
-- [ ] **Unit Testing:**
-  - [X] Implement unit tests for NLU engine.
-  - [X] Implement unit tests for command execution.
-  - [X] Implement unit tests for API interaction.
-  - [ ] Add tests for hardware detection and compatibility scripts.
+- [ ] **Troubleshooting Assistant:**
+  - [ ] Implement guided diagnostics for common issues
+  - [ ] Add natural language log analysis
+  - [ ] Develop performance bottleneck detection
+  - [ ] Create network diagnostics visualization
+  - [ ] Add self-healing recommendations for common problems
+
+- [ ] **Multi-node Management Enhancement:**
+  - [ ] Implement cluster-wide commands
+  - [ ] Create migration assistant with guided workflows
+  - [ ] Add cluster health visualization
+  - [ ] Develop load balancing suggestions between nodes
+  - [ ] Build high availability configuration assistant
+
+- [ ] **Voice Interface Improvements:**
+  - [ ] Implement voice authentication for different users
+  - [ ] Add context-aware command sequences
+  - [ ] Improve ambient mode and wake word detection
+  - [ ] Create custom voice shortcuts for frequent operations
+  - [ ] Add multi-language voice support
 
 # Low Priority - Advanced Features & Polish
 
 - [ ] **Advanced Resource Management:**
   - [X] Implement VM resource monitoring and optimization recommendations.
-  - [ ] Add support for dynamic resource allocation.
+  - [ ] Add support for dynamic resource allocation
+  - [ ] Implement predictive scaling based on workload patterns
+  - [ ] Create resource quota management system
+  - [ ] Add GPU passthrough optimization assistant
 
 - [X] **ZFS Management Commands:**
   - [X] Implement commands for creating, deleting, and managing ZFS datasets.
@@ -101,28 +144,44 @@
   - [ ] Improve Cloudflare integration for automated DNS and SSL management (to help users transition off the cloud).
   - [ ] Implement commands for managing DNS records.
   - [ ] Add support for other DNS providers.
+  - [ ] Create wildcard certificate management
+  - [ ] Implement automated certificate renewal monitoring
 
 - [ ] **Buddy Backups:**
   - [ ] Implement buddy backup system for users to back up each other's data securely.
   - [ ] Add encryption for buddy backups.
   - [ ] Create a user-friendly interface for managing buddy backups.
+  - [ ] Add verification and notification system for backup partners
 
 - [ ] **Service Catalog Expansion:**
   - [ ] Add more services to the service catalog (#proxmox_nli\services\catalog) with emphasis on FOSS options.
+  - [ ] Implement service comparison feature
+  - [ ] Add guided migration from commercial services
+  - [ ] Create service compatibility checker
   - [X] Implement service dependency management.
   - [X] Organize services by user goals rather than technical categories.
   - [X] Add TESSA service recommendations with personality ("I think you'd really enjoy Nextcloud for your photos").
   - [X] Prioritize recommending FOSS services over closed source or freemium alternatives.
   - [X] Exclude Portainer from the service catalog and recommendations.
 
+- [ ] **Mobile Experience Optimization:**
+  - [ ] Develop a dedicated mobile UI optimized for touch
+  - [ ] Add push notifications for important events
+  - [ ] Implement QR code access to VMs and services
+  - [ ] Create mobile-optimized voice controls
+  - [ ] Add offline mode for essential monitoring
+
 # Future Considerations
 
 - [ ] **Multi-tenancy Support:**
   - [ ] Allow multiple users to manage their own resources.
   - [ ] Develop TESSA's ability to recognize different household members by voice or habits.
+  - [ ] Implement role-based access control for family members
 
 - [ ] **Federated Identity Management:**
   - [ ] Integrate with external identity providers (e.g., LDAP, OAuth).
+  - [ ] Add single sign-on across services
+  - [ ] Create unified authentication experience
 
 - [ ] **AI-Powered Recommendations:**
   - [ ] Use AI to provide recommendations for resource optimization, security hardening, and service deployment.
@@ -136,3 +195,10 @@
   - [ ] Implement easter eggs and specialty responses for holidays/special occasions.
   - [ ] Develop TESSA opinions on self-hosting topics ("I personally prefer Jellyfin for media").
   - [ ] Add natural conversation transitions and topic memory between sessions.
+
+- [ ] **Community Integration:**
+  - [ ] Create community templates gallery for sharing service configurations
+  - [ ] Add hardware compatibility database contribution system
+  - [ ] Implement knowledge base integration for common solutions
+  - [ ] Develop plugin marketplace for community extensions
+  - [ ] Add user experience feedback collection and analysis

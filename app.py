@@ -6,6 +6,7 @@ from proxmox_nli.core import ProxmoxNLI
 from proxmox_nli.core.voice_handler import VoiceHandler, VoiceProfile
 from proxmox_nli.services.goal_mapper import GoalMapper
 from proxmox_nli.core.security.auth_manager import AuthManager
+from proxmox_nli.core.user_preferences import UserManager
 from functools import wraps
 from dotenv import load_dotenv
 import logging
@@ -35,6 +36,7 @@ voice_handler = VoiceHandler()
 status_monitor_thread = None
 resource_monitor_thread = None
 auth_manager = AuthManager()
+user_manager = UserManager()
 
 # Store resource history for optimization analysis
 vm_resource_history = defaultdict(lambda: {"cpu": [], "memory": [], "disk_io": [], "network": [], "timestamps": []})
@@ -828,6 +830,369 @@ def get_cluster_resources():
     except Exception as e:
         logger.error(f"Error getting cluster resources: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+# Command history endpoints
+@app.route('/command-history/<user_id>', methods=['GET'])
+@token_required(['user', 'admin'])
+def get_command_history(user_id):
+    """Get command history for a user"""
+    if not proxmox_nli:
+        return jsonify({'error': 'System not initialized'}), 500
+    
+    limit = request.args.get('limit', 50, type=int)
+    successful_only = request.args.get('successful_only', False, type=bool)
+    
+    result = proxmox_nli.user_manager.get_command_history(user_id, limit, successful_only)
+    return jsonify(result)
+
+@app.route('/command-history/<user_id>', methods=['POST'])
+@token_required(['user', 'admin'])
+def add_to_command_history(user_id):
+    """Add a command to the user's command history"""
+    if not proxmox_nli:
+        return jsonify({'error': 'System not initialized'}), 500
+    
+    command = request.json.get('command')
+    intent = request.json.get('intent')
+    entities = request.json.get('entities')
+    success = request.json.get('success', True)
+    
+    if not command:
+        return jsonify({'success': False, 'message': 'Command is required'}), 400
+    
+    result = proxmox_nli.user_manager.add_to_command_history(
+        user_id, command, intent, entities, success
+    )
+    return jsonify(result)
+
+@app.route('/command-history/<user_id>/clear', methods=['POST'])
+@token_required(['user', 'admin'])
+def clear_command_history(user_id):
+    """Clear command history for a user"""
+    if not proxmox_nli:
+        return jsonify({'error': 'System not initialized'}), 500
+    
+    result = proxmox_nli.user_manager.clear_command_history(user_id)
+    return jsonify(result)
+
+# Favorite commands endpoints
+@app.route('/favorite-commands/<user_id>', methods=['GET'])
+@token_required(['user', 'admin'])
+def get_favorite_commands(user_id):
+    """Get favorite commands for a user"""
+    if not proxmox_nli:
+        return jsonify({'error': 'System not initialized'}), 500
+    
+    result = proxmox_nli.user_manager.get_favorite_commands(user_id)
+    return jsonify(result)
+
+@app.route('/favorite-commands/<user_id>', methods=['POST'])
+@token_required(['user', 'admin'])
+def add_favorite_command(user_id):
+    """Add a command to the user's favorites"""
+    if not proxmox_nli:
+        return jsonify({'error': 'System not initialized'}), 500
+    
+    command_text = request.json.get('command_text')
+    description = request.json.get('description')
+    
+    if not command_text:
+        return jsonify({'success': False, 'message': 'Command text is required'}), 400
+    
+    result = proxmox_nli.user_manager.add_favorite_command(
+        user_id, command_text, description
+    )
+    return jsonify(result)
+
+@app.route('/favorite-commands/<user_id>/<int:command_id>', methods=['DELETE'])
+@token_required(['user', 'admin'])
+def remove_favorite_command(user_id, command_id):
+    """Remove a command from the user's favorites"""
+    if not proxmox_nli:
+        return jsonify({'error': 'System not initialized'}), 500
+    
+    result = proxmox_nli.user_manager.remove_favorite_command(user_id, command_id)
+    return jsonify(result)
+
+# Notification preferences endpoints
+@app.route('/notification-preferences/<user_id>', methods=['GET'])
+@token_required(['user', 'admin'])
+def get_notification_preferences(user_id):
+    """Get notification preferences for a user"""
+    if not proxmox_nli:
+        return jsonify({'error': 'System not initialized'}), 500
+    
+    result = proxmox_nli.user_manager.get_notification_preferences(user_id)
+    return jsonify(result)
+
+@app.route('/notification-preferences/<user_id>', methods=['POST'])
+@token_required(['user', 'admin'])
+def set_notification_preference(user_id):
+    """Set a notification preference"""
+    if not proxmox_nli:
+        return jsonify({'error': 'System not initialized'}), 500
+    
+    event_type = request.json.get('event_type')
+    channel = request.json.get('channel')
+    enabled = request.json.get('enabled', True)
+    
+    if not event_type or not channel:
+        return jsonify({'success': False, 'message': 'Event type and channel are required'}), 400
+    
+    result = proxmox_nli.user_manager.set_notification_preference(user_id, event_type, channel, enabled)
+    return jsonify(result)
+
+@app.route('/notification-preferences/<user_id>/initialize', methods=['POST'])
+@token_required(['user', 'admin'])
+def initialize_notification_preferences(user_id):
+    """Initialize default notification preferences for a user"""
+    if not proxmox_nli:
+        return jsonify({'error': 'System not initialized'}), 500
+    
+    result = proxmox_nli.user_manager.initialize_default_notification_preferences(user_id)
+    return jsonify(result)
+
+# User shortcuts routes
+@app.route('/shortcuts/<user_id>', methods=['GET'])
+def get_user_shortcuts(user_id):
+    """Get shortcuts for a user"""
+    category = request.args.get('category')
+    result = user_manager.get_shortcuts(user_id, category)
+    return jsonify(result)
+
+@app.route('/shortcuts/<user_id>', methods=['POST'])
+def add_user_shortcut(user_id):
+    """Add or update a shortcut for a user"""
+    data = request.json
+    if not data or 'name' not in data or 'command_text' not in data:
+        return jsonify({
+            'success': False,
+            'message': 'Missing required fields: name and command_text'
+        })
+    
+    result = user_manager.add_shortcut(
+        user_id=user_id,
+        name=data['name'],
+        command_text=data['command_text'],
+        description=data.get('description'),
+        shortcut_key=data.get('shortcut_key'),
+        category=data.get('category'),
+        icon=data.get('icon'),
+        position=data.get('position')
+    )
+    return jsonify(result)
+
+@app.route('/shortcuts/<user_id>/<int:shortcut_id>', methods=['DELETE'])
+def delete_user_shortcut(user_id, shortcut_id):
+    """Delete a shortcut for a user"""
+    result = user_manager.delete_shortcut(user_id, shortcut_id)
+    return jsonify(result)
+
+@app.route('/shortcuts/<user_id>/<shortcut_name>', methods=['DELETE'])
+def delete_user_shortcut_by_name(user_id, shortcut_name):
+    """Delete a shortcut by name"""
+    result = user_manager.delete_shortcut(user_id, name=shortcut_name)
+    return jsonify(result)
+
+@app.route('/shortcuts/<user_id>/position', methods=['POST'])
+def update_shortcut_position(user_id):
+    """Update the position of a shortcut"""
+    data = request.json
+    if not data or 'shortcut_id' not in data or 'position' not in data:
+        return jsonify({
+            'success': False,
+            'message': 'Missing required fields: shortcut_id and position'
+        })
+    
+    result = user_manager.update_shortcut_position(
+        user_id=user_id,
+        shortcut_id=data['shortcut_id'],
+        position=data['position']
+    )
+    return jsonify(result)
+
+@app.route('/shortcuts/<user_id>/initialize', methods=['POST'])
+def initialize_default_shortcuts(user_id):
+    """Initialize default shortcuts for a user"""
+    result = user_manager.initialize_default_shortcuts(user_id)
+    return jsonify(result)
+
+@app.route('/shortcuts/<user_id>/categories', methods=['GET'])
+def get_shortcut_categories(user_id):
+    """Get all shortcut categories for a user"""
+    result = user_manager.get_shortcut_categories(user_id)
+    return jsonify(result)
+
+# User Dashboard routes
+@app.route('/dashboards/<user_id>', methods=['GET'])
+@token_required(['user', 'admin'])
+def get_user_dashboards(user_id):
+    """Get all dashboards for a user"""
+    if not proxmox_nli:
+        return jsonify({'error': 'System not initialized'}), 500
+        
+    result = proxmox_nli.user_manager.get_dashboards(user_id)
+    return jsonify(result)
+
+@app.route('/dashboards/<user_id>', methods=['POST'])
+@token_required(['user', 'admin'])
+def create_dashboard(user_id):
+    """Create a new dashboard for a user"""
+    if not proxmox_nli:
+        return jsonify({'error': 'System not initialized'}), 500
+        
+    name = request.json.get('name', 'New Dashboard')
+    is_default = request.json.get('is_default', False)
+    layout = request.json.get('layout', 'grid')
+    
+    result = proxmox_nli.user_manager.create_dashboard(user_id, name, is_default, layout)
+    return jsonify(result)
+
+@app.route('/dashboards/default/<user_id>', methods=['POST'])
+@token_required(['user', 'admin'])
+def initialize_default_dashboard(user_id):
+    """Initialize default dashboard for a user"""
+    if not proxmox_nli:
+        return jsonify({'error': 'System not initialized'}), 500
+    
+    result = proxmox_nli.user_manager.initialize_default_dashboard(user_id)
+    return jsonify(result)
+
+@app.route('/dashboards/<int:dashboard_id>', methods=['GET'])
+@token_required(['user', 'admin'])
+def get_dashboard(dashboard_id):
+    """Get a specific dashboard by ID"""
+    if not proxmox_nli:
+        return jsonify({'error': 'System not initialized'}), 500
+        
+    result = proxmox_nli.user_manager.get_dashboard(dashboard_id)
+    return jsonify(result)
+
+@app.route('/dashboards/<int:dashboard_id>', methods=['PUT'])
+@token_required(['user', 'admin'])
+def update_dashboard(dashboard_id):
+    """Update dashboard properties"""
+    if not proxmox_nli:
+        return jsonify({'error': 'System not initialized'}), 500
+        
+    name = request.json.get('name')
+    is_default = request.json.get('is_default')
+    layout = request.json.get('layout')
+    
+    result = proxmox_nli.user_manager.update_dashboard(dashboard_id, name, is_default, layout)
+    return jsonify(result)
+
+@app.route('/dashboards/<int:dashboard_id>', methods=['DELETE'])
+@token_required(['user', 'admin'])
+def delete_dashboard(dashboard_id):
+    """Delete a dashboard"""
+    if not proxmox_nli:
+        return jsonify({'error': 'System not initialized'}), 500
+        
+    result = proxmox_nli.user_manager.delete_dashboard(dashboard_id)
+    return jsonify(result)
+
+@app.route('/dashboards/<int:dashboard_id>/panels', methods=['POST'])
+@token_required(['user', 'admin'])
+def add_dashboard_panel(dashboard_id):
+    """Add a panel to a dashboard"""
+    if not proxmox_nli:
+        return jsonify({'error': 'System not initialized'}), 500
+        
+    panel_type = request.json.get('panel_type')
+    title = request.json.get('title')
+    config = request.json.get('config', {})
+    position_x = request.json.get('position_x', 0)
+    position_y = request.json.get('position_y', 0)
+    width = request.json.get('width', 6)
+    height = request.json.get('height', 4)
+    
+    if not panel_type or not title:
+        return jsonify({'error': 'Panel type and title are required'}), 400
+        
+    result = proxmox_nli.user_manager.add_dashboard_panel(
+        dashboard_id, panel_type, title, config, position_x, position_y, width, height
+    )
+    return jsonify(result)
+
+@app.route('/dashboards/panels/<int:panel_id>', methods=['PUT'])
+@token_required(['user', 'admin'])
+def update_dashboard_panel(panel_id):
+    """Update panel properties"""
+    if not proxmox_nli:
+        return jsonify({'error': 'System not initialized'}), 500
+        
+    title = request.json.get('title')
+    config = request.json.get('config')
+    position_x = request.json.get('position_x')
+    position_y = request.json.get('position_y')
+    width = request.json.get('width')
+    height = request.json.get('height')
+    
+    result = proxmox_nli.user_manager.update_dashboard_panel(
+        panel_id, title, config, position_x, position_y, width, height
+    )
+    return jsonify(result)
+
+@app.route('/dashboards/panels/<int:panel_id>', methods=['DELETE'])
+@token_required(['user', 'admin'])
+def delete_dashboard_panel(panel_id):
+    """Delete a panel from a dashboard"""
+    if not proxmox_nli:
+        return jsonify({'error': 'System not initialized'}), 500
+        
+    result = proxmox_nli.user_manager.delete_dashboard_panel(panel_id)
+    return jsonify(result)
+
+# Profile Sync routes
+@app.route('/profile-sync/<user_id>/devices', methods=['GET'])
+@token_required(['user', 'admin'])
+def get_user_devices(user_id):
+    """Get all devices for a user"""
+    if not proxmox_nli:
+        return jsonify({'error': 'System not initialized'}), 500
+    
+    result = proxmox_nli.user_manager.get_user_devices(user_id)
+    return jsonify(result)
+
+@app.route('/profile-sync/<user_id>/devices', methods=['POST'])
+@token_required(['user', 'admin'])
+def register_device(user_id):
+    """Register a new device for profile sync"""
+    if not proxmox_nli:
+        return jsonify({'error': 'System not initialized'}), 500
+    
+    device_id = request.json.get('device_id')
+    device_name = request.json.get('device_name')
+    device_type = request.json.get('device_type', 'desktop')
+    
+    if not device_id or not device_name:
+        return jsonify({'error': 'Device ID and name are required'}), 400
+    
+    result = proxmox_nli.user_manager.register_device(user_id, device_id, device_name, device_type)
+    return jsonify(result)
+
+@app.route('/profile-sync/<user_id>/devices/<device_id>', methods=['DELETE'])
+@token_required(['user', 'admin'])
+def remove_device(user_id, device_id):
+    """Remove a device from profile sync"""
+    if not proxmox_nli:
+        return jsonify({'error': 'System not initialized'}), 500
+    
+    result = proxmox_nli.user_manager.remove_device(user_id, device_id)
+    return jsonify(result)
+
+@app.route('/profile-sync/<user_id>/<device_id>', methods=['POST'])
+@token_required(['user', 'admin'])
+def sync_profile(user_id, device_id):
+    """Synchronize profile data"""
+    if not proxmox_nli:
+        return jsonify({'error': 'System not initialized'}), 500
+    
+    sync_data = request.json.get('sync_data')
+    
+    result = proxmox_nli.user_manager.sync_profile(user_id, device_id, sync_data)
+    return jsonify(result)
 
 @socketio.on('connect')
 def handle_connect():
