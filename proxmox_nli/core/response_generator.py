@@ -2,167 +2,100 @@
 Response generator module for producing natural language responses.
 """
 import os
+import json
+import re
+from typing import Dict, Any, Optional
 
 class ResponseGenerator:
     def __init__(self):
-        """Initialize the response generator with optional Ollama integration"""
+        """Initialize the response generator with optional LLM integration"""
         self.use_ollama = os.getenv("DISABLE_OLLAMA_RESPONSE", "").lower() != "true"
+        self.use_huggingface = os.getenv("DISABLE_HUGGINGFACE_RESPONSE", "").lower() != "true"
         self.ollama_client = None
-        
-        # Ollama client will be set later if needed to avoid circular imports
+        self.huggingface_client = None
     
     def set_ollama_client(self, ollama_client):
         """Set the Ollama client for enhanced responses"""
         self.ollama_client = ollama_client
         if ollama_client:
             print("Response generator will use Ollama for enhanced responses")
-
+            
+    def set_huggingface_client(self, huggingface_client):
+        """Set the Hugging Face client for enhanced responses"""
+        self.huggingface_client = huggingface_client
+        if huggingface_client:
+            print("Response generator will use Hugging Face for enhanced responses")
+    
     def generate_response(self, query, intent, result):
         """Generate a natural language response"""
-        # Check if this is a confirmation request
-        if result.get('requires_confirmation', False):
-            return result['message']
+        if not result:
+            return "I'm sorry, I couldn't process that request."
         
-        # Try to use Ollama for response enhancement if available
+        # Check if there was an error
+        if result.get('error'):
+            return f"Error: {result['error']}"
+        
+        # First try with Hugging Face if enabled
+        if self.use_huggingface and self.huggingface_client:
+            try:
+                enhanced_response = self.huggingface_client.enhance_response(query, intent, result)
+                if enhanced_response:
+                    return enhanced_response
+            except Exception as e:
+                print(f"Error using Hugging Face for response generation: {e}")
+        
+        # Next try with Ollama if enabled
         if self.use_ollama and self.ollama_client:
             try:
                 enhanced_response = self.ollama_client.enhance_response(query, intent, result)
                 if enhanced_response:
                     return enhanced_response
             except Exception as e:
-                print(f"Warning: Failed to generate enhanced response: {str(e)}")
-                print("Falling back to template-based response generation")
+                print(f"Error using Ollama for response generation: {e}")
         
-        # Fallback to standard response generation
-        if not result['success']:
-            return f"Sorry, there was an error: {result['message']}"
+        # Fallback to basic templated responses
+        response = self._generate_basic_response(intent, result)
+        return response
         
-        # VM management responses
-        if intent == 'list_vms':
+    def _generate_basic_response(self, intent, result):
+        """Generate a basic response without LLM assistance"""
+        if intent == "list_vms":
             if not result.get('vms'):
-                return "I couldn't find any virtual machines."
+                return "No VMs found."
+            vm_list = result.get('vms', [])
+            vm_strs = [f"VM {vm['id']}: {vm['name']} ({vm['status']})" for vm in vm_list]
+            return f"Found {len(vm_list)} VMs:\n" + "\n".join(vm_strs)
+        
+        elif intent == "start_vm":
+            return f"VM {result.get('vm_id')} started successfully."
             
-            vm_list = result['vms']
-            if len(vm_list) == 0:
-                return "There are no virtual machines running on your Proxmox cluster."
+        elif intent == "stop_vm":
+            return f"VM {result.get('vm_id')} stopped successfully."
             
-            response = f"I found {len(vm_list)} virtual machines:\n\n"
-            for vm in vm_list:
-                response += f"• VM {vm['id']} - {vm['name']} ({vm['status']}) on node {vm['node']}\n"
-                response += f"  CPU: {vm['cpu']} cores, Memory: {vm['memory']:.1f} MB, Disk: {vm['disk']:.1f} GB\n\n"
+        elif intent == "restart_vm":
+            return f"VM {result.get('vm_id')} restarted successfully."
             
-            return response.strip()
+        elif intent == "vm_status":
+            vm = result.get('vm', {})
+            return (f"VM {vm.get('id')}: {vm.get('name')}\n"
+                   f"Status: {vm.get('status')}\n"
+                   f"Memory: {vm.get('mem', 0)} MB, CPU: {vm.get('cpu', 0)}%\n"
+                   f"Uptime: {vm.get('uptime', 'N/A')}")
         
-        elif intent in ['start_vm', 'stop_vm', 'restart_vm', 'delete_vm']:
-            return result['message']
+        elif intent == "cluster_status":
+            nodes = result.get('nodes', [])
+            if not nodes:
+                return "No cluster nodes found."
+            node_strs = [f"Node {n.get('name')}: {n.get('status')} (CPU: {n.get('cpu')}%, Mem: {n.get('mem')}%)" 
+                         for n in nodes]
+            return "Cluster status:\n" + "\n".join(node_strs)
         
-        elif intent == 'vm_status':
-            status = result['status']
-            response = f"Status of VM {result['message'].split()[-1]}:\n"
-            response += f"• State: {status['status']}\n"
-            response += f"• CPU usage: {status['cpu']:.2f}\n"
-            response += f"• Memory: {status['memory']:.1f} MB\n"
-            response += f"• Disk: {status['disk']:.1f} GB"
-            return response
+        elif intent == "deploy_service":
+            return f"Service {result.get('service_name')} deployed successfully."
         
-        elif intent == 'create_vm':
-            return result['message']
-        
-        # Container management responses
-        elif intent == 'list_containers':
-            if not result.get('containers'):
-                return "I couldn't find any containers."
+        elif intent == "help":
+            # Just a basic help template, the LLM would provide more context-sensitive help
+            return "Available commands include: list_vms, start_vm, stop_vm, restart_vm, vm_status, cluster_status, deploy_service"
             
-            container_list = result['containers']
-            if len(container_list) == 0:
-                return "There are no containers running on your Proxmox cluster."
-            
-            response = f"I found {len(container_list)} containers:\n\n"
-            for ct in container_list:
-                response += f"• Container {ct['id']} - {ct['name']} ({ct['status']}) on node {ct['node']}\n"
-            
-            return response.strip()
-        
-        # Cluster management responses
-        elif intent == 'cluster_status':
-            status = result['status']
-            response = "Cluster status:\n"
-            for node in status:
-                response += f"• {node['name']} ({node['type']}): {node['status']}\n"
-            return response.strip()
-        
-        elif intent == 'node_status':
-            status = result['status']
-            node_name = result['message'].split()[1]
-            response = f"Status of node {node_name}:\n"
-            response += f"• CPU: {status['cpuinfo']['cpus']} CPUs, {status['loadavg'][0]:.2f} load\n"
-            response += f"• Memory: {status['memory']['used'] / (1024*1024):.1f} MB used of {status['memory']['total'] / (1024*1024):.1f} MB\n"
-            response += f"• Uptime: {status['uptime'] // 86400} days {(status['uptime'] % 86400) // 3600} hours"
-            return response
-        
-        elif intent == 'storage_info':
-            storages = result['storages']
-            response = f"I found {len(storages)} storage locations:\n\n"
-            for storage in storages:
-                used_percent = (storage['used'] / storage['total'] * 100) if storage['total'] > 0 else 0
-                response += f"• {storage['name']} ({storage['type']}) on node {storage['node']}:\n"
-                response += f"  {storage['used']:.1f} GB used of {storage['total']:.1f} GB ({used_percent:.1f}%)\n"
-                response += f"  {storage['available']:.1f} GB available\n\n"
-            return response.strip()
-        
-        # Docker management responses
-        elif intent == 'list_docker_containers':
-            if not result.get('containers'):
-                return "I couldn't find any Docker containers on this VM."
-            
-            containers = result['containers']
-            if len(containers) == 0:
-                return "There are no Docker containers on this VM."
-            
-            response = f"I found {len(containers)} Docker containers:\n\n"
-            for container in containers:
-                response += f"• {container['name']} ({container['id']})\n"
-                response += f"  Image: {container['image']}\n"
-                response += f"  Status: {container['status']}\n\n"
-            return response.strip()
-        
-        elif intent in ['start_docker_container', 'stop_docker_container']:
-            return result['message']
-        
-        elif intent == 'docker_container_logs':
-            response = f"Logs for container {result['message'].split()[-2]}:\n\n"
-            response += result['logs']
-            return response
-        
-        elif intent == 'list_docker_images':
-            if not result.get('images'):
-                return "I couldn't find any Docker images on this VM."
-            
-            images = result['images']
-            if len(images) == 0:
-                return "There are no Docker images on this VM."
-            
-            response = f"I found {len(images)} Docker images:\n\n"
-            for image in images:
-                response += f"• {image['name']} ({image['id']})\n"
-                response += f"  Size: {image['size']}\n\n"
-            return response.strip()
-        
-        elif intent == 'pull_docker_image':
-            return f"Docker image pulled successfully. Output:\n\n{result['output']}"
-        
-        elif intent == 'run_docker_container':
-            return f"Docker container started with ID: {result['container_id']}"
-        
-        # VM CLI command execution response
-        elif intent == 'run_cli_command':
-            response = "Command executed successfully. Output:\n\n"
-            response += result['output']
-            return response
-        
-        elif intent == 'help':
-            from .core_nli import ProxmoxNLI
-            return ProxmoxNLI.get_help_text(None)
-        
-        else:
-            return "I'm not sure how to respond to that. Try asking for 'help' to see available commands."
+        # Generic fallback for unhandled intents
+        return json.dumps(result, indent=2)
