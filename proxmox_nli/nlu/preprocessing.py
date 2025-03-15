@@ -4,6 +4,9 @@ from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 import os
 
+# Flag to track if NLTK data has been downloaded
+_nltk_data_downloaded = False
+
 # Ensure NLTK data directory exists
 nltk_data_dir = os.path.join(os.path.expanduser('~'), 'nltk_data')
 if not os.path.exists(nltk_data_dir):
@@ -11,6 +14,12 @@ if not os.path.exists(nltk_data_dir):
 
 # Download required NLTK resources with verification
 def download_nltk_data():
+    global _nltk_data_downloaded
+    
+    # Skip if already downloaded in this session
+    if _nltk_data_downloaded:
+        return
+    
     resources = ['punkt', 'stopwords', 'wordnet', 'punkt_tab']
     for resource in resources:
         try:
@@ -29,15 +38,15 @@ def download_nltk_data():
         except LookupError:
             print(f"Downloading NLTK {resource}...")
             nltk.download(resource, quiet=False)
+    
+    # Mark as downloaded
+    _nltk_data_downloaded = True
 
-# Download data
+# Download data once at module import
 download_nltk_data()
 
 class Preprocessor:
     def __init__(self):
-        # Ensure the data is downloaded before initializing
-        download_nltk_data()
-        
         self.lemmatizer = WordNetLemmatizer()
         try:
             self.stop_words = set(stopwords.words('english'))
