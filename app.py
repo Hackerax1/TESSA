@@ -2,6 +2,7 @@
 from flask import Flask, render_template, request, jsonify, url_for
 from flask_socketio import SocketIO, emit
 import os
+import sys
 from proxmox_nli.core import ProxmoxNLI
 from proxmox_nli.core.voice_handler import VoiceHandler, VoiceProfile
 from proxmox_nli.services.goal_mapper import GoalMapper
@@ -71,78 +72,124 @@ def token_required(required_roles=['user']):
 
 def monitor_vm_status():
     """Background task to monitor VM status and emit updates"""
-    while True:
-        try:
-            if proxmox_nli:
-                # Get VM list and status
-                result = proxmox_nli.commands.list_vms()
-                if result['success']:
-                    socketio.emit('vm_status_update', {'vms': result['vms']})
-                else:
-                    logger.error(f"Failed to get VM status: {result.get('message', 'Unknown error')}")
-                    socketio.emit('vm_status_update', {'error': result.get('message', 'Failed to get VM status')})
-                    
-                # Get cluster status
-                cluster_status = proxmox_nli.commands.get_cluster_status()
-                if cluster_status['success']:
-                    socketio.emit('cluster_status_update', {'status': cluster_status['nodes']})
-        except Exception as e:
-            logger.error(f"Error in status monitor: {str(e)}")
-            socketio.emit('vm_status_update', {'error': 'System error occurred'})
-            socketio.emit('cluster_status_update', {'error': 'System error occurred'})
-        time.sleep(5)  # Update every 5 seconds
+    try:
+        while True:
+            try:
+                if proxmox_nli:
+                    # Get VM list and status
+                    result = proxmox_nli.commands.list_vms()
+                    if result['success']:
+                        socketio.emit('vm_status_update', {'vms': result['vms']})
+                    else:
+                        logger.error(f"Failed to get VM status: {result.get('message', 'Unknown error')}")
+                        socketio.emit('vm_status_update', {'error': result.get('message', 'Failed to get VM status')})
+                        
+                    # Get cluster status with improved error handling
+                    try:
+                        cluster_status = proxmox_nli.commands.get_cluster_status()
+                        if cluster_status.get('success'):
+                            # Check if 'nodes' exists in the response
+                            if 'nodes' in cluster_status:
+                                socketio.emit('cluster_status_update', {'status': cluster_status['nodes']})
+                            else:
+                                # Handle missing nodes field
+                                logger.warning(f"Cluster status response doesn't contain 'nodes' field: {cluster_status}")
+                                socketio.emit('cluster_status_update', {'error': 'Invalid cluster status response format'})
+                        else:
+                            error_msg = cluster_status.get('message', 'Failed to get cluster status')
+                            logger.error(f"Failed to get cluster status: {error_msg}")
+                            socketio.emit('cluster_status_update', {'error': error_msg})
+                    except Exception as cluster_err:
+                        logger.error(f"Error getting cluster status: {str(cluster_err)}")
+                        socketio.emit('cluster_status_update', {'error': f"Error: {str(cluster_err)}"})
+            except Exception as e:
+                logger.error(f"Error in status monitor: {str(e)}")
+                socketio.emit('vm_status_update', {'error': 'System error occurred'})
+                socketio.emit('cluster_status_update', {'error': 'System error occurred'})
+            
+            # Add a small delay before next attempt in case of errors
+            time.sleep(5)  # Update every 5 seconds
+    except KeyboardInterrupt:
+        logger.info("Status monitor thread terminated by keyboard interrupt")
+    except Exception as e:
+        logger.critical(f"Fatal error in status monitor thread: {str(e)}")
 
 def monitor_vm_resources():
     """Background task to monitor VM resource usage and store historical data"""
-    while True:
-        try:
-            if proxmox_nli:
-                # Get detailed resource usage for all VMs
-                vms = proxmox_nli.commands.list_vms()
-                if vms.get('success'):
-                    current_time = datetime.now()
-                    for vm in vms.get('vms', []):
-                        vm_id = vm.get('vmid')
-                        if not vm_id:
-                            continue
-                            
-                        # Get detailed resource usage for this VM
-                        resource_data = proxmox_nli.commands.get_vm_resources(vm_id)
-                        if resource_data.get('success'):
-                            # Clean up old data (older than resource_history_window)
-                            if vm_resource_history[vm_id]['timestamps']:
-                                cutoff_time = current_time - timedelta(seconds=resource_history_window)
-                                cutoff_timestamp = cutoff_time.timestamp()
-                                
-                                # Find the index of the oldest data point to keep
-                                idx = 0
-                                for ts in vm_resource_history[vm_id]['timestamps']:
-                                    if ts >= cutoff_timestamp:
-                                        break
-                                    idx += 1
-                                
-                                if idx > 0:
-                                    # Remove old data points
-                                    vm_resource_history[vm_id]['cpu'] = vm_resource_history[vm_id]['cpu'][idx:]
-                                    vm_resource_history[vm_id]['memory'] = vm_resource_history[vm_id]['memory'][idx:]
-                                    vm_resource_history[vm_id]['disk_io'] = vm_resource_history[vm_id]['disk_io'][idx:]
-                                    vm_resource_history[vm_id]['network'] = vm_resource_history[vm_id]['network'][idx:]
-                                    vm_resource_history[vm_id]['timestamps'] = vm_resource_history[vm_id]['timestamps'][idx:]
-                            
-                            # Store current resource data
-                            resources = resource_data.get('resources', {})
-                            vm_resource_history[vm_id]['cpu'].append(resources.get('cpu_usage', 0))
-                            vm_resource_history[vm_id]['memory'].append(resources.get('memory_usage', 0))
-                            vm_resource_history[vm_id]['disk_io'].append(resources.get('disk_io', 0))
-                            vm_resource_history[vm_id]['network'].append(resources.get('network_io', 0))
-                            vm_resource_history[vm_id]['timestamps'].append(current_time.timestamp())
-                            
-                # Generate optimization recommendations periodically
-                generate_optimization_recommendations()
-        except Exception as e:
-            logger.error(f"Error in resource monitor: {str(e)}")
-        
-        time.sleep(60)  # Update every 60 seconds
+    try:
+        while True:
+            try:
+                if proxmox_nli:
+                    # Get detailed resource usage for all VMs
+                    try:
+                        vms = proxmox_nli.commands.list_vms()
+                        if vms.get('success'):
+                            current_time = datetime.now()
+                            for vm in vms.get('vms', []):
+                                vm_id = vm.get('vmid')
+                                if not vm_id:
+                                    continue
+                                    
+                                # Get detailed resource usage for this VM
+                                try:
+                                    resource_data = proxmox_nli.commands.get_vm_resources(vm_id)
+                                    if resource_data.get('success'):
+                                        # Clean up old data (older than resource_history_window)
+                                        if vm_resource_history[vm_id]['timestamps']:
+                                            cutoff_time = current_time - timedelta(seconds=resource_history_window)
+                                            cutoff_timestamp = cutoff_time.timestamp()
+                                            
+                                            # Find the index of the oldest data point to keep
+                                            idx = 0
+                                            for ts in vm_resource_history[vm_id]['timestamps']:
+                                                if ts >= cutoff_timestamp:
+                                                    break
+                                                idx += 1
+                                            
+                                            if idx > 0:
+                                                # Remove old data points
+                                                vm_resource_history[vm_id]['cpu'] = vm_resource_history[vm_id]['cpu'][idx:]
+                                                vm_resource_history[vm_id]['memory'] = vm_resource_history[vm_id]['memory'][idx:]
+                                                vm_resource_history[vm_id]['disk_io'] = vm_resource_history[vm_id]['disk_io'][idx:]
+                                                vm_resource_history[vm_id]['network'] = vm_resource_history[vm_id]['network'][idx:]
+                                                vm_resource_history[vm_id]['timestamps'] = vm_resource_history[vm_id]['timestamps'][idx:]
+                                        
+                                        # Store current resource data
+                                        resources = resource_data.get('resources', {})
+                                        vm_resource_history[vm_id]['cpu'].append(resources.get('cpu_usage', 0))
+                                        vm_resource_history[vm_id]['memory'].append(resources.get('memory_usage', 0))
+                                        vm_resource_history[vm_id]['disk_io'].append(resources.get('disk_io', 0))
+                                        vm_resource_history[vm_id]['network'].append(resources.get('network_io', 0))
+                                        vm_resource_history[vm_id]['timestamps'].append(current_time.timestamp())
+                                except Exception as vm_err:
+                                    logger.error(f"Error getting resources for VM {vm_id}: {str(vm_err)}")
+                                    continue  # Continue with the next VM
+                        else:
+                            logger.error(f"Failed to get VM list: {vms.get('message', 'Unknown error')}")
+                    except Exception as vms_err:
+                        logger.error(f"Error listing VMs: {str(vms_err)}")
+                        
+                    # Generate optimization recommendations periodically
+                    try:
+                        generate_optimization_recommendations()
+                    except Exception as opt_err:
+                        logger.error(f"Error generating optimization recommendations: {str(opt_err)}")
+                else:
+                    logger.warning("Proxmox NLI not initialized, skipping resource monitoring")
+            except Exception as e:
+                logger.error(f"Error in resource monitor: {str(e)}")
+            
+            # Sleep with interrupt handling
+            try:
+                time.sleep(60)  # Update every 60 seconds
+            except KeyboardInterrupt:
+                logger.info("Resource monitor interrupted, shutting down")
+                return
+                
+    except KeyboardInterrupt:
+        logger.info("Resource monitor thread terminated by keyboard interrupt")
+    except Exception as e:
+        logger.critical(f"Fatal error in resource monitor thread: {str(e)}")
 
 def generate_optimization_recommendations():
     """Generate VM optimization recommendations based on resource usage patterns"""
@@ -1209,13 +1256,20 @@ def start_app(host, user, password, realm='pam', verify_ssl=False, debug=False):
     global proxmox_nli, status_monitor_thread, resource_monitor_thread
     
     # Initialize ProxmoxNLI
-    proxmox_nli = ProxmoxNLI(
-        host=host,
-        user=user,
-        password=password,
-        realm=realm,
-        verify_ssl=verify_ssl
-    )
+    try:
+        proxmox_nli = ProxmoxNLI(
+            host=host,
+            user=user,
+            password=password,
+            realm=realm,
+            verify_ssl=verify_ssl
+        )
+        logger.info("Successfully initialized Proxmox NLI connection")
+    except Exception as e:
+        logger.error(f"Failed to initialize Proxmox NLI: {str(e)}")
+        proxmox_nli = None
+        if debug:
+            print(f"Failed to initialize Proxmox NLI: {str(e)}")
     
     # Initialize app config for storing optimization recommendations
     app.config['optimization_recommendations'] = []
@@ -1230,21 +1284,54 @@ def start_app(host, user, password, realm='pam', verify_ssl=False, debug=False):
         resource_monitor_thread = threading.Thread(target=monitor_vm_resources, daemon=True)
         resource_monitor_thread.start()
     
-    # Start the Flask app
-    socketio.run(app, debug=debug, host='0.0.0.0', port=int(os.getenv('API_PORT', 5000)))
+    try:
+        # Start the Flask app
+        socketio.run(app, debug=debug, host='0.0.0.0', port=int(os.getenv('API_PORT', 5000)))
+    except KeyboardInterrupt:
+        logger.info("Web server terminated by keyboard interrupt")
+        print("\nShutting down server...")
 
 if __name__ == '__main__':
     import argparse
     
+    # Get default values from environment variables
+    default_host = os.getenv('PROXMOX_API_URL', '').split('/')[2].split(':')[0] if os.getenv('PROXMOX_API_URL') else None
+    default_user = os.getenv('PROXMOX_USER', '').split('@')[0] if os.getenv('PROXMOX_USER') else None
+    default_password = os.getenv('PROXMOX_PASSWORD', None)
+    default_realm = os.getenv('PROXMOX_USER', 'pam').split('@')[1] if '@' in os.getenv('PROXMOX_USER', '') else 'pam'
+    debug_mode = os.getenv('DEBUG_MODE', 'false').lower() == 'true'
+    
+    # Set up signal handling for graceful shutdown
+    import signal
+    def signal_handler(sig, frame):
+        print('\nShutting down gracefully...')
+        sys.exit(0)
+    
+    signal.signal(signal.SIGINT, signal_handler)
+    
     parser = argparse.ArgumentParser(description='Proxmox NLI Web Server')
-    parser.add_argument('--host', required=True, help='Proxmox host')
-    parser.add_argument('--user', required=True, help='Proxmox user')
-    parser.add_argument('--password', required=True, help='Proxmox password')
-    parser.add_argument('--realm', default='pam', help='Proxmox realm')
+    parser.add_argument('--host', default=default_host, help='Proxmox host (default from .env PROXMOX_API_URL)')
+    parser.add_argument('--user', default=default_user, help='Proxmox user (default from .env PROXMOX_USER)')
+    parser.add_argument('--password', default=default_password, help='Proxmox password (default from .env PROXMOX_PASSWORD)')
+    parser.add_argument('--realm', default=default_realm, help='Proxmox realm (default from .env PROXMOX_USER or "pam")')
     parser.add_argument('--verify-ssl', action='store_true', help='Verify SSL certificate')
-    parser.add_argument('--debug', action='store_true', help='Enable debug mode')
+    parser.add_argument('--debug', action='store_true', default=debug_mode, help='Enable debug mode (default from .env DEBUG_MODE)')
     
     args = parser.parse_args()
+    
+    if not args.host or not args.user or not args.password:
+        missing = []
+        if not args.host:
+            missing.append('--host')
+        if not args.user:
+            missing.append('--user')
+        if not args.password:
+            missing.append('--password')
+        missing_str = ', '.join(missing)
+        logger.error(f"Missing required configuration: {missing_str}")
+        logger.error("Please provide values in .env file or as command line arguments")
+        parser.print_help()
+        exit(1)
     
     start_app(
         host=args.host,

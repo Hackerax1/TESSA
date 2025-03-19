@@ -1199,13 +1199,25 @@ class UserPreferencesManager:
             return False
 
 class UserManager:
-    def __init__(self, data_dir: str = None):
+    def __init__(self, base_nli_or_data_dir=None):
         """Initialize the user manager
         
         Args:
-            data_dir: Directory to store user data. If None,
-                     defaults to the 'data' directory in the project root.
+            base_nli_or_data_dir: Either the base NLI instance or a directory to store user data.
+                                 If None, defaults to the 'data' directory in the project root.
         """
+        # Handle different types of initialization parameters
+        if base_nli_or_data_dir is None:
+            # Use default data directory
+            data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'data')
+        elif isinstance(base_nli_or_data_dir, str):
+            # Already a path string
+            data_dir = base_nli_or_data_dir
+        else:
+            # Assume it's a base_nli instance
+            self.base_nli = base_nli_or_data_dir
+            data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'data')
+        
         self.preferences_manager = UserPreferencesManager(data_dir)
         
     # ... existing methods ...
