@@ -1,0 +1,48 @@
+<!-- Shortcuts Modal -->
+<div class="modal fade" id="shortcutsModal" tabindex="-1" aria-labelledby="shortcutsModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="shortcutsModalLabel">Command Shortcuts</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-flex justify-content-between mb-3">
+                    <h6>Your Shortcuts</h6>
+                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addShortcutModal">
+                        <i class="bi bi-plus"></i> Add Shortcut
+                    </button>
+                </div>
+                
+                <div id="shortcuts-list" class="list-group">
+                    <div class="d-flex justify-content-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <h6>Common Commands</h6>
+                    <div class="list-group">
+                        <button type="button" class="list-group-item list-group-item-action" data-command="Show all VMs">
+                            Show all VMs
+                        </button>
+                        <button type="button" class="list-group-item list-group-item-action" data-command="Show cluster status">
+                            Show cluster status
+                        </button>
+                        <button type="button" class="list-group-item list-group-item-action" data-command="Show storage usage">
+                            Show storage usage
+                        </button>
+                        <button type="button" class="list-group-item list-group-item-action" data-command="Show network configuration">
+                            Show network configuration
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>

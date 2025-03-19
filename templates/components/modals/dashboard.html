@@ -1,0 +1,126 @@
+<!-- Dashboard Modal -->
+<div class="modal fade" id="dashboardModal" tabindex="-1" aria-labelledby="dashboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="dashboardModalLabel">System Dashboard</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">VMs</h5>
+                                <div class="display-4" id="dashboard-vm-count">0</div>
+                                <div class="text-muted">
+                                    <span class="text-success" id="dashboard-running-vms">0 Running</span> / 
+                                    <span class="text-danger" id="dashboard-stopped-vms">0 Stopped</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">Nodes</h5>
+                                <div class="display-4" id="dashboard-node-count">0</div>
+                                <div class="text-muted">
+                                    <span class="text-success" id="dashboard-online-nodes">0 Online</span> / 
+                                    <span class="text-danger" id="dashboard-offline-nodes">0 Offline</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">Storage</h5>
+                                <div class="display-4" id="dashboard-storage-usage">0%</div>
+                                <div class="text-muted" id="dashboard-storage-details">0 GB / 0 GB</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">CPU Load</h5>
+                                <div class="display-4" id="dashboard-cpu-load">0%</div>
+                                <div class="text-muted" id="dashboard-cpu-details">0 cores</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0">Resource Usage</h6>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button type="button" class="btn btn-outline-secondary active" data-period="day">Day</button>
+                                    <button type="button" class="btn btn-outline-secondary" data-period="week">Week</button>
+                                    <button type="button" class="btn btn-outline-secondary" data-period="month">Month</button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="resourceUsageChart" height="250"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">Top VMs by Resource Usage</h6>
+                            </div>
+                            <div class="card-body">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>VM</th>
+                                            <th>CPU</th>
+                                            <th>Memory</th>
+                                            <th>Disk I/O</th>
+                                            <th>Network</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="top-vms-table">
+                                        <tr>
+                                            <td colspan="5" class="text-center">Loading data...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">Recent Events</h6>
+                            </div>
+                            <div class="card-body">
+                                <div id="recent-events" class="list-group">
+                                    <div class="text-center">
+                                        <div class="spinner-border spinner-border-sm" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <span class="ms-2">Loading events...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="refresh-dashboard">
+                    <i class="bi bi-arrow-repeat"></i> Refresh
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

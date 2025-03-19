@@ -313,9 +313,10 @@ def refresh_token():
     return jsonify({'error': 'Could not refresh token'}), 401
 
 @app.route('/')
+@token_required()
 def home():
     """Render the home page"""
-    return render_template('index.html')
+    return render_template('base.html')
 
 @app.route('/initial-status')
 def get_initial_status():

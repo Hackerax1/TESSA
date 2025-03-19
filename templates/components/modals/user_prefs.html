@@ -1,0 +1,128 @@
+<!-- User Preferences Modal -->
+<div class="modal fade" id="userPreferencesModal" tabindex="-1" aria-labelledby="userPreferencesModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="userPreferencesModalLabel">User Preferences</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-tabs" id="preferenceTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="general-pref-tab" data-bs-toggle="tab" data-bs-target="#general-pref" type="button" role="tab" aria-controls="general-pref" aria-selected="true">General</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="notification-pref-tab" data-bs-toggle="tab" data-bs-target="#notification-pref" type="button" role="tab" aria-controls="notification-pref" aria-selected="false">Notifications</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="command-history-tab" data-bs-toggle="tab" data-bs-target="#command-history" type="button" role="tab" aria-controls="command-history" aria-selected="false">Command History</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="favorites-tab" data-bs-toggle="tab" data-bs-target="#favorites" type="button" role="tab" aria-controls="favorites" aria-selected="false">Favorites</button>
+                    </li>
+                </ul>
+                <div class="tab-content" id="preferenceTabContent">
+                    <!-- General Preferences Tab -->
+                    <div class="tab-pane fade show active" id="general-pref" role="tabpanel" aria-labelledby="general-pref-tab">
+                        <div class="p-3">
+                            <h6>Interface Settings</h6>
+                            <div class="mb-3">
+                                <label for="theme-select" class="form-label">Theme</label>
+                                <select class="form-select" id="theme-select">
+                                    <option value="light">Light</option>
+                                    <option value="dark">Dark</option>
+                                    <option value="system">System Default</option>
+                                </select>
+                            </div>
+                            <div class="mb-3 form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="compact-mode">
+                                <label class="form-check-label" for="compact-mode">Compact Mode</label>
+                            </div>
+                            <div class="mb-3 form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="auto-refresh">
+                                <label class="form-check-label" for="auto-refresh">Auto-refresh Status (30s)</label>
+                            </div>
+                            
+                            <h6 class="mt-4">Behavior Settings</h6>
+                            <div class="mb-3 form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="confirm-actions">
+                                <label class="form-check-label" for="confirm-actions">Confirm Destructive Actions</label>
+                            </div>
+                            <div class="mb-3 form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="voice-feedback">
+                                <label class="form-check-label" for="voice-feedback">Voice Feedback</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Notification Preferences Tab -->
+                    <div class="tab-pane fade" id="notification-pref" role="tabpanel" aria-labelledby="notification-pref-tab">
+                        <div class="p-3">
+                            <div class="d-flex justify-content-between mb-3">
+                                <h6>Notification Settings</h6>
+                                <div>
+                                    <button id="initialize-notification-prefs" class="btn btn-sm btn-outline-secondary me-2">
+                                        <i class="bi bi-arrow-repeat"></i> Reset to Default
+                                    </button>
+                                    <button id="save-notification-prefs" class="btn btn-sm btn-primary">
+                                        <i class="bi bi-save"></i> Save
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div id="notification-preferences-container">
+                                <div class="d-flex justify-content-center">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Command History Tab -->
+                    <div class="tab-pane fade" id="command-history" role="tabpanel" aria-labelledby="command-history-tab">
+                        <div class="p-3">
+                            <div class="d-flex justify-content-between mb-3">
+                                <h6>Command History</h6>
+                                <div>
+                                    <div class="form-check form-switch d-inline-block me-2">
+                                        <input class="form-check-input" type="checkbox" id="successfulCommandsOnly">
+                                        <label class="form-check-label" for="successfulCommandsOnly">Show Successful Only</label>
+                                    </div>
+                                    <button id="clear-history-btn" class="btn btn-sm btn-outline-danger">
+                                        <i class="bi bi-trash"></i> Clear History
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div id="history">
+                                <div id="noHistoryMessage" class="alert alert-info">No command history found</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Favorites Tab -->
+                    <div class="tab-pane fade" id="favorites" role="tabpanel" aria-labelledby="favorites-tab">
+                        <div class="p-3">
+                            <div class="d-flex justify-content-between mb-3">
+                                <h6>Favorite Commands</h6>
+                                <button id="addFavoriteBtn" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-plus"></i> Add Favorite
+                                </button>
+                            </div>
+                            
+                            <div id="favorites">
+                                <div id="noFavoritesMessage" class="alert alert-info">No favorite commands found</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="save-preferences">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>

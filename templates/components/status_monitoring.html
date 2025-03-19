@@ -1,0 +1,88 @@
+<!-- Status Monitoring -->
+<div class="card status-card">
+    <div class="card-header">
+        <ul class="nav nav-tabs card-header-tabs" id="statusTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="cluster-tab" data-bs-toggle="tab" data-bs-target="#cluster" type="button" role="tab" aria-controls="cluster" aria-selected="true">Cluster</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="vms-tab" data-bs-toggle="tab" data-bs-target="#vms" type="button" role="tab" aria-controls="vms" aria-selected="false">VMs</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="storage-tab" data-bs-toggle="tab" data-bs-target="#storage" type="button" role="tab" aria-controls="storage" aria-selected="false">Storage</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="network-tab" data-bs-toggle="tab" data-bs-target="#network" type="button" role="tab" aria-controls="network" aria-selected="false">Network</button>
+            </li>
+        </ul>
+    </div>
+    <div class="card-body">
+        <div class="tab-content" id="statusTabContent">
+            <!-- Cluster Status Tab -->
+            <div class="tab-pane fade show active" id="cluster" role="tabpanel" aria-labelledby="cluster-tab">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0">Cluster Status</h6>
+                    <span class="badge bg-success" id="cluster-status">Healthy</span>
+                </div>
+                <div id="cluster-diagram" class="cluster-diagram"></div>
+                <div id="node-list" class="mt-3">
+                    <div class="d-flex justify-content-between">
+                        <span>Loading nodes...</span>
+                        <div class="spinner-border spinner-border-sm" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- VMs Status Tab -->
+            <div class="tab-pane fade" id="vms" role="tabpanel" aria-labelledby="vms-tab">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0">Virtual Machines</h6>
+                    <div>
+                        <span class="badge bg-success me-1" id="running-vms">0 Running</span>
+                        <span class="badge bg-danger" id="stopped-vms">0 Stopped</span>
+                    </div>
+                </div>
+                <div id="vm-list" class="list-group vm-list">
+                    <div class="d-flex justify-content-between">
+                        <span>Loading VMs...</span>
+                        <div class="spinner-border spinner-border-sm" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Storage Status Tab -->
+            <div class="tab-pane fade" id="storage" role="tabpanel" aria-labelledby="storage-tab">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0">Storage Status</h6>
+                </div>
+                <div id="storage-list">
+                    <div class="d-flex justify-content-between">
+                        <span>Loading storage...</span>
+                        <div class="spinner-border spinner-border-sm" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Network Status Tab -->
+            <div class="tab-pane fade" id="network" role="tabpanel" aria-labelledby="network-tab">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0">Network Status</h6>
+                </div>
+                <div id="network-diagram" class="network-diagram">
+                    <div class="d-flex justify-content-between">
+                        <span>Loading network...</span>
+                        <div class="spinner-border spinner-border-sm" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

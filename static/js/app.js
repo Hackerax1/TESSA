@@ -186,15 +186,15 @@ class ProxmoxNLI {
         const commandHistoryTab = document.getElementById('command-history-tab');
         if (commandHistoryTab) {
             commandHistoryTab.addEventListener('shown.bs.tab', () => {
-                Data.loadCommandHistory(document.getElementById('history-container'));
+                Data.loadCommandHistory(document.getElementById('history'), false);
             });
         }
 
         // Favorite commands tab
-        const favoriteCommandsTab = document.getElementById('favorite-commands-tab');
+        const favoriteCommandsTab = document.getElementById('favorites-tab');
         if (favoriteCommandsTab) {
             favoriteCommandsTab.addEventListener('shown.bs.tab', () => {
-                Data.loadFavoriteCommands(document.getElementById('favorites-container'));
+                Data.loadFavoriteCommands(document.getElementById('favorites'));
             });
         }
         
@@ -218,6 +218,25 @@ class ProxmoxNLI {
         if (saveNotificationPrefsBtn) {
             saveNotificationPrefsBtn.addEventListener('click', () => {
                 this.notifications.saveNotificationPreferences();
+            });
+        }
+        
+        // Show only successful commands toggle
+        const successfulCommandsOnly = document.getElementById('successfulCommandsOnly');
+        if (successfulCommandsOnly) {
+            successfulCommandsOnly.addEventListener('change', (e) => {
+                Data.loadCommandHistory(document.getElementById('history'), e.target.checked);
+            });
+        }
+        
+        // Add favorite button
+        const addFavoriteBtn = document.getElementById('addFavoriteBtn');
+        if (addFavoriteBtn) {
+            addFavoriteBtn.addEventListener('click', () => {
+                const modal = new bootstrap.Modal(document.getElementById('favoriteCommandModal'));
+                document.getElementById('favorite-command-text').value = '';
+                document.getElementById('favorite-command-description').value = '';
+                modal.show();
             });
         }
         
@@ -254,7 +273,7 @@ class ProxmoxNLI {
                         .then(success => {
                             if (success) {
                                 UI.addMessage('Command removed from favorites.', 'system', this.chatBody);
-                                Data.loadFavoriteCommands(document.getElementById('favorites-container'));
+                                Data.loadFavoriteCommands(document.getElementById('favorites'));
                             }
                         });
                 }
@@ -266,7 +285,7 @@ class ProxmoxNLI {
                     .then(success => {
                         if (success) {
                             UI.addMessage('Command history cleared.', 'system', this.chatBody);
-                            Data.loadCommandHistory(document.getElementById('history-container'));
+                            Data.loadCommandHistory(document.getElementById('history'), false);
                         }
                     });
             }
@@ -283,7 +302,7 @@ class ProxmoxNLI {
                     .then(success => {
                         if (success) {
                             UI.addMessage('Command added to favorites.', 'system', this.chatBody);
-                            Data.loadFavoriteCommands(document.getElementById('favorites-container'));
+                            Data.loadFavoriteCommands(document.getElementById('favorites'));
                             
                             // Close modal
                             const modal = bootstrap.Modal.getInstance(document.getElementById('favoriteCommandModal'));

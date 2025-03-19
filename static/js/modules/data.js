@@ -2,6 +2,7 @@
  * Data module - Handles data loading and management
  */
 import API from './api.js';
+import Commands from './commands.js';
 
 export default class Data {
     /**
@@ -35,66 +36,19 @@ export default class Data {
     /**
      * Load command history from the server
      * @param {HTMLElement} historyContainer - Container for command history
+     * @param {boolean} successfulOnly - Show only successful commands
      * @returns {Promise<Array>} - Command history
      */
-    static async loadCommandHistory(historyContainer) {
+    static async loadCommandHistory(historyContainer, successfulOnly = false) {
         try {
-            const userId = localStorage.getItem('user_id') || 'default_user';
-            const response = await API.fetchWithAuth(`/command-history/${userId}`);
-            const data = await response.json();
+            const commands = new Commands();
+            await commands.loadCommandHistory();
             
-            if (data.success) {
-                if (historyContainer) {
-                    historyContainer.innerHTML = '';
-                    
-                    if (data.history.length === 0) {
-                        historyContainer.innerHTML = '<div class="alert alert-info">No command history found</div>';
-                    } else {
-                        const table = document.createElement('table');
-                        table.className = 'table table-hover';
-                        table.innerHTML = `
-                            <thead>
-                                <tr>
-                                    <th>Command</th>
-                                    <th>Timestamp</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="history-table-body"></tbody>
-                        `;
-                        
-                        const tableBody = table.querySelector('tbody');
-                        data.history.forEach(item => {
-                            const row = document.createElement('tr');
-                            row.innerHTML = `
-                                <td>${item.command}</td>
-                                <td>${new Date(item.timestamp).toLocaleString()}</td>
-                                <td>
-                                    <button class="btn btn-sm btn-outline-primary run-command" data-command="${item.command}">
-                                        <i class="bi bi-play-fill"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-secondary add-favorite" data-command="${item.command}">
-                                        <i class="bi bi-star"></i>
-                                    </button>
-                                </td>
-                            `;
-                            tableBody.appendChild(row);
-                        });
-                        
-                        historyContainer.appendChild(table);
-                        
-                        // Add clear history button
-                        const clearButton = document.createElement('button');
-                        clearButton.className = 'btn btn-outline-danger mt-3';
-                        clearButton.innerHTML = '<i class="bi bi-trash"></i> Clear History';
-                        clearButton.id = 'clear-history-btn';
-                        historyContainer.appendChild(clearButton);
-                    }
-                }
-                return data.history;
-            } else {
-                throw new Error(data.message || 'Failed to load command history');
+            if (historyContainer) {
+                commands.renderCommandHistory(historyContainer, successfulOnly);
             }
+            
+            return commands.commandHistory;
         } catch (error) {
             console.error('Error loading command history:', error);
             if (historyContainer) {
@@ -111,55 +65,14 @@ export default class Data {
      */
     static async loadFavoriteCommands(favoritesContainer) {
         try {
-            const userId = localStorage.getItem('user_id') || 'default_user';
-            const response = await API.fetchWithAuth(`/favorite-commands/${userId}`);
-            const data = await response.json();
+            const commands = new Commands();
+            await commands.loadFavoriteCommands();
             
-            if (data.success) {
-                if (favoritesContainer) {
-                    favoritesContainer.innerHTML = '';
-                    
-                    if (data.favorites.length === 0) {
-                        favoritesContainer.innerHTML = '<div class="alert alert-info">No favorite commands found</div>';
-                    } else {
-                        const table = document.createElement('table');
-                        table.className = 'table table-hover';
-                        table.innerHTML = `
-                            <thead>
-                                <tr>
-                                    <th>Command</th>
-                                    <th>Description</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="favorites-table-body"></tbody>
-                        `;
-                        
-                        const tableBody = table.querySelector('tbody');
-                        data.favorites.forEach(item => {
-                            const row = document.createElement('tr');
-                            row.innerHTML = `
-                                <td>${item.command}</td>
-                                <td>${item.description || ''}</td>
-                                <td>
-                                    <button class="btn btn-sm btn-outline-primary run-command" data-command="${item.command}">
-                                        <i class="bi bi-play-fill"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-danger remove-favorite" data-id="${item.id}">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </td>
-                            `;
-                            tableBody.appendChild(row);
-                        });
-                        
-                        favoritesContainer.appendChild(table);
-                    }
-                }
-                return data.favorites;
-            } else {
-                throw new Error(data.message || 'Failed to load favorite commands');
+            if (favoritesContainer) {
+                commands.renderFavoriteCommands(favoritesContainer);
             }
+            
+            return commands.favoriteCommands;
         } catch (error) {
             console.error('Error loading favorite commands:', error);
             if (favoritesContainer) {

@@ -1,0 +1,132 @@
+<!-- Setup Wizard Modal -->
+<div class="modal fade" id="setupWizardModal" tabindex="-1" aria-labelledby="setupWizardModalLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="setupWizardModalLabel">TESSA Setup Wizard</h5>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-pills mb-3" id="wizardTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="welcome-tab" data-bs-toggle="pill" data-bs-target="#welcome" type="button" role="tab" aria-controls="welcome" aria-selected="true">Welcome</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="proxmox-tab" data-bs-toggle="pill" data-bs-target="#proxmox" type="button" role="tab" aria-controls="proxmox" aria-selected="false">Proxmox</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="hardware-tab" data-bs-toggle="pill" data-bs-target="#hardware" type="button" role="tab" aria-controls="hardware" aria-selected="false">Hardware</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="preferences-tab" data-bs-toggle="pill" data-bs-target="#preferences" type="button" role="tab" aria-controls="preferences" aria-selected="false">Preferences</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="finish-tab" data-bs-toggle="pill" data-bs-target="#finish" type="button" role="tab" aria-controls="finish" aria-selected="false">Finish</button>
+                    </li>
+                </ul>
+                <div class="tab-content" id="wizardTabContent">
+                    <!-- Welcome Tab -->
+                    <div class="tab-pane fade show active" id="welcome" role="tabpanel" aria-labelledby="welcome-tab">
+                        <div class="text-center mb-4">
+                            <img src="/static/img/tessa-logo.png" alt="TESSA Logo" width="100" height="100">
+                            <h4 class="mt-3">Welcome to TESSA</h4>
+                            <p class="text-muted">The Proxmox Natural Language Interface</p>
+                        </div>
+                        <p>This wizard will help you set up TESSA for your Proxmox environment. We'll guide you through:</p>
+                        <ul>
+                            <li>Connecting to your Proxmox cluster</li>
+                            <li>Detecting and configuring hardware</li>
+                            <li>Setting up your preferences</li>
+                        </ul>
+                        <p>Let's get started!</p>
+                    </div>
+                    
+                    <!-- Proxmox Tab -->
+                    <div class="tab-pane fade" id="proxmox" role="tabpanel" aria-labelledby="proxmox-tab">
+                        <h5>Proxmox Connection</h5>
+                        <div class="mb-3">
+                            <label for="proxmox-url" class="form-label">Proxmox API URL</label>
+                            <input type="text" class="form-control" id="proxmox-url" placeholder="https://your-proxmox-server:8006/api2/json">
+                        </div>
+                        <div class="mb-3">
+                            <label for="proxmox-user" class="form-label">Username</label>
+                            <input type="text" class="form-control" id="proxmox-user" placeholder="root@pam">
+                        </div>
+                        <div class="mb-3">
+                            <label for="proxmox-password" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="proxmox-password">
+                        </div>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="save-credentials">
+                            <label class="form-check-label" for="save-credentials">Save credentials (encrypted)</label>
+                        </div>
+                        <button id="test-connection" class="btn btn-outline-primary">Test Connection</button>
+                    </div>
+                    
+                    <!-- Hardware Tab -->
+                    <div class="tab-pane fade" id="hardware" role="tabpanel" aria-labelledby="hardware-tab">
+                        <h5>Hardware Detection</h5>
+                        <p>TESSA will scan your Proxmox environment to detect hardware and optimize configuration.</p>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="auto-optimize">
+                            <label class="form-check-label" for="auto-optimize">Automatically optimize configuration</label>
+                        </div>
+                        <button id="detect-hardware" class="btn btn-outline-primary">Detect Hardware</button>
+                        
+                        <div id="hardware-results" class="mt-4" style="display: none;">
+                            <h6>Detected Hardware</h6>
+                            <div id="hardware-list" class="list-group">
+                                <!-- Hardware items will be added here -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Preferences Tab -->
+                    <div class="tab-pane fade" id="preferences" role="tabpanel" aria-labelledby="preferences-tab">
+                        <h5>User Preferences</h5>
+                        <div class="mb-3">
+                            <label for="display-name" class="form-label">Display Name</label>
+                            <input type="text" class="form-control" id="display-name" placeholder="Your Name">
+                        </div>
+                        <div class="mb-3">
+                            <label for="theme-preference" class="form-label">Theme</label>
+                            <select class="form-select" id="theme-preference">
+                                <option value="light">Light</option>
+                                <option value="dark">Dark</option>
+                                <option value="system">System Default</option>
+                            </select>
+                        </div>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="enable-notifications">
+                            <label class="form-check-label" for="enable-notifications">Enable Notifications</label>
+                        </div>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="enable-voice">
+                            <label class="form-check-label" for="enable-voice">Enable Voice Input/Output</label>
+                        </div>
+                    </div>
+                    
+                    <!-- Finish Tab -->
+                    <div class="tab-pane fade" id="finish" role="tabpanel" aria-labelledby="finish-tab">
+                        <div class="text-center mb-4">
+                            <i class="bi bi-check-circle-fill text-success" style="font-size: 4rem;"></i>
+                            <h4 class="mt-3">Setup Complete!</h4>
+                        </div>
+                        <p>Congratulations! TESSA is now set up and ready to use. You can now:</p>
+                        <ul>
+                            <li>Ask TESSA to perform Proxmox operations using natural language</li>
+                            <li>Monitor your cluster status in real-time</li>
+                            <li>Create shortcuts for frequently used commands</li>
+                            <li>Customize your experience in the Preferences section</li>
+                        </ul>
+                        <p>Click "Finish" to start using TESSA!</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="wizard-prev" disabled>Previous</button>
+                <button type="button" class="btn btn-primary" id="wizard-next">Next</button>
+                <button type="button" class="btn btn-success" id="wizard-finish" style="display: none;">Finish</button>
+            </div>
+        </div>
+    </div>
+</div>
