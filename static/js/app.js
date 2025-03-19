@@ -1,5 +1,19 @@
+/**
+ * Main application entry point
+ * This file coordinates all the modules and initializes the application
+ */
+import API from './modules/api.js';
+import Voice from './modules/voice.js';
+import UI from './modules/ui.js';
+import Data from './modules/data.js';
+import Wizard from './modules/wizard.js';
+import Notifications from './modules/notifications.js';
+import Commands from './modules/commands.js';
+import SocketHandler from './modules/socket.js';
+
 class ProxmoxNLI {
     constructor() {
+        // DOM elements
         this.chatForm = document.getElementById('chat-form');
         this.userInput = document.getElementById('user-input');
         this.chatBody = document.getElementById('chat-body');
@@ -7,155 +21,128 @@ class ProxmoxNLI {
         this.vmList = document.getElementById('vm-list');
         this.clusterStatus = document.getElementById('cluster-status');
         this.auditLog = document.getElementById('audit-log');
-        this.isRecording = false;
-        this.mediaRecorder = null;
-        this.audioChunks = [];
-        this.socket = io();
+        
+        // Initialize modules
+        this.voice = new Voice();
+        this.wizard = new Wizard();
+        this.notifications = new Notifications();
+        this.commands = new Commands();
         this.networkDiagram = new NetworkDiagram('network-diagram-container');
         
-        // Voice settings
-        this.voiceProfile = 'tessa_default';
-        this.personalityEnabled = true;
-        this.personalityLevel = 0.2; // Default 20%
-        
-        // Add properties for command history
-        this.commandHistory = [];
-        this.favoriteCommands = [];
-        
-        // Add property for notification preferences
-        this.notificationPreferences = [];
+        // Initialize socket with callbacks
+        this.socket = new SocketHandler({
+            onVMUpdate: (data) => this.handleVMUpdate(data),
+            onClusterUpdate: (data) => this.handleClusterUpdate(data),
+            onNetworkDiagramUpdate: (nodes, links) => this.handleNetworkDiagramUpdate(nodes, links),
+            onError: (error) => this.handleSocketError(error)
+        });
         
         // Initialize UI
         this.initializeEventListeners();
-        this.setupSocketHandlers();
-        this.setupMediaRecorder();
-        this.loadInitialData();
-        this.loadVoiceProfiles();
-        this.setupWizard();
+        this.initializeApplication();
     }
 
-    async setupMediaRecorder() {
+    /**
+     * Initialize application by loading initial data
+     */
+    async initializeApplication() {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            this.mediaRecorder = new MediaRecorder(stream);
+            // Set up voice input
+            await this.voice.setupMediaRecorder();
+            this.voice.configureMediaRecorder(
+                (text) => {
+                    this.userInput.value = text;
+                    this.chatForm.dispatchEvent(new Event('submit'));
+                },
+                (error) => UI.addMessage(error, 'system', this.chatBody)
+            );
             
-            this.mediaRecorder.ondataavailable = (event) => {
-                this.audioChunks.push(event.data);
-            };
+            // Load initial data
+            await Data.loadInitialData(
+                (vmData) => this.handleVMUpdate(vmData),
+                (clusterData) => this.handleClusterUpdate(clusterData),
+                (error) => UI.showError(error)
+            );
             
-            this.mediaRecorder.onstop = async () => {
-                const audioBlob = new Blob(this.audioChunks, { type: 'audio/wav' });
-                const reader = new FileReader();
-                reader.readAsDataURL(audioBlob);
-                reader.onloadend = async () => {
-                    const base64Audio = reader.result;
-                    try {
-                        const response = await this.fetchWithAuth('/stt', {
-                            method: 'POST',
-                            body: JSON.stringify({ audio: base64Audio })
-                        });
-                        const data = await response.json();
-                        if (data.success) {
-                            this.userInput.value = data.text;
-                            this.chatForm.dispatchEvent(new Event('submit'));
-                        } else {
-                            this.addMessage('Error: ' + data.error, 'system');
-                        }
-                    } catch (error) {
-                        console.error('Error:', error);
-                        this.addMessage('Error processing voice input', 'system');
-                    }
-                    this.audioChunks = [];
-                };
-            };
+            // Load audit logs
+            await Data.loadAuditLogs(this.auditLog);
+            
+            // Set up periodic audit log updates
+            setInterval(() => Data.loadAuditLogs(this.auditLog), 30000);
+            
+            // Load voice profiles
+            await this.loadVoiceProfiles();
+            
+            // Set up wizard
+            this.setupWizard();
         } catch (error) {
-            console.error('Error accessing microphone:', error);
-            this.addMessage('Error: Could not access microphone', 'system');
+            console.error('Error initializing application:', error);
+            UI.showError('Failed to initialize application. Please refresh the page or contact support.');
         }
     }
 
-    setupSocketHandlers() {
-        this.socket.on('connect', () => {
-            console.log('Connected to server');
-        });
-
-        this.socket.on('connect_error', (error) => {
-            console.error('Socket connection error:', error);
-            // Fallback to polling if socket fails
-            this.startPolling();
-        });
-
-        this.socket.on('vm_status_update', (data) => {
-            this.updateVMList(data);
-        });
-
-        this.socket.on('cluster_status_update', (data) => {
-            this.updateClusterStatus(data.status);
-        });
-
-        this.socket.on('network_diagram_update', (data) => {
-            this.networkDiagram.update(data.nodes, data.links);
-        });
-    }
-
+    /**
+     * Initialize event listeners
+     */
     initializeEventListeners() {
-        // Existing event listeners
+        // Chat form submission
         this.chatForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const query = this.userInput.value.trim();
             if (!query) return;
 
-            this.addMessage(query, 'user');
+            UI.addMessage(query, 'user', this.chatBody);
             this.userInput.value = '';
 
             try {
-                const response = await this.fetchWithAuth('/query', {
+                // Add command to history
+                await this.commands.addCommandToHistory(query);
+                
+                // Send query to server
+                const response = await API.fetchWithAuth('/query', {
                     method: 'POST',
                     body: JSON.stringify({ query: query })
                 });
                 const data = await response.json();
                 
                 const responseText = data.error ? 'Error: ' + data.error : data.response;
-                this.addMessage(responseText, 'system');
+                UI.addMessage(responseText, 'system', this.chatBody);
                 
+                // Play text-to-speech if enabled
                 if (document.getElementById('enable-personality') && 
                     document.getElementById('enable-personality').checked) {
-                    await this.playTextToSpeech(responseText);
+                    await this.voice.playTextToSpeech(responseText);
                 }
             } catch (error) {
                 console.error('Error:', error);
-                this.addMessage('Sorry, there was an error processing your request.', 'system');
+                UI.addMessage('Sorry, there was an error processing your request.', 'system', this.chatBody);
             }
         });
 
+        // Microphone button
         this.micButton.addEventListener('click', () => {
-            if (!this.mediaRecorder) {
-                this.addMessage('Error: Microphone not available', 'system');
+            if (!this.voice.mediaRecorder) {
+                UI.addMessage('Error: Microphone not available', 'system', this.chatBody);
                 return;
             }
 
-            if (this.isRecording) {
-                this.mediaRecorder.stop();
-                this.micButton.classList.remove('recording');
-            } else {
-                this.audioChunks = [];
-                this.mediaRecorder.start();
+            const isRecording = this.voice.toggleRecording();
+            if (isRecording) {
                 this.micButton.classList.add('recording');
-                this.addMessage('Listening... Click the microphone again to stop.', 'system');
+                UI.addMessage('Listening... Click the microphone again to stop.', 'system', this.chatBody);
+            } else {
+                this.micButton.classList.remove('recording');
             }
-            this.isRecording = !this.isRecording;
         });
 
-        // Event listener for experience level change
+        // Experience level change
         document.getElementById('experienceLevel').addEventListener('change', (event) => {
             const level = event.target.value;
-            this.adjustUIForExperienceLevel(level);
-            
-            // Update voice profile based on experience level
+            UI.adjustUIForExperienceLevel(level);
             this.setVoiceForExperienceLevel(level);
         });
 
-        // New voice settings event listeners
+        // Voice settings
         const saveVoiceSettings = document.getElementById('save-voice-settings');
         if (saveVoiceSettings) {
             saveVoiceSettings.addEventListener('click', () => {
@@ -177,1490 +164,314 @@ class ProxmoxNLI {
             });
         }
 
-        // Event listener for setup wizard steps
+        // Setup wizard
         document.getElementById('deploy-button').addEventListener('click', () => {
-            this.deployServices();
+            this.wizard.deployServices()
+                .then(success => {
+                    if (success) {
+                        UI.addMessage('I\'ve successfully deployed the services you requested based on your goals. You can now interact with them through natural language commands.', 'system', this.chatBody);
+                    }
+                });
         });
         
-        // Add event listeners for goal selection checkboxes
+        // Goal selection checkboxes
         const goalCheckboxes = document.querySelectorAll('#step1 input[type="checkbox"]');
         goalCheckboxes.forEach(checkbox => {
             checkbox.addEventListener('change', () => {
-                this.updateCloudServicesOptions();
+                this.wizard.updateCloudServicesOptions();
             });
         });
 
-        // Add event listener for command history tab
+        // Command history tab
         const commandHistoryTab = document.getElementById('command-history-tab');
         if (commandHistoryTab) {
             commandHistoryTab.addEventListener('shown.bs.tab', () => {
-                this.loadCommandHistory();
+                Data.loadCommandHistory(document.getElementById('history-container'));
             });
         }
 
-        // Add event listener for favorite commands tab
+        // Favorite commands tab
         const favoriteCommandsTab = document.getElementById('favorite-commands-tab');
         if (favoriteCommandsTab) {
             favoriteCommandsTab.addEventListener('shown.bs.tab', () => {
-                this.loadFavoriteCommands();
+                Data.loadFavoriteCommands(document.getElementById('favorites-container'));
             });
         }
         
-        // Add event listener for notification preferences tab
+        // Notification preferences tab
         const notificationPrefTab = document.getElementById('notification-pref-tab');
         if (notificationPrefTab) {
             notificationPrefTab.addEventListener('shown.bs.tab', () => {
-                this.loadNotificationPreferences();
+                this.notifications.loadNotificationPreferences();
             });
         }
         
-        // Add event listeners for notification preferences buttons
+        // Notification preferences buttons
         const initNotificationPrefsBtn = document.getElementById('initialize-notification-prefs');
         if (initNotificationPrefsBtn) {
             initNotificationPrefsBtn.addEventListener('click', () => {
-                this.initializeNotificationPreferences();
+                this.notifications.initializeNotificationPreferences();
             });
         }
         
         const saveNotificationPrefsBtn = document.getElementById('save-notification-prefs');
         if (saveNotificationPrefsBtn) {
             saveNotificationPrefsBtn.addEventListener('click', () => {
-                this.saveNotificationPreferences();
+                this.notifications.saveNotificationPreferences();
+            });
+        }
+        
+        // Add event delegation for command history and favorites
+        document.addEventListener('click', (e) => {
+            // Run command from history or favorites
+            if (e.target.closest('.run-command')) {
+                const button = e.target.closest('.run-command');
+                const command = button.dataset.command;
+                if (command) {
+                    this.userInput.value = command;
+                    this.chatForm.dispatchEvent(new Event('submit'));
+                }
+            }
+            
+            // Add to favorites from history
+            if (e.target.closest('.add-favorite')) {
+                const button = e.target.closest('.add-favorite');
+                const command = button.dataset.command;
+                if (command) {
+                    // Show modal to add description
+                    const modal = new bootstrap.Modal(document.getElementById('favoriteCommandModal'));
+                    document.getElementById('favorite-command-text').value = command;
+                    modal.show();
+                }
+            }
+            
+            // Remove from favorites
+            if (e.target.closest('.remove-favorite')) {
+                const button = e.target.closest('.remove-favorite');
+                const id = button.dataset.id;
+                if (id) {
+                    this.commands.removeFavoriteCommand(id)
+                        .then(success => {
+                            if (success) {
+                                UI.addMessage('Command removed from favorites.', 'system', this.chatBody);
+                                Data.loadFavoriteCommands(document.getElementById('favorites-container'));
+                            }
+                        });
+                }
+            }
+            
+            // Clear history
+            if (e.target.closest('#clear-history-btn')) {
+                this.commands.clearCommandHistory()
+                    .then(success => {
+                        if (success) {
+                            UI.addMessage('Command history cleared.', 'system', this.chatBody);
+                            Data.loadCommandHistory(document.getElementById('history-container'));
+                        }
+                    });
+            }
+        });
+        
+        // Save favorite command
+        const saveFavoriteBtn = document.getElementById('save-favorite-command');
+        if (saveFavoriteBtn) {
+            saveFavoriteBtn.addEventListener('click', () => {
+                const command = document.getElementById('favorite-command-text').value;
+                const description = document.getElementById('favorite-command-description').value;
+                
+                this.commands.addToFavorites(command, description)
+                    .then(success => {
+                        if (success) {
+                            UI.addMessage('Command added to favorites.', 'system', this.chatBody);
+                            Data.loadFavoriteCommands(document.getElementById('favorites-container'));
+                            
+                            // Close modal
+                            const modal = bootstrap.Modal.getInstance(document.getElementById('favoriteCommandModal'));
+                            modal.hide();
+                        }
+                    });
             });
         }
     }
 
-    deployServices() {
-        // Collect selected goals
-        const selectedGoals = Array.from(document.querySelectorAll('#step1 input[type="checkbox"]:checked')).map(checkbox => checkbox.value);
-        const otherGoals = document.getElementById('otherGoals').value;
-
-        // Collect cloud services to replace
-        const cloudServices = Array.from(document.querySelectorAll('#cloud-services-container input[type="checkbox"]:checked')).map(checkbox => checkbox.value);
-
-        // Collect resource information
-        const resources = {
-            cpuCores: document.getElementById('cpuCores').value,
-            ramSize: document.getElementById('ramSize').value,
-            diskSize: document.getElementById('diskSize').value,
-            networkSpeed: document.getElementById('networkSpeed').value
-        };
-
-        // Collect recommended services
-        const recommendedServices = Array.from(document.querySelectorAll('#recommended-services input[type="checkbox"]:checked')).map(checkbox => checkbox.value);
-
-        // Display summary
-        document.getElementById('summary-goals').innerHTML = selectedGoals.join(', ') + (otherGoals ? ', ' + otherGoals : '');
-        document.getElementById('summary-resources').innerHTML = `CPU Cores: ${resources.cpuCores}, RAM: ${resources.ramSize} GB, Disk: ${resources.diskSize} GB, Network: ${resources.networkSpeed} Mbps`;
-        document.getElementById('summary-services').innerHTML = recommendedServices.join(', ');
-
-        // Send deployment request to the server
-        fetch('/deploy', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ 
-                goals: selectedGoals, 
-                otherGoals, 
-                cloudServices,
-                resources, 
-                services: recommendedServices 
-            })
-        }).then(response => response.json()).then(data => {
-            if (data.success) {
-                alert('Services deployed successfully!');
-                // Close the modal
-                const modal = bootstrap.Modal.getInstance(document.getElementById('setupWizardModal'));
-                modal.hide();
-                // Add a message to the chat
-                this.addMessage('I\'ve successfully deployed the services you requested based on your goals. You can now interact with them through natural language commands.', 'system');
-            } else {
-                alert('Error deploying services: ' + data.error);
-            }
-        }).catch(error => {
-            console.error('Error deploying services:', error);
-            alert('Error deploying services: ' + error.message);
-        });
-    }
-    
+    /**
+     * Set up the setup wizard
+     */
     setupWizard() {
-        // Add cloud services replacement section to step 1
-        this.setupCloudServicesSection();
+        this.wizard.setupCloudServicesSection();
         
         // Set up event listeners for wizard navigation
         document.getElementById('step1-next').addEventListener('click', () => {
-            this.processGoalSelections();
+            this.wizard.processGoalSelections();
         });
         
         // Detect system resources when step 2 is shown
         document.getElementById('step2-tab').addEventListener('shown.bs.tab', () => {
-            this.detectSystemResources();
+            this.wizard.detectSystemResources();
         });
     }
-    
-    setupCloudServicesSection() {
-        const step1 = document.getElementById('step1');
+
+    /**
+     * Load voice profiles from server
+     */
+    async loadVoiceProfiles() {
+        const profiles = await this.voice.loadVoiceProfiles();
         
-        // Create cloud services section if it doesn't exist
-        if (!document.getElementById('cloud-services-container')) {
-            const cloudServicesContainer = document.createElement('div');
-            cloudServicesContainer.id = 'cloud-services-container';
-            cloudServicesContainer.className = 'mt-4';
-            
-            const cloudServicesTitle = document.createElement('h5');
-            cloudServicesTitle.textContent = 'What cloud services would you like to replace?';
-            
-            const cloudServicesDescription = document.createElement('p');
-            cloudServicesDescription.className = 'text-muted';
-            cloudServicesDescription.textContent = 'Select the cloud services you\'d like to replace with self-hosted alternatives';
-            
-            cloudServicesContainer.appendChild(cloudServicesTitle);
-            cloudServicesContainer.appendChild(cloudServicesDescription);
-            
-            // Create the services grid
-            const servicesGrid = document.createElement('div');
-            servicesGrid.className = 'row mt-3';
-            servicesGrid.id = 'cloud-services-grid';
-            
-            // Define cloud services to replace
-            const cloudServices = [
-                { id: 'google_photos', name: 'Google Photos', icon: 'bi-images' },
-                { id: 'google_drive', name: 'Google Drive', icon: 'bi-cloud' },
-                { id: 'dropbox', name: 'Dropbox', icon: 'bi-folder' },
-                { id: 'netflix', name: 'Netflix', icon: 'bi-film' },
-                { id: 'spotify', name: 'Spotify', icon: 'bi-music-note-beamed' },
-                { id: 'lastpass', name: 'LastPass/1Password', icon: 'bi-key' },
-                { id: 'github', name: 'GitHub', icon: 'bi-code-square' },
-                { id: 'google_calendar', name: 'Google Calendar', icon: 'bi-calendar' },
-                { id: 'google_docs', name: 'Google Docs', icon: 'bi-file-text' }
-            ];
-            
-            // Create two columns for the services
-            const col1 = document.createElement('div');
-            col1.className = 'col-md-6';
-            
-            const col2 = document.createElement('div');
-            col2.className = 'col-md-6';
-            
-            // Add services to columns
-            cloudServices.forEach((service, index) => {
-                const serviceCheck = document.createElement('div');
-                serviceCheck.className = 'form-check mb-3';
-                serviceCheck.innerHTML = `
-                    <input class="form-check-input" type="checkbox" value="${service.id}" id="cloud${service.id}">
-                    <label class="form-check-label" for="cloud${service.id}">
-                        <i class="bi ${service.icon}"></i> ${service.name}
-                    </label>
-                `;
-                
-                // Add to appropriate column
-                if (index < cloudServices.length / 2) {
-                    col1.appendChild(serviceCheck);
-                } else {
-                    col2.appendChild(serviceCheck);
-                }
+        // Populate voice profile dropdown
+        const voiceProfileSelect = document.getElementById('voice-profile');
+        if (voiceProfileSelect && profiles.length > 0) {
+            voiceProfileSelect.innerHTML = '';
+            profiles.forEach(profile => {
+                const option = document.createElement('option');
+                option.value = profile.id;
+                option.textContent = profile.name;
+                voiceProfileSelect.appendChild(option);
             });
             
-            servicesGrid.appendChild(col1);
-            servicesGrid.appendChild(col2);
-            cloudServicesContainer.appendChild(servicesGrid);
-            
-            // Add to step 1 before the "Other goals" section
-            const otherGoalsSection = document.querySelector('#step1 .mt-4:last-child');
-            step1.insertBefore(cloudServicesContainer, otherGoalsSection);
-        }
-    }
-    
-    updateCloudServicesOptions() {
-        const selectedGoals = Array.from(document.querySelectorAll('#step1 input[type="checkbox"]:checked')).map(checkbox => checkbox.value);
-        
-        // Show/hide relevant cloud services based on goals
-        const cloudServiceMappings = {
-            'media': ['netflix', 'spotify'],
-            'files': ['google_photos', 'google_drive', 'dropbox'],
-            'webhosting': ['github'],
-            'productivity': ['google_calendar', 'google_docs', 'lastpass']
-        };
-        
-        // Get all cloud service checkboxes
-        const cloudServiceCheckboxes = document.querySelectorAll('#cloud-services-grid input[type="checkbox"]');
-        
-        // First, hide all cloud services
-        cloudServiceCheckboxes.forEach(checkbox => {
-            checkbox.closest('.form-check').style.display = 'none';
-        });
-        
-        // Then show only the relevant ones
-        if (selectedGoals.length > 0) {
-            document.getElementById('cloud-services-container').style.display = 'block';
-            
-            // For each selected goal, show the relevant cloud services
-            selectedGoals.forEach(goal => {
-                if (cloudServiceMappings[goal]) {
-                    cloudServiceMappings[goal].forEach(serviceId => {
-                        const checkbox = document.getElementById(`cloud${serviceId}`);
-                        if (checkbox) {
-                            checkbox.closest('.form-check').style.display = 'block';
-                        }
-                    });
-                }
-            });
-        } else {
-            // If no goals selected, hide the cloud services section
-            document.getElementById('cloud-services-container').style.display = 'none';
-        }
-    }
-    
-    processGoalSelections() {
-        // Get selected goals and cloud services
-        const selectedGoals = Array.from(document.querySelectorAll('#step1 input[type="checkbox"]:checked')).map(checkbox => checkbox.value);
-        const cloudServices = Array.from(document.querySelectorAll('#cloud-services-container input[type="checkbox"]:checked')).map(checkbox => checkbox.value);
-        
-        // Show loading indicator
-        const recommendedServices = document.getElementById('recommended-services');
-        recommendedServices.innerHTML = `
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading recommendations...</span>
-            </div>
-            <span class="ms-2">Getting service recommendations...</span>
-        `;
-        
-        // Get recommendations from the server
-        fetch('/recommend-services', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ goals: selectedGoals, cloudServices })
-        }).then(response => response.json()).then(data => {
-            if (data.success) {
-                this.displayRecommendedServices(data.recommendations, data.total_resources);
-                
-                // Update resource requirements in step 2
-                if (data.total_resources) {
-                    document.getElementById('cpuCores').value = Math.max(2, Math.ceil(data.total_resources.cpu_cores));
-                    document.getElementById('ramSize').value = Math.max(4, Math.ceil(data.total_resources.memory_mb / 1024));
-                    document.getElementById('diskSize').value = Math.max(20, Math.ceil(data.total_resources.storage_gb));
-                }
-                
-                // Proceed to next step
-                const step2Tab = document.getElementById('step2-tab');
-                bootstrap.Tab.getInstance(step2Tab).show();
-            } else {
-                recommendedServices.innerHTML = `<div class="alert alert-danger">Error: ${data.error}</div>`;
-            }
-        }).catch(error => {
-            console.error('Error getting recommendations:', error);
-            recommendedServices.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
-        });
-    }
-    
-    displayRecommendedServices(recommendations, totalResources) {
-        const recommendedServices = document.getElementById('recommended-services');
-        recommendedServices.innerHTML = '';
-        
-        if (recommendations.length === 0) {
-            recommendedServices.innerHTML = `
-                <div class="alert alert-info">
-                    No services recommended based on your selections. Please select different goals or cloud services.
-                </div>
-            `;
-            return;
-        }
-        
-        // Group recommendations by goal/replacement
-        const goalGroups = {};
-        const replacementGroups = {};
-        
-        recommendations.forEach(service => {
-            if (service.goal) {
-                if (!goalGroups[service.goal]) {
-                    goalGroups[service.goal] = {
-                        description: service.goal_description,
-                        services: []
-                    };
-                }
-                goalGroups[service.goal].services.push(service);
-            }
-            
-            if (service.replaces) {
-                if (!replacementGroups[service.replaces]) {
-                    replacementGroups[service.replaces] = {
-                        description: service.replacement_description,
-                        services: []
-                    };
-                }
-                replacementGroups[service.replaces].services.push(service);
-            }
-        });
-        
-        // First show replacement recommendations
-        if (Object.keys(replacementGroups).length > 0) {
-            const replacementsSection = document.createElement('div');
-            replacementsSection.className = 'mb-4';
-            
-            const replacementsTitle = document.createElement('h5');
-            replacementsTitle.textContent = 'Recommended Cloud Service Replacements';
-            replacementsSection.appendChild(replacementsTitle);
-            
-            for (const [replacementId, group] of Object.entries(replacementGroups)) {
-                const groupCard = document.createElement('div');
-                groupCard.className = 'card mb-3';
-                
-                const cardHeader = document.createElement('div');
-                cardHeader.className = 'card-header';
-                cardHeader.innerHTML = `<h6 class="mb-0">Replace: ${replacementId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</h6>`;
-                
-                const cardBody = document.createElement('div');
-                cardBody.className = 'card-body';
-                
-                const description = document.createElement('p');
-                description.className = 'text-muted';
-                description.textContent = group.description;
-                cardBody.appendChild(description);
-                
-                const servicesList = document.createElement('div');
-                servicesList.className = 'list-group';
-                
-                group.services.forEach(service => {
-                    const serviceItem = document.createElement('div');
-                    serviceItem.className = 'list-group-item';
-                    serviceItem.innerHTML = `
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" value="${service.id}" id="service${service.id}" checked>
-                            <label class="form-check-label" for="service${service.id}">
-                                <strong>${service.name}</strong>
-                            </label>
-                            <p class="mb-0 text-muted">${service.description}</p>
-                            <small class="text-muted">Resources: ${service.resources.cpu_cores || 1} CPU, ${Math.ceil((service.resources.memory_mb || 512) / 1024)} GB RAM, ${service.resources.storage_gb || 5} GB Storage</small>
-                        </div>
-                    `;
-                    servicesList.appendChild(serviceItem);
-                });
-                
-                cardBody.appendChild(servicesList);
-                groupCard.appendChild(cardHeader);
-                groupCard.appendChild(cardBody);
-                replacementsSection.appendChild(groupCard);
-            }
-            
-            recommendedServices.appendChild(replacementsSection);
-        }
-        
-        // Then show goal-based recommendations
-        if (Object.keys(goalGroups).length > 0) {
-            const goalsSection = document.createElement('div');
-            goalsSection.className = 'mb-4';
-            
-            const goalsTitle = document.createElement('h5');
-            goalsTitle.textContent = 'Recommended Services Based on Your Goals';
-            goalsSection.appendChild(goalsTitle);
-            
-            for (const [goalId, group] of Object.entries(goalGroups)) {
-                const groupCard = document.createElement('div');
-                groupCard.className = 'card mb-3';
-                
-                const cardHeader = document.createElement('div');
-                cardHeader.className = 'card-header';
-                cardHeader.innerHTML = `<h6 class="mb-0">Goal: ${goalId.replace(/\b\w/g, c => c.toUpperCase())}</h6>`;
-                
-                const cardBody = document.createElement('div');
-                cardBody.className = 'card-body';
-                
-                const description = document.createElement('p');
-                description.className = 'text-muted';
-                description.textContent = group.description;
-                cardBody.appendChild(description);
-                
-                const servicesList = document.createElement('div');
-                servicesList.className = 'list-group';
-                
-                group.services.forEach(service => {
-                    // Skip services already shown in replacements
-                    if (service.replaces) return;
-                    
-                    const serviceItem = document.createElement('div');
-                    serviceItem.className = 'list-group-item';
-                    serviceItem.innerHTML = `
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" value="${service.id}" id="service${service.id}" checked>
-                            <label class="form-check-label" for="service${service.id}">
-                                <strong>${service.name}</strong>
-                            </label>
-                            <p class="mb-0 text-muted">${service.description}</p>
-                            <small class="text-muted">Resources: ${service.resources.cpu_cores || 1} CPU, ${Math.ceil((service.resources.memory_mb || 512) / 1024)} GB RAM, ${service.resources.storage_gb || 5} GB Storage</small>
-                        </div>
-                    `;
-                    servicesList.appendChild(serviceItem);
-                });
-                
-                // Only add the card if there are services to show
-                if (servicesList.children.length > 0) {
-                    cardBody.appendChild(servicesList);
-                    groupCard.appendChild(cardHeader);
-                    groupCard.appendChild(cardBody);
-                    goalsSection.appendChild(groupCard);
-                }
-            }
-            
-            // Only add the section if there are cards to show
-            if (goalsSection.querySelectorAll('.card').length > 0) {
-                recommendedServices.appendChild(goalsSection);
-            }
-        }
-        
-        // Add total resource requirements
-        if (totalResources) {
-            const resourcesSection = document.createElement('div');
-            resourcesSection.className = 'alert alert-info mt-3';
-            resourcesSection.innerHTML = `
-                <h6>Estimated Total Resource Requirements:</h6>
-                <ul>
-                    <li>CPU: ${Math.ceil(totalResources.cpu_cores)} cores</li>
-                    <li>Memory: ${Math.ceil(totalResources.memory_mb / 1024)} GB RAM</li>
-                    <li>Storage: ${Math.ceil(totalResources.storage_gb)} GB</li>
-                </ul>
-            `;
-            recommendedServices.appendChild(resourcesSection);
+            // Set default profile
+            voiceProfileSelect.value = this.voice.voiceProfile;
+            this.updateVoiceSettingsUI(this.voice.voiceProfile);
         }
     }
 
-    // New method to load voice profiles from the server
-    async loadVoiceProfiles() {
-        try {
-            const response = await fetch('/voice-profiles');
-            const data = await response.json();
-            
-            if (data.success) {
-                const selectElement = document.getElementById('voice-profile');
-                
-                // Clear existing options except default ones
-                const defaultOptions = Array.from(selectElement.options).slice(0, 3);
-                selectElement.innerHTML = '';
-                
-                // Add default options back
-                defaultOptions.forEach(option => {
-                    selectElement.appendChild(option);
-                });
-                
-                // Add additional profiles
-                data.profiles.forEach(profile => {
-                    if (!['tessa_default', 'tessa_warm', 'tessa_professional'].includes(profile)) {
-                        const option = document.createElement('option');
-                        option.value = profile;
-                        option.textContent = profile.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-                        selectElement.appendChild(option);
-                    }
-                });
-                
-                // Set active profile
-                if (data.active) {
-                    this.voiceProfile = data.active;
-                    selectElement.value = data.active;
-                    this.updateVoiceSettingsUI(data.active);
-                }
-            }
-        } catch (error) {
-            console.error('Error loading voice profiles:', error);
+    /**
+     * Update voice settings UI based on selected profile
+     * @param {string} profileId - Voice profile ID
+     */
+    updateVoiceSettingsUI(profileId) {
+        // This would typically load profile-specific settings from the server
+        // For now, just update the UI with default values
+        this.voice.voiceProfile = profileId;
+        
+        // Update UI elements
+        const personalitySlider = document.getElementById('personality-level');
+        if (personalitySlider) {
+            personalitySlider.value = this.voice.personalityLevel * 100;
+            document.getElementById('personality-level-value').textContent = `${Math.round(this.voice.personalityLevel * 100)}%`;
+        }
+        
+        const enablePersonality = document.getElementById('enable-personality');
+        if (enablePersonality) {
+            enablePersonality.checked = this.voice.personalityEnabled;
         }
     }
-    
-    // New method to update UI based on selected voice profile
-    async updateVoiceSettingsUI(profileName) {
-        try {
-            const response = await fetch(`/voice-profile/${profileName}`);
-            const data = await response.json();
-            
-            if (data.success) {
-                const profile = data.profile;
-                
-                // Update UI elements
-                if (document.getElementById('voice-accent')) {
-                    document.getElementById('voice-accent').value = profile.tld || 'com';
-                }
-                
-                if (document.getElementById('voice-speed')) {
-                    document.getElementById('voice-speed').value = profile.slow ? 'true' : 'false';
-                }
-                
-                if (document.getElementById('voice-style')) {
-                    document.getElementById('voice-style').value = profile.tone_style || 'friendly';
-                }
-            }
-        } catch (error) {
-            console.error('Error fetching voice profile:', error);
-        }
-    }
-    
-    // New method to save voice settings
+
+    /**
+     * Save voice settings
+     */
     async saveVoiceSettings() {
+        // Get values from UI
+        const profileId = document.getElementById('voice-profile').value;
+        const enablePersonality = document.getElementById('enable-personality').checked;
+        const personalityLevel = parseInt(document.getElementById('personality-level').value) / 100;
+        
+        // Update local settings
+        this.voice.voiceProfile = profileId;
+        this.voice.personalityEnabled = enablePersonality;
+        this.voice.personalityLevel = personalityLevel;
+        
+        // Save to server
         try {
-            const profileName = document.getElementById('voice-profile').value;
-            const accent = document.getElementById('voice-accent').value;
-            const speed = document.getElementById('voice-speed').value === 'true';
-            const style = document.getElementById('voice-style').value;
-            const personalityLevel = document.getElementById('personality-level').value / 100;
-            const personalityEnabled = document.getElementById('enable-personality').checked;
-            
-            // Save settings
-            const response = await fetch('/voice-settings', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    profile_name: profileName,
-                    accent: accent,
-                    slow: speed,
-                    tone_style: style,
-                    personality_level: personalityLevel,
-                    personality_enabled: personalityEnabled
-                })
+            const result = await this.voice.saveVoiceSettings({
+                profile: profileId,
+                add_personality: enablePersonality,
+                personality_level: personalityLevel
             });
             
-            const data = await response.json();
-            
-            if (data.success) {
-                // Show success message
-                this.addMessage('Voice settings updated successfully!', 'system');
-                this.voiceProfile = profileName;
-                this.personalityEnabled = personalityEnabled;
-                this.personalityLevel = personalityLevel;
+            if (result.success) {
+                alert('Voice settings saved successfully!');
             } else {
-                this.addMessage('Error updating voice settings: ' + data.error, 'system');
+                alert('Error saving voice settings: ' + result.error);
             }
         } catch (error) {
             console.error('Error saving voice settings:', error);
-            this.addMessage('Error saving voice settings', 'system');
+            alert('Error saving voice settings: ' + error.message);
         }
     }
-    
-    // New method to test voice settings
+
+    /**
+     * Test voice settings
+     */
     async testVoiceSettings() {
-        const testText = "Hello! This is a test of the TESSA voice system. I'm using the voice profile you've selected.";
+        // Get values from UI
+        const profileId = document.getElementById('voice-profile').value;
+        const enablePersonality = document.getElementById('enable-personality').checked;
+        const personalityLevel = parseInt(document.getElementById('personality-level').value) / 100;
         
+        // Create test instance with current settings
+        const testVoice = new Voice();
+        testVoice.voiceProfile = profileId;
+        testVoice.personalityEnabled = enablePersonality;
+        testVoice.personalityLevel = personalityLevel;
+        
+        // Play test message
+        await testVoice.playTextToSpeech('This is a test of the voice settings. How do I sound?');
+    }
+
+    /**
+     * Set voice profile based on experience level
+     * @param {string} experienceLevel - User experience level
+     */
+    async setVoiceForExperienceLevel(experienceLevel) {
         try {
-            const profileName = document.getElementById('voice-profile').value;
-            const accent = document.getElementById('voice-accent').value;
-            const speed = document.getElementById('voice-speed').value === 'true';
-            const style = document.getElementById('voice-style').value;
-            const personalityLevel = document.getElementById('personality-level').value / 100;
-            const personalityEnabled = document.getElementById('enable-personality').checked;
-            
-            // Test voice with current settings
-            const response = await fetch('/test-voice', {
+            const response = await fetch('/adapt-voice', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    text: testText,
-                    profile_name: profileName,
-                    accent: accent,
-                    slow: speed,
-                    tone_style: style,
-                    personality_level: personalityLevel,
-                    personality_enabled: personalityEnabled
+                    experience_level: experienceLevel
                 })
             });
             
             const data = await response.json();
             
-            if (data.success) {
-                const audio = new Audio(data.audio);
-                await audio.play();
-                
-                // If the text was modified with personality, show it
-                if (data.text !== testText) {
-                    this.addMessage(`Voice test (with personality): "${data.text}"`, 'system');
-                }
-            } else {
-                this.addMessage('Error testing voice: ' + data.error, 'system');
-            }
-        } catch (error) {
-            console.error('Error testing voice:', error);
-            this.addMessage('Error testing voice settings', 'system');
-        }
-    }
-    
-    // New method to adapt voice based on experience level
-    setVoiceForExperienceLevel(level) {
-        let experienceLevel = 0;
-        
-        switch (level) {
-            case 'beginner':
-                experienceLevel = 0.0;
-                break;
-            case 'intermediate':
-                experienceLevel = 0.5;
-                break;
-            case 'advanced':
-                experienceLevel = 1.0;
-                break;
-        }
-        
-        // Call API to adapt voice to experience level
-        fetch('/adapt-voice', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                experience_level: experienceLevel
-            })
-        }).then(response => response.json())
-          .then(data => {
-              if (data.success && data.profile) {
-                  // Update UI if profile changed
-                  const voiceProfile = document.getElementById('voice-profile');
-                  if (voiceProfile && voiceProfile.value !== data.profile) {
-                      voiceProfile.value = data.profile;
-                      this.updateVoiceSettingsUI(data.profile);
-                  }
-              }
-          })
-          .catch(error => {
-              console.error('Error adapting voice:', error);
-          });
-    }
-
-    // Enhanced TTS playback with voice profile
-    async playTextToSpeech(text) {
-        try {
-            const response = await fetch('/tts', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ 
-                    text: text,
-                    profile: this.voiceProfile,
-                    add_personality: this.personalityEnabled,
-                    personality_level: this.personalityLevel
-                })
-            });
-            
-            const data = await response.json();
-            if (data.success) {
-                const audio = new Audio(data.audio);
-                await audio.play();
-                
-                // If the text was modified with personality and different from original
-                if (data.text && data.text !== text) {
-                    console.log('TESSA added personality:', data.text);
-                }
-            } else {
-                console.error('TTS Error:', data.error);
-            }
-        } catch (error) {
-            console.error('Error playing TTS:', error);
-        }
-    }
-
-    updateVMList(vms) {
-        this.vmList.innerHTML = '';
-        if (data.error) {
-            this.vmList.innerHTML = `
-                <div class="alert alert-danger" role="alert">
-                    ${data.error}
-                </div>`;
-            return;
-        }
-        
-        if (!data.vms || data.vms.length === 0) {
-            this.vmList.innerHTML = `
-                <div class="alert alert-info" role="alert">
-                    No virtual machines found
-                </div>`;
-            return;
-        }
-
-        data.vms.forEach(vm => {
-            const card = document.createElement('div');
-            card.className = `card vm-card ${vm.status === 'running' ? 'border-success' : 'border-danger'}`;
-            card.innerHTML = `
-                <div class="card-body">
-                    <h5 class="card-title">VM ${vm.id} - ${vm.name}</h5>
-                    <p class="card-text">
-                        Status: <span class="badge bg-${vm.status === 'running' ? 'success' : 'danger'}">${vm.status}</span><br>
-                        CPU: ${vm.cpu} cores | Memory: ${vm.memory.toFixed(1)} MB | Disk: ${vm.disk.toFixed(1)} GB
-                    </p>
-                </div>
-            `;
-            this.vmList.appendChild(card);
-        });
-    }
-
-    updateClusterStatus(data) {
-        this.clusterStatus.innerHTML = '';
-        if (data.error) {
-            this.clusterStatus.innerHTML = `
-                <div class="alert alert-danger" role="alert">
-                    ${data.error}
-                </div>`;
-            return;
-        }
-
-        if (!data.status || data.status.length === 0) {
-            this.clusterStatus.innerHTML = `
-                <div class="alert alert-info" role="alert">
-                    No cluster nodes found
-                </div>`;
-            return;
-        }
-
-        data.status.forEach(node => {
-            const nodeElement = document.createElement('div');
-            nodeElement.className = 'mb-2';
-            nodeElement.innerHTML = `
-                <strong>${node.name}</strong>
-                <span class="badge bg-${node.status === 'online' ? 'success' : 'danger'} ms-2">${node.status}</span>
-            `;
-            this.clusterStatus.appendChild(nodeElement);
-        });
-    }
-
-    async loadAuditLogs() {
-        try {
-            const response = await this.fetchWithAuth('/audit-logs');
-            const data = await response.json();
-            this.auditLog.innerHTML = '';
-            data.logs.forEach(log => {
-                const entry = document.createElement('div');
-                entry.className = 'audit-entry';
-                entry.innerHTML = `
-                    <div class="timestamp">${new Date(log.timestamp).toLocaleString()}</div>
-                    <div class="user">${log.user || 'anonymous'}</div>
-                    <div class="query">${log.query}</div>
-                    <div class="result ${log.success ? 'text-success' : 'text-danger'}">
-                        ${log.success ? 'Success' : 'Failed'}
-                    </div>
-                `;
-                this.auditLog.appendChild(entry);
-            });
-        } catch (error) {
-            console.error('Error loading audit logs:', error);
-        }
-    }
-
-    addMessage(text, type) {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${type}`;
-        messageDiv.textContent = text;
-        this.chatBody.appendChild(messageDiv);
-        this.chatBody.scrollTop = this.chatBody.scrollHeight;
-    }
-
-    async loadInitialData() {
-        try {
-            // Fetch initial status data
-            const response = await fetch('/initial-status');
-            const data = await response.json();
-            
-            if (data.success) {
-                // Update VM list and cluster status with initial data
-                this.updateVMList(data.vm_status);
-                this.updateClusterStatus(data.cluster_status.nodes);
-            } else {
-                throw new Error(data.error || 'Failed to load initial status');
-            }
-
-            // Load audit logs
-            await this.loadAuditLogs();
-            
-            // Set up periodic audit log updates
-            setInterval(() => this.loadAuditLogs(), 30000);
-        } catch (error) {
-            console.error('Error loading initial data:', error);
-            this.showError('Failed to load system status. Please refresh the page or contact support.');
-        }
-    }
-
-    showError(message) {
-        const errorDiv = document.createElement('div');
-        errorDiv.className = 'alert alert-danger';
-        errorDiv.textContent = message;
-        
-        // Insert error message in both status containers
-        ['cluster-status', 'vm-list'].forEach(containerId => {
-            const container = document.getElementById(containerId);
-            container.innerHTML = '';
-            container.appendChild(errorDiv.cloneNode(true));
-        });
-    }
-
-    startPolling() {
-        // Fallback to polling every 10 seconds if websocket fails
-        setInterval(async () => {
-            try {
-                const response = await fetch('/initial-status');
-                const data = await response.json();
-                
-                if (data.success) {
-                    this.updateVMList(data.vm_status);
-                    this.updateClusterStatus(data.cluster_status.nodes);
-                }
-            } catch (error) {
-                console.error('Error polling status:', error);
-            }
-        }, 10000);
-    }
-
-    adjustUIForExperienceLevel(level) {
-        const advancedTab = document.getElementById('advanced-tab');
-        if (level === 'beginner') {
-            advancedTab.style.display = 'none';
-        } else {
-            advancedTab.style.display = 'block';
-        }
-    }
-
-    deployServices() {
-        // Collect selected goals
-        const selectedGoals = Array.from(document.querySelectorAll('#step1 input[type="checkbox"]:checked')).map(checkbox => checkbox.value);
-        const otherGoals = document.getElementById('otherGoals').value;
-
-        // Collect cloud services to replace
-        const cloudServices = Array.from(document.querySelectorAll('#cloud-services-container input[type="checkbox"]:checked')).map(checkbox => checkbox.value);
-
-        // Collect resource information
-        const resources = {
-            cpuCores: document.getElementById('cpuCores').value,
-            ramSize: document.getElementById('ramSize').value,
-            diskSize: document.getElementById('diskSize').value,
-            networkSpeed: document.getElementById('networkSpeed').value
-        };
-
-        // Collect recommended services
-        const recommendedServices = Array.from(document.querySelectorAll('#recommended-services input[type="checkbox"]:checked')).map(checkbox => checkbox.value);
-
-        // Display summary
-        document.getElementById('summary-goals').innerHTML = selectedGoals.join(', ') + (otherGoals ? ', ' + otherGoals : '');
-        document.getElementById('summary-resources').innerHTML = `CPU Cores: ${resources.cpuCores}, RAM: ${resources.ramSize} GB, Disk: ${resources.diskSize} GB, Network: ${resources.networkSpeed} Mbps`;
-        document.getElementById('summary-services').innerHTML = recommendedServices.join(', ');
-
-        // Send deployment request to the server
-        fetch('/deploy', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ 
-                goals: selectedGoals, 
-                otherGoals, 
-                cloudServices,
-                resources, 
-                services: recommendedServices 
-            })
-        }).then(response => response.json()).then(data => {
-            if (data.success) {
-                alert('Services deployed successfully!');
-                // Close the modal
-                const modal = bootstrap.Modal.getInstance(document.getElementById('setupWizardModal'));
-                modal.hide();
-                // Add a message to the chat
-                this.addMessage('I\'ve successfully deployed the services you requested based on your goals. You can now interact with them through natural language commands.', 'system');
-            } else {
-                alert('Error deploying services: ' + data.error);
-            }
-        }).catch(error => {
-            console.error('Error deploying services:', error);
-            alert('Error deploying services: ' + error.message);
-        });
-    }
-    
-    // New method to detect system resources
-    detectSystemResources() {
-        const resourcesContainer = document.getElementById('detected-resources');
-        
-        // Show loading indicator
-        resourcesContainer.innerHTML = `
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Detecting resources...</span>
-            </div>
-            <span class="ms-2">Detecting system resources...</span>
-        `;
-        
-        // Call the server to detect resources
-        fetch('/detect-resources')
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const resources = data.resources;
-                    
-                    // Update the UI with detected resources
-                    document.getElementById('cpuCores').value = resources.cpu_cores;
-                    document.getElementById('ramSize').value = resources.ram_gb;
-                    document.getElementById('diskSize').value = resources.disk_gb;
-                    document.getElementById('networkSpeed').value = resources.network_speed;
-                    
-                    // Show success message
-                    resourcesContainer.innerHTML = `
-                        <div class="alert alert-success">
-                            <i class="bi bi-check-circle-fill me-2"></i>
-                            System resources detected successfully!
-                        </div>
-                        <div class="mb-3">
-                            <small class="text-muted">You can adjust these values if needed.</small>
-                        </div>
-                    `;
-                } else {
-                    // Show error message
-                    resourcesContainer.innerHTML = `
-                        <div class="alert alert-warning">
-                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                            Could not detect system resources automatically: ${data.error}
-                        </div>
-                        <div class="mb-3">
-                            <small class="text-muted">Please enter your system resources manually.</small>
-                        </div>
-                    `;
-                }
-            })
-            .catch(error => {
-                console.error('Error detecting resources:', error);
-                resourcesContainer.innerHTML = `
-                    <div class="alert alert-danger">
-                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                        Error detecting system resources: ${error.message}
-                    </div>
-                    <div class="mb-3">
-                        <small class="text-muted">Please enter your system resources manually.</small>
-                    </div>
-                `;
-            });
-    }
-
-    // Add new methods for command history functionality
-    async loadCommandHistory() {
-        const commandHistoryList = document.getElementById('command-history-list');
-        if (!commandHistoryList) return;
-        
-        try {
-            // Get current user ID (in a real app, this would come from authentication)
-            const userId = localStorage.getItem('user_id') || 'default_user';
-            
-            const response = await this.fetchWithAuth(`/command-history/${userId}`);
-            const data = await response.json();
-            
-            if (data.success && data.history) {
-                this.commandHistory = data.history;
-                this.renderCommandHistory();
-            } else {
-                commandHistoryList.innerHTML = `
-                    <div class="alert alert-warning">
-                        Failed to load command history: ${data.message || 'Unknown error'}
-                    </div>`;
-            }
-        } catch (error) {
-            console.error('Error loading command history:', error);
-            commandHistoryList.innerHTML = `
-                <div class="alert alert-danger">
-                    Error loading command history: ${error.message}
-                </div>`;
-        }
-    }
-    
-    async loadFavoriteCommands() {
-        const favoriteCommandsList = document.getElementById('favorite-commands-list');
-        if (!favoriteCommandsList) return;
-        
-        try {
-            // Get current user ID (in a real app, this would come from authentication)
-            const userId = localStorage.getItem('user_id') || 'default_user';
-            
-            const response = await this.fetchWithAuth(`/favorite-commands/${userId}`);
-            const data = await response.json();
-            
-            if (data.success && data.commands) {
-                this.favoriteCommands = data.commands;
-                this.renderFavoriteCommands();
-            } else {
-                favoriteCommandsList.innerHTML = `
-                    <div class="alert alert-warning">
-                        Failed to load favorite commands: ${data.message || 'Unknown error'}
-                    </div>`;
-            }
-        } catch (error) {
-            console.error('Error loading favorite commands:', error);
-            favoriteCommandsList.innerHTML = `
-                <div class="alert alert-danger">
-                    Error loading favorite commands: ${error.message}
-                </div>`;
-        }
-    }
-    
-    renderCommandHistory() {
-        const commandHistoryList = document.getElementById('command-history-list');
-        if (!commandHistoryList || !this.commandHistory.length) {
-            commandHistoryList.innerHTML = '<p class="text-muted">No command history available.</p>';
-            return;
-        }
-        
-        let html = '<div class="list-group">';
-        
-        this.commandHistory.forEach(item => {
-            const timestamp = new Date(item.timestamp).toLocaleString();
-            const statusClass = item.success ? 'text-success' : 'text-danger';
-            const statusIcon = item.success ? 'check-circle-fill' : 'x-circle-fill';
-            const entitiesText = item.entities ? 
-                JSON.stringify(item.entities).substring(0, 50) : '';
-            
-            html += `
-                <div class="list-group-item">
-                    <div class="d-flex w-100 justify-content-between">
-                        <h6 class="mb-1">${item.command}</h6>
-                        <small class="${statusClass}"><i class="bi bi-${statusIcon}"></i></small>
-                    </div>
-                    <p class="mb-1">
-                        <small class="text-muted">Intent: ${item.intent || 'Unknown'}</small>
-                    </p>
-                    <div class="d-flex justify-content-between">
-                        <small class="text-muted">${timestamp}</small>
-                        <div>
-                            <button class="btn btn-sm btn-primary" 
-                                    onclick="window.proxyApp.rerunCommand('${item.command.replace(/'/g, "\\'")}')">
-                                <i class="bi bi-arrow-repeat"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-primary" 
-                                    onclick="window.proxyApp.addToFavorites('${item.command.replace(/'/g, "\\'")}')">
-                                <i class="bi bi-star"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-        });
-        
-        html += '</div>';
-        html += `
-            <div class="mt-3 text-center">
-                <button class="btn btn-sm btn-danger" 
-                        onclick="window.proxyApp.clearCommandHistory()">
-                    <i class="bi bi-trash"></i> Clear History
-                </button>
-            </div>
-        `;
-        
-        commandHistoryList.innerHTML = html;
-    }
-    
-    renderFavoriteCommands() {
-        const favoriteCommandsList = document.getElementById('favorite-commands-list');
-        if (!favoriteCommandsList || !this.favoriteCommands.length) {
-            favoriteCommandsList.innerHTML = '<p class="text-muted">No favorite commands saved.</p>';
-            return;
-        }
-        
-        let html = '<div class="list-group">';
-        
-        this.favoriteCommands.forEach(item => {
-            const timestamp = new Date(item.created_at).toLocaleString();
-            
-            html += `
-                <div class="list-group-item">
-                    <div class="d-flex w-100 justify-content-between">
-                        <h6 class="mb-1">${item.command_text}</h6>
-                        <small class="text-muted">${timestamp}</small>
-                    </div>
-                    <p class="mb-1">
-                        <small>${item.description || ''}</small>
-                    </p>
-                    <div class="text-end">
-                        <button class="btn btn-sm btn-primary" 
-                                onclick="window.proxyApp.rerunCommand('${item.command_text.replace(/'/g, "\\'")}')">
-                            <i class="bi bi-arrow-repeat"></i> Run
-                        </button>
-                        <button class="btn btn-sm btn-outline-danger" 
-                                onclick="window.proxyApp.removeFavoriteCommand(${item.id})">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </div>
-                </div>
-            `;
-        });
-        
-        html += '</div>';
-        favoriteCommandsList.innerHTML = html;
-    }
-    
-    async rerunCommand(command) {
-        this.userInput.value = command;
-        this.chatForm.dispatchEvent(new Event('submit'));
-    }
-    
-    async addToFavorites(command) {
-        try {
-            // Get current user ID (in a real app, this would come from authentication)
-            const userId = localStorage.getItem('user_id') || 'default_user';
-            
-            // Ask for a description
-            const description = prompt('Add a description for this command (optional):');
-            
-            const response = await this.fetchWithAuth(`/favorite-commands/${userId}`, {
-                method: 'POST',
-                body: JSON.stringify({ 
-                    command_text: command,
-                    description: description
-                })
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                this.addMessage('Command added to favorites.', 'system');
-                this.loadFavoriteCommands();
-            } else {
-                this.addMessage(`Failed to add command to favorites: ${data.message}`, 'system');
-            }
-        } catch (error) {
-            console.error('Error adding to favorites:', error);
-            this.addMessage(`Error adding to favorites: ${error.message}`, 'system');
-        }
-    }
-    
-    async removeFavoriteCommand(commandId) {
-        try {
-            // Get current user ID (in a real app, this would come from authentication)
-            const userId = localStorage.getItem('user_id') || 'default_user';
-            
-            const response = await this.fetchWithAuth(`/favorite-commands/${userId}/${commandId}`, {
-                method: 'DELETE'
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                this.addMessage('Command removed from favorites.', 'system');
-                this.loadFavoriteCommands();
-            } else {
-                this.addMessage(`Failed to remove command from favorites: ${data.message}`, 'system');
-            }
-        } catch (error) {
-            console.error('Error removing favorite:', error);
-            this.addMessage(`Error removing favorite: ${error.message}`, 'system');
-        }
-    }
-    
-    async clearCommandHistory() {
-        if (!confirm('Are you sure you want to clear your command history?')) {
-            return;
-        }
-        
-        try {
-            // Get current user ID (in a real app, this would come from authentication)
-            const userId = localStorage.getItem('user_id') || 'default_user';
-            
-            const response = await this.fetchWithAuth(`/command-history/${userId}/clear`, {
-                method: 'POST'
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                this.addMessage('Command history cleared.', 'system');
-                this.loadCommandHistory();
-            } else {
-                this.addMessage(`Failed to clear command history: ${data.message}`, 'system');
-            }
-        } catch (error) {
-            console.error('Error clearing history:', error);
-            this.addMessage(`Error clearing history: ${error.message}`, 'system');
-        }
-    }
-
-    // Helper method for fetch with authentication
-    async fetchWithAuth(url, options = {}) {
-        // Get token from localStorage if available
-        const token = localStorage.getItem('token');
-        
-        const headers = {
-            'Content-Type': 'application/json',
-            ...(token && { 'Authorization': `Bearer ${token}` }),
-            ...(options.headers || {})
-        };
-        
-        return fetch(url, {
-            ...options,
-            headers
-        });
-    }
-    
-    // Notification preferences methods
-    async loadNotificationPreferences() {
-        const userId = localStorage.getItem('user_id') || 'default_user';
-        const loadingElement = document.getElementById('notification-preferences-loading');
-        const errorElement = document.getElementById('notification-preferences-error');
-        const containerElement = document.getElementById('notification-preferences-container');
-        
-        // Show loading state
-        loadingElement.classList.remove('d-none');
-        errorElement.classList.add('d-none');
-        containerElement.classList.add('d-none');
-        
-        try {
-            const response = await this.fetchWithAuth(`/notification-preferences/${userId}`);
-            const data = await response.json();
-            
-            if (data.success) {
-                this.notificationPreferences = data.preferences || [];
-                this.renderNotificationPreferences(data.grouped_preferences || {});
-                
-                // Hide loading, show container
-                loadingElement.classList.add('d-none');
-                containerElement.classList.remove('d-none');
-            } else {
-                // Show error
-                loadingElement.classList.add('d-none');
-                errorElement.classList.remove('d-none');
-                errorElement.textContent = data.message || 'Failed to load notification preferences';
-            }
-        } catch (error) {
-            console.error('Error loading notification preferences:', error);
-            // Show error
-            loadingElement.classList.add('d-none');
-            errorElement.classList.remove('d-none');
-            errorElement.textContent = `Error loading notification preferences: ${error.message}`;
-        }
-    }
-    
-    renderNotificationPreferences(groupedPreferences) {
-        // Define event type categories and their containers
-        const categories = {
-            'vm_': { 
-                container: document.getElementById('vm-events-prefs'),
-                title: 'Virtual Machine Events',
-                events: {
-                    'vm_state_change': 'VM State Changes (start/stop/restart)',
-                    'vm_creation': 'VM Creation',
-                    'vm_deletion': 'VM Deletion',
-                    'vm_error': 'VM Errors'
-                }
-            },
-            'backup_': { 
-                container: document.getElementById('backup-events-prefs'),
-                title: 'Backup Events',
-                events: {
-                    'backup_start': 'Backup Started',
-                    'backup_complete': 'Backup Completed',
-                    'backup_error': 'Backup Errors'
-                }
-            },
-            'security_': { 
-                container: document.getElementById('security-events-prefs'),
-                title: 'Security Events',
-                events: {
-                    'security_alert': 'Security Alerts',
-                    'login_failure': 'Login Failures',
-                    'login_success': 'Login Success'
-                }
-            },
-            'system_': { 
-                container: document.getElementById('system-events-prefs'),
-                title: 'System Events',
-                events: {
-                    'system_update': 'System Updates',
-                    'resource_warning': 'Resource Warnings',
-                    'disk_space_low': 'Low Disk Space'
-                }
-            },
-            'service_': { 
-                container: document.getElementById('service-events-prefs'),
-                title: 'Service Events',
-                events: {
-                    'service_start': 'Service Started',
-                    'service_stop': 'Service Stopped',
-                    'service_error': 'Service Errors'
+            if (data.success && data.profile) {
+                // Update UI if profile changed
+                const voiceProfile = document.getElementById('voice-profile');
+                if (voiceProfile && voiceProfile.value !== data.profile) {
+                    voiceProfile.value = data.profile;
+                    this.updateVoiceSettingsUI(data.profile);
                 }
             }
-        };
-        
-        // Clear all containers
-        for (const category of Object.values(categories)) {
-            if (category.container) {
-                category.container.innerHTML = '';
-            }
-        }
-        
-        // If no preferences, show message in all containers
-        if (Object.keys(groupedPreferences).length === 0) {
-            for (const category of Object.values(categories)) {
-                if (category.container) {
-                    category.container.innerHTML = `
-                        <div class="alert alert-info">
-                            No notification preferences set. Click "Reset to Default" to initialize.
-                        </div>
-                    `;
-                }
-            }
-            return;
-        }
-        
-        // Process each event type and add to corresponding category
-        for (const [eventType, prefs] of Object.entries(groupedPreferences)) {
-            // Find which category this event belongs to
-            let category = null;
-            for (const [prefix, catInfo] of Object.entries(categories)) {
-                if (eventType.startsWith(prefix)) {
-                    category = catInfo;
-                    break;
-                }
-            }
-            
-            if (!category || !category.container) continue;
-            
-            // Get user-friendly event name from the mapping, or use prettified event type
-            const eventName = category.events[eventType] || this.prettifyEventType(eventType);
-            
-            // Create card for this event type with toggles for each channel
-            const card = document.createElement('div');
-            card.className = 'card mb-3';
-            card.innerHTML = `
-                <div class="card-header">
-                    <h6 class="mb-0">${eventName}</h6>
-                </div>
-                <div class="card-body">
-                    <div class="notification-channels" data-event="${eventType}">
-                        <!-- Will be populated with notification channels -->
-                    </div>
-                </div>
-            `;
-            
-            const channelsContainer = card.querySelector('.notification-channels');
-            
-            // Create toggle switches for each notification channel
-            const channels = {
-                'web': 'Web Notifications',
-                'email': 'Email Notifications',
-                'sms': 'SMS Notifications'
-            };
-            
-            // Map of preferences by channel for this event
-            const prefsByChannel = {};
-            prefs.forEach(pref => {
-                prefsByChannel[pref.channel] = pref;
-            });
-            
-            // Add controls for each channel
-            for (const [channel, channelName] of Object.entries(channels)) {
-                const pref = prefsByChannel[channel];
-                const isEnabled = pref ? pref.enabled : false;
-                
-                const channelToggle = document.createElement('div');
-                channelToggle.className = 'form-check form-switch mb-2';
-                channelToggle.innerHTML = `
-                    <input class="form-check-input notification-toggle" 
-                           type="checkbox" 
-                           id="${eventType}-${channel}" 
-                           data-event="${eventType}"
-                           data-channel="${channel}"
-                           ${isEnabled ? 'checked' : ''}>
-                    <label class="form-check-label" for="${eventType}-${channel}">
-                        ${channelName}
-                    </label>
-                `;
-                
-                channelsContainer.appendChild(channelToggle);
-            }
-            
-            category.container.appendChild(card);
-        }
-        
-        // Add event listeners for toggles
-        const toggles = document.querySelectorAll('.notification-toggle');
-        toggles.forEach(toggle => {
-            toggle.addEventListener('change', (e) => {
-                // We'll collect all changes and save them when the user clicks "Save" button
-                console.log(`Toggle ${e.target.dataset.event} - ${e.target.dataset.channel}: ${e.target.checked}`);
-            });
-        });
-    }
-    
-    prettifyEventType(eventType) {
-        // Convert snake_case to Title Case with spaces
-        return eventType
-            .split('_')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ');
-    }
-    
-    async saveNotificationPreferences() {
-        try {
-            const userId = localStorage.getItem('user_id') || 'default_user';
-            const toggles = document.querySelectorAll('.notification-toggle');
-            
-            // Show saving indicator
-            this.addMessage('Saving notification preferences...', 'system');
-            
-            // Process each toggle and update preferences
-            const updatePromises = [];
-            
-            toggles.forEach(toggle => {
-                const eventType = toggle.dataset.event;
-                const channel = toggle.dataset.channel;
-                const enabled = toggle.checked;
-                
-                // Send update request
-                const promise = this.fetchWithAuth(`/notification-preferences/${userId}`, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        event_type: eventType,
-                        channel: channel,
-                        enabled: enabled
-                    })
-                });
-                
-                updatePromises.push(promise);
-            });
-            
-            // Wait for all updates to complete
-            await Promise.all(updatePromises);
-            
-            // Reload preferences to confirm changes
-            await this.loadNotificationPreferences();
-            
-            // Show success message
-            this.addMessage('Notification preferences saved successfully!', 'system');
-            
         } catch (error) {
-            console.error('Error saving notification preferences:', error);
-            this.addMessage(`Error saving notification preferences: ${error.message}`, 'system');
-        }
-    }
-    
-    async initializeNotificationPreferences() {
-        try {
-            const userId = localStorage.getItem('user_id') || 'default_user';
-            
-            if (!confirm('This will reset all notification preferences to default values. Continue?')) {
-                return;
-            }
-            
-            // Show initializing indicator
-            this.addMessage('Initializing default notification preferences...', 'system');
-            
-            // Call API to initialize defaults
-            const response = await this.fetchWithAuth(`/notification-preferences/${userId}/initialize`, {
-                method: 'POST'
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                // Reload preferences to show new defaults
-                await this.loadNotificationPreferences();
-                this.addMessage('Default notification preferences initialized successfully!', 'system');
-            } else {
-                this.addMessage(`Failed to initialize preferences: ${data.message}`, 'system');
-            }
-            
-        } catch (error) {
-            console.error('Error initializing notification preferences:', error);
-            this.addMessage(`Error initializing notification preferences: ${error.message}`, 'system');
+            console.error('Error adapting voice:', error);
         }
     }
 
+    /**
+     * Handle VM status update
+     * @param {Object} data - VM status data
+     */
+    handleVMUpdate(data) {
+        UI.updateVMList(data, this.vmList);
+    }
+
+    /**
+     * Handle cluster status update
+     * @param {Object} data - Cluster status data
+     */
+    handleClusterUpdate(data) {
+        UI.updateClusterStatus(data, this.clusterStatus);
+    }
+
+    /**
+     * Handle network diagram update
+     * @param {Array} nodes - Network diagram nodes
+     * @param {Array} links - Network diagram links
+     */
+    handleNetworkDiagramUpdate(nodes, links) {
+        this.networkDiagram.update(nodes, links);
+    }
+
+    /**
+     * Handle socket error
+     * @param {string} error - Error message
+     */
+    handleSocketError(error) {
+        console.error('Socket error:', error);
+        UI.showError('Connection error: ' + error);
+    }
 }
 
 // Initialize the application when the DOM is loaded

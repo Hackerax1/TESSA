@@ -11,11 +11,7 @@ from .base_nli import BaseNLI
 from .command_executor import CommandExecutor
 from .response_generator import ResponseGenerator
 from .service_handler import ServiceHandler
-<<<<<<< HEAD
 from .user_manager import UserManager
-=======
-from .user_preferences import UserManager
->>>>>>> 1b5d5502d302c1abc5c8723cdb80ed56bb9485c7
 from ..nlu.nlu_engine import NLU_Engine
 from ..nlu.ollama_client import OllamaClient
 from ..nlu.huggingface_client import HuggingFaceClient
