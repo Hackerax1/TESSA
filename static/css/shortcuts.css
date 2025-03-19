@@ -1,0 +1,100 @@
+/* Shortcuts styling */
+.shortcut-list {
+    margin-bottom: 1rem;
+}
+
+.shortcut-item {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    border-left: 3px solid transparent;
+}
+
+.shortcut-item:hover {
+    background-color: rgba(var(--bs-primary-rgb), 0.05);
+    border-left-color: var(--bs-primary);
+}
+
+.shortcut-item.dragging {
+    opacity: 0.5;
+    border: 1px dashed var(--bs-primary);
+}
+
+.shortcut-text {
+    flex-grow: 1;
+    overflow: hidden;
+}
+
+.shortcut-name {
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.shortcut-description {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.shortcut-actions {
+    opacity: 0.3;
+    transition: opacity 0.2s ease;
+}
+
+.shortcut-item:hover .shortcut-actions {
+    opacity: 1;
+}
+
+.drag-handle {
+    cursor: grab;
+    padding: 0 5px;
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+}
+
+/* Category tabs */
+.shortcut-categories {
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+.shortcut-category {
+    cursor: pointer;
+    padding: 0.5rem 1rem;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.shortcut-category.active {
+    border-bottom-color: var(--bs-primary);
+    color: var(--bs-primary);
+    font-weight: 500;
+}
+
+/* Empty state */
+.shortcuts-empty-state {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: var(--bs-secondary);
+}
+
+.shortcuts-empty-state i {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+}
+
+/* Shortcut key badge */
+.shortcut-key {
+    display: inline-block;
+    padding: 0.15rem 0.4rem;
+    background-color: var(--bs-light);
+    border: 1px solid var(--bs-border-color);
+    border-radius: 3px;
+    font-size: 0.75rem;
+    font-family: monospace;
+    color: var(--bs-secondary);
+}

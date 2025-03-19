@@ -10,6 +10,7 @@ import Wizard from './modules/wizard.js';
 import Notifications from './modules/notifications.js';
 import Commands from './modules/commands.js';
 import SocketHandler from './modules/socket.js';
+import Shortcuts from './modules/shortcuts.js';
 
 class ProxmoxNLI {
     constructor() {
@@ -27,6 +28,7 @@ class ProxmoxNLI {
         this.wizard = new Wizard();
         this.notifications = new Notifications();
         this.commands = new Commands();
+        this.shortcuts = new Shortcuts();
         this.networkDiagram = new NetworkDiagram('network-diagram-container');
         
         // Initialize socket with callbacks
@@ -72,6 +74,13 @@ class ProxmoxNLI {
             
             // Load voice profiles
             await this.loadVoiceProfiles();
+            
+            // Initialize modules
+            await this.ui.initialize();
+            await this.wizard.initialize();
+            await this.notifications.initialize();
+            await this.commands.initialize();
+            await this.shortcuts.initialize();
             
             // Set up wizard
             this.setupWizard();
@@ -311,6 +320,24 @@ class ProxmoxNLI {
                     });
             });
         }
+        
+        // Setup event listeners for the shortcuts modal
+        document.getElementById('shortcutsModal').addEventListener('show.bs.modal', async () => {
+            await this.shortcuts.loadShortcuts(document.getElementById('shortcuts-list'));
+        });
+
+        // Setup event listeners for common commands in the shortcuts modal
+        document.querySelectorAll('.list-group-item[data-command]').forEach(item => {
+            item.addEventListener('click', () => {
+                const command = item.getAttribute('data-command');
+                this.userInput.value = command;
+                this.chatForm.dispatchEvent(new Event('submit'));
+                
+                // Close the modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('shortcutsModal'));
+                modal.hide();
+            });
+        });
     }
 
     /**

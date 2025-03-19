@@ -67,7 +67,8 @@ class ProxmoxNLI(BaseNLI):
                        'storage_info', 'list_docker_containers', 'list_docker_images', 
                        'docker_container_logs', 'vm_status', 'help', 'list_available_services',
                        'list_deployed_services', 'find_service', 'service_status',
-                       'check_updates', 'list_updates', 'get_update_status']
+                       'check_updates', 'list_updates', 'get_update_status',
+                       'get_scheduler_status', 'list_backups', 'verify_backup']
         
         if self.require_confirmation and intent not in safe_intents:
             # Store command for later execution
@@ -160,6 +161,13 @@ class ProxmoxNLI(BaseNLI):
             'stop_service': f"Are you sure you want to stop service {entities.get('SERVICE_ID')} on VM {entities.get('VM_ID')}?",
             'remove_service': f"Are you sure you want to remove service {entities.get('SERVICE_ID')} from VM {entities.get('VM_ID')}?",
             'apply_updates': f"Are you sure you want to apply updates to {entities.get('SERVICE_ID', 'all services')}?",
+            'start_backup_scheduler': "Are you sure you want to start the backup scheduler service?",
+            'stop_backup_scheduler': "Are you sure you want to stop the backup scheduler service?",
+            'schedule_backup': f"Are you sure you want to schedule backups for VM {entities.get('VM_ID')}?",
+            'configure_recovery_testing': "Are you sure you want to configure automated recovery testing?",
+            'configure_retention_policy': f"Are you sure you want to configure retention policy for VM {entities.get('VM_ID')}?",
+            'run_backup_now': f"Are you sure you want to run a backup for VM {entities.get('VM_ID')} immediately?",
+            'run_recovery_test_now': "Are you sure you want to run recovery testing immediately?",
         }
         return messages.get(intent, "Are you sure you want to execute this command?") + "\nReply with 'yes' to confirm or 'no' to cancel."
 

@@ -3,9 +3,15 @@ import subprocess
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
+from .backup_scheduler_commands import BackupSchedulerCommands
+from datetime import datetime
+from typing import List, Dict, Any, Optional
+
 class ProxmoxCommands:
     def __init__(self, api):
         self.api = api
+        # Initialize backup scheduler commands
+        self.backup_scheduler = BackupSchedulerCommands(api)
 
     def list_vms(self):
         """Get a list of all VMs with their status"""
@@ -1140,3 +1146,112 @@ class ProxmoxCommands:
         from ..core.integration.environment_merger import EnvironmentMerger
         merger = EnvironmentMerger(self.api)
         return merger.get_merge_history()
+
+    # Backup Scheduler Methods
+    def start_backup_scheduler(self) -> Dict:
+        """Start the backup scheduler service.
+        
+        Returns:
+            Dict: Result of the operation
+        """
+        return self.backup_scheduler.start_scheduler()
+    
+    def stop_backup_scheduler(self) -> Dict:
+        """Stop the backup scheduler service.
+        
+        Returns:
+            Dict: Result of the operation
+        """
+        return self.backup_scheduler.stop_scheduler()
+    
+    def get_scheduler_status(self) -> Dict:
+        """Get the status of the backup scheduler.
+        
+        Returns:
+            Dict: Scheduler status information
+        """
+        return self.backup_scheduler.get_scheduler_status()
+    
+    def schedule_backup(self, vm_id: str, schedule: Dict) -> Dict:
+        """Configure backup schedule for a VM.
+        
+        Args:
+            vm_id: VM ID
+            schedule: Schedule configuration with frequency, time, etc.
+            
+        Returns:
+            Dict: Result of the operation
+        """
+        return self.backup_scheduler.configure_backup_schedule(vm_id, schedule)
+    
+    def configure_recovery_testing(self, config: Dict) -> Dict:
+        """Configure automated recovery testing.
+        
+        Args:
+            config: Recovery testing configuration
+            
+        Returns:
+            Dict: Result of the operation
+        """
+        return self.backup_scheduler.configure_recovery_testing(config)
+    
+    def configure_retention_policy(self, vm_id: str, policy: Dict) -> Dict:
+        """Configure backup retention policy for a VM.
+        
+        Args:
+            vm_id: VM ID
+            policy: Retention policy configuration
+            
+        Returns:
+            Dict: Result of the operation
+        """
+        return self.backup_scheduler.configure_retention_policy(vm_id, policy)
+    
+    def run_backup_now(self, vm_id: str) -> Dict:
+        """Run a backup immediately.
+        
+        Args:
+            vm_id: VM ID
+            
+        Returns:
+            Dict: Result of the operation
+        """
+        return self.backup_scheduler.run_backup_now(vm_id)
+    
+    def run_recovery_test_now(self, vm_ids: Optional[List[str]] = None) -> Dict:
+        """Run a recovery test immediately.
+        
+        Args:
+            vm_ids: Optional list of VM IDs to test
+            
+        Returns:
+            Dict: Result of the operation
+        """
+        return self.backup_scheduler.run_recovery_testing_now(vm_ids)
+    
+    def run_retention_enforcement_now(self) -> Dict:
+        """Run retention policy enforcement immediately.
+        
+        Returns:
+            Dict: Result of the operation
+        """
+        return self.backup_scheduler.run_retention_enforcement_now()
+    
+    def run_deduplication_now(self) -> Dict:
+        """Run data deduplication immediately.
+        
+        Returns:
+            Dict: Result of the operation
+        """
+        return self.backup_scheduler.run_deduplication_now()
+    
+    def configure_notifications(self, config: Dict) -> Dict:
+        """Configure backup notifications.
+        
+        Args:
+            config: Notification configuration
+            
+        Returns:
+            Dict: Result of the operation
+        """
+        return self.backup_scheduler.configure_notifications(config)

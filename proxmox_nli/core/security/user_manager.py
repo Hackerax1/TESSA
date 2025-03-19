@@ -52,6 +52,11 @@ class UserManager:
             if favorite_commands:
                 self.nlu.context_manager.set_context({'favorite_commands': favorite_commands})
                 
+            # Load shortcuts
+            shortcuts = self.get_shortcuts(user_id)
+            if shortcuts:
+                self.nlu.context_manager.set_context({'user_shortcuts': shortcuts})
+                
             # Load notification preferences
             notification_prefs = self.user_preferences.get_notification_preferences(user_id)
             if notification_prefs:
@@ -371,3 +376,212 @@ class UserManager:
         if result:
             return {"success": True, "message": "Device removed successfully"}
         return {"success": False, "message": "Failed to remove device"}
+    
+    # Shortcut management methods
+    def get_shortcuts(self, user_id, category=None):
+        """Get shortcuts for a user, optionally filtered by category"""
+        try:
+            shortcuts_file = os.path.join(self.user_preferences.user_data_dir, f"{user_id}_shortcuts.json")
+            
+            if not os.path.exists(shortcuts_file):
+                return []
+                
+            with open(shortcuts_file, 'r') as f:
+                shortcuts = json.load(f)
+                
+            if category:
+                return [s for s in shortcuts if s.get('category') == category]
+            return shortcuts
+        except Exception as e:
+            logger.error(f"Error getting shortcuts for user {user_id}: {str(e)}")
+            return []
+            
+    def add_shortcut(self, user_id, name, command, description=None, category=None, icon=None, color=None, shortcut_key=None):
+        """Add or update a shortcut for a user"""
+        try:
+            shortcuts_file = os.path.join(self.user_preferences.user_data_dir, f"{user_id}_shortcuts.json")
+            
+            shortcuts = []
+            if os.path.exists(shortcuts_file):
+                with open(shortcuts_file, 'r') as f:
+                    shortcuts = json.load(f)
+            
+            # Check if shortcut with this name already exists
+            existing_index = next((i for i, s in enumerate(shortcuts) if s.get('name') == name), None)
+            
+            shortcut = {
+                'id': existing_index if existing_index is not None else len(shortcuts),
+                'name': name,
+                'command': command,
+                'description': description,
+                'category': category or 'general',
+                'icon': icon,
+                'color': color,
+                'shortcut_key': shortcut_key,
+                'created_at': datetime.now().isoformat(),
+                'updated_at': datetime.now().isoformat()
+            }
+            
+            if existing_index is not None:
+                # Update existing shortcut
+                shortcut['created_at'] = shortcuts[existing_index].get('created_at')
+                shortcuts[existing_index] = shortcut
+            else:
+                # Add new shortcut
+                shortcuts.append(shortcut)
+                
+            # Save shortcuts
+            with open(shortcuts_file, 'w') as f:
+                json.dump(shortcuts, f, indent=2)
+                
+            # Log the action
+            self.audit_logger.log_action(
+                user_id=user_id,
+                action="add_shortcut" if existing_index is None else "update_shortcut",
+                resource_type="shortcut",
+                resource_id=shortcut['id'],
+                details={"name": name, "command": command}
+            )
+                
+            return {'success': True, 'shortcut': shortcut}
+        except Exception as e:
+            logger.error(f"Error adding shortcut for user {user_id}: {str(e)}")
+            return {'success': False, 'error': str(e)}
+            
+    def delete_shortcut(self, user_id, shortcut_id=None, name=None):
+        """Delete a shortcut for a user by ID or name"""
+        try:
+            shortcuts_file = os.path.join(self.user_preferences.user_data_dir, f"{user_id}_shortcuts.json")
+            
+            if not os.path.exists(shortcuts_file):
+                return {'success': False, 'error': 'No shortcuts found for user'}
+                
+            with open(shortcuts_file, 'r') as f:
+                shortcuts = json.load(f)
+                
+            if shortcut_id is not None:
+                # Delete by ID
+                original_length = len(shortcuts)
+                shortcuts = [s for s in shortcuts if s.get('id') != shortcut_id]
+                
+                if len(shortcuts) == original_length:
+                    return {'success': False, 'error': f'Shortcut with ID {shortcut_id} not found'}
+            elif name:
+                # Delete by name
+                original_length = len(shortcuts)
+                shortcuts = [s for s in shortcuts if s.get('name') != name]
+                
+                if len(shortcuts) == original_length:
+                    return {'success': False, 'error': f'Shortcut with name {name} not found'}
+            else:
+                return {'success': False, 'error': 'Either shortcut_id or name must be provided'}
+                
+            # Save shortcuts
+            with open(shortcuts_file, 'w') as f:
+                json.dump(shortcuts, f, indent=2)
+                
+            # Log the action
+            self.audit_logger.log_action(
+                user_id=user_id,
+                action="delete_shortcut",
+                resource_type="shortcut",
+                resource_id=shortcut_id or name,
+                details={"shortcut_id": shortcut_id, "name": name}
+            )
+                
+            return {'success': True}
+        except Exception as e:
+            logger.error(f"Error deleting shortcut for user {user_id}: {str(e)}")
+            return {'success': False, 'error': str(e)}
+            
+    def update_shortcut_position(self, user_id, shortcut_id, position):
+        """Update the position of a shortcut"""
+        try:
+            shortcuts_file = os.path.join(self.user_preferences.user_data_dir, f"{user_id}_shortcuts.json")
+            
+            if not os.path.exists(shortcuts_file):
+                return {'success': False, 'error': 'No shortcuts found for user'}
+                
+            with open(shortcuts_file, 'r') as f:
+                shortcuts = json.load(f)
+                
+            # Find the shortcut
+            shortcut_index = next((i for i, s in enumerate(shortcuts) if s.get('id') == shortcut_id), None)
+            
+            if shortcut_index is None:
+                return {'success': False, 'error': f'Shortcut with ID {shortcut_id} not found'}
+                
+            # Remove the shortcut from its current position
+            shortcut = shortcuts.pop(shortcut_index)
+            
+            # Insert it at the new position
+            position = max(0, min(position, len(shortcuts)))
+            shortcuts.insert(position, shortcut)
+            
+            # Save shortcuts
+            with open(shortcuts_file, 'w') as f:
+                json.dump(shortcuts, f, indent=2)
+                
+            return {'success': True}
+        except Exception as e:
+            logger.error(f"Error updating shortcut position for user {user_id}: {str(e)}")
+            return {'success': False, 'error': str(e)}
+            
+    def get_shortcut_categories(self, user_id):
+        """Get all shortcut categories for a user"""
+        try:
+            shortcuts = self.get_shortcuts(user_id)
+            categories = list(set(s.get('category', 'general') for s in shortcuts))
+            return {'success': True, 'categories': categories}
+        except Exception as e:
+            logger.error(f"Error getting shortcut categories for user {user_id}: {str(e)}")
+            return {'success': False, 'error': str(e)}
+            
+    def initialize_default_shortcuts(self, user_id):
+        """Initialize default shortcuts for a user"""
+        try:
+            default_shortcuts = [
+                {
+                    'name': 'Show All VMs',
+                    'command': 'Show me all virtual machines',
+                    'description': 'Display a list of all virtual machines',
+                    'category': 'general',
+                    'icon': 'bi-hdd-stack'
+                },
+                {
+                    'name': 'Cluster Status',
+                    'command': 'Show cluster status',
+                    'description': 'Display the current status of the cluster',
+                    'category': 'monitoring',
+                    'icon': 'bi-diagram-3'
+                },
+                {
+                    'name': 'Storage Usage',
+                    'command': 'Show storage usage',
+                    'description': 'Display storage usage across all nodes',
+                    'category': 'monitoring',
+                    'icon': 'bi-hdd'
+                },
+                {
+                    'name': 'Network Config',
+                    'command': 'Show network configuration',
+                    'description': 'Display network configuration for all nodes',
+                    'category': 'networking',
+                    'icon': 'bi-ethernet'
+                }
+            ]
+            
+            for shortcut in default_shortcuts:
+                self.add_shortcut(
+                    user_id=user_id,
+                    name=shortcut['name'],
+                    command=shortcut['command'],
+                    description=shortcut['description'],
+                    category=shortcut['category'],
+                    icon=shortcut['icon']
+                )
+                
+            return {'success': True, 'message': 'Default shortcuts initialized'}
+        except Exception as e:
+            logger.error(f"Error initializing default shortcuts for user {user_id}: {str(e)}")
+            return {'success': False, 'error': str(e)}

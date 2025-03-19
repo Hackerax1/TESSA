@@ -7,18 +7,73 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <div class="mb-3">
-                    <label for="shortcut-name" class="form-label">Shortcut Name</label>
-                    <input type="text" class="form-control" id="shortcut-name" placeholder="E.g., Show Running VMs">
-                </div>
-                <div class="mb-3">
-                    <label for="shortcut-command" class="form-label">Command</label>
-                    <textarea class="form-control" id="shortcut-command" rows="3" placeholder="E.g., Show me all running virtual machines"></textarea>
-                </div>
-                <div class="mb-3 form-check">
-                    <input type="checkbox" class="form-check-input" id="shortcut-favorite">
-                    <label class="form-check-label" for="shortcut-favorite">Add to Favorites</label>
-                </div>
+                <form id="shortcut-form">
+                    <div class="mb-3">
+                        <label for="shortcut-name" class="form-label">Shortcut Name</label>
+                        <input type="text" class="form-control" id="shortcut-name" placeholder="E.g., Show Running VMs" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="shortcut-command" class="form-label">Command</label>
+                        <textarea class="form-control" id="shortcut-command" rows="3" placeholder="E.g., Show me all running virtual machines" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="shortcut-description" class="form-label">Description (optional)</label>
+                        <input type="text" class="form-control" id="shortcut-description" placeholder="Brief description of what this command does">
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="shortcut-category" class="form-label">Category</label>
+                            <select class="form-select" id="shortcut-category">
+                                <option value="general">General</option>
+                                <option value="monitoring">Monitoring</option>
+                                <option value="networking">Networking</option>
+                                <option value="storage">Storage</option>
+                                <option value="backup">Backup</option>
+                                <option value="security">Security</option>
+                                <option value="custom">Custom</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="shortcut-icon" class="form-label">Icon</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i id="icon-preview" class="bi bi-command"></i></span>
+                                <select class="form-select" id="shortcut-icon">
+                                    <option value="bi-command">Command</option>
+                                    <option value="bi-hdd-stack">VMs</option>
+                                    <option value="bi-diagram-3">Cluster</option>
+                                    <option value="bi-hdd">Storage</option>
+                                    <option value="bi-ethernet">Network</option>
+                                    <option value="bi-shield-check">Security</option>
+                                    <option value="bi-arrow-repeat">Backup</option>
+                                    <option value="bi-gear">Settings</option>
+                                    <option value="bi-lightning">Performance</option>
+                                    <option value="bi-graph-up">Monitoring</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="shortcut-key" class="form-label">Keyboard Shortcut (optional)</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-keyboard"></i></span>
+                            <input type="text" class="form-control" id="shortcut-key" placeholder="E.g., Ctrl+Alt+V">
+                            <button class="btn btn-outline-secondary" type="button" id="record-shortcut">Record</button>
+                        </div>
+                        <div class="form-text">Press the keyboard shortcut you want to use</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="shortcut-color" class="form-label">Color (optional)</label>
+                        <input type="color" class="form-control form-control-color" id="shortcut-color" value="#0d6efd" title="Choose a color for the shortcut icon">
+                    </div>
+                    
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="shortcut-favorite">
+                        <label class="form-check-label" for="shortcut-favorite">Add to Favorites</label>
+                    </div>
+                </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>

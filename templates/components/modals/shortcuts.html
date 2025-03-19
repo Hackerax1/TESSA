@@ -1,41 +1,58 @@
 <!-- Shortcuts Modal -->
 <div class="modal fade" id="shortcutsModal" tabindex="-1" aria-labelledby="shortcutsModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="shortcutsModalLabel">Command Shortcuts</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <div class="d-flex justify-content-between mb-3">
-                    <h6>Your Shortcuts</h6>
-                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addShortcutModal">
-                        <i class="bi bi-plus"></i> Add Shortcut
-                    </button>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0">Your Shortcuts</h6>
+                    <div>
+                        <button id="initialize-shortcuts" class="btn btn-sm btn-outline-secondary me-2">
+                            <i class="bi bi-arrow-repeat"></i> Reset to Default
+                        </button>
+                        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addShortcutModal">
+                            <i class="bi bi-plus"></i> Add Shortcut
+                        </button>
+                    </div>
                 </div>
                 
-                <div id="shortcuts-list" class="list-group">
-                    <div class="d-flex justify-content-center">
+                <!-- Categories tabs -->
+                <div class="d-flex shortcut-categories mb-3" id="shortcut-categories">
+                    <div class="shortcut-category active" data-category="all">All</div>
+                    <div class="shortcut-category" data-category="general">General</div>
+                    <div class="shortcut-category" data-category="monitoring">Monitoring</div>
+                    <div class="shortcut-category" data-category="networking">Networking</div>
+                    <!-- Additional categories will be added dynamically -->
+                </div>
+                
+                <!-- Shortcuts list -->
+                <div id="shortcuts-list" class="mb-4">
+                    <div class="d-flex justify-content-center py-4">
                         <div class="spinner-border text-primary" role="status">
                             <span class="visually-hidden">Loading...</span>
                         </div>
                     </div>
                 </div>
                 
+                <hr>
+                
                 <div class="mt-4">
                     <h6>Common Commands</h6>
                     <div class="list-group">
                         <button type="button" class="list-group-item list-group-item-action" data-command="Show all VMs">
-                            Show all VMs
+                            <i class="bi bi-hdd-stack me-2"></i> Show all VMs
                         </button>
                         <button type="button" class="list-group-item list-group-item-action" data-command="Show cluster status">
-                            Show cluster status
+                            <i class="bi bi-diagram-3 me-2"></i> Show cluster status
                         </button>
                         <button type="button" class="list-group-item list-group-item-action" data-command="Show storage usage">
-                            Show storage usage
+                            <i class="bi bi-hdd me-2"></i> Show storage usage
                         </button>
                         <button type="button" class="list-group-item list-group-item-action" data-command="Show network configuration">
-                            Show network configuration
+                            <i class="bi bi-ethernet me-2"></i> Show network configuration
                         </button>
                     </div>
                 </div>

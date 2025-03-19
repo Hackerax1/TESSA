@@ -121,6 +121,14 @@ class OllamaClient:
         - list_zfs_pools: List all ZFS storage pools
         - create_zfs_snapshot: Create a ZFS snapshot (requires DATASET_NAME, optional SNAPSHOT_NAME)
         - help: Show help information
+        - schedule_backup: Schedule automated backups for a VM
+        - start_backup_scheduler: Start the backup scheduler service
+        - stop_backup_scheduler: Stop the backup scheduler service
+        - get_scheduler_status: Get the status of the backup scheduler
+        - configure_recovery_testing: Configure automated recovery testing
+        - configure_retention_policy: Configure backup retention policies
+        - run_backup_now: Run a backup immediately
+        - run_recovery_test_now: Run a recovery test immediately
         
         Return your analysis in strict JSON format with these fields:
         {
