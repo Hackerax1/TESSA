@@ -1,0 +1,136 @@
+id: n8n
+name: n8n
+description: Powerful workflow automation tool with a visual editor for connecting various services and APIs
+keywords:
+  - automation
+  - workflow
+  - integration
+  - no-code
+  - low-code
+  - zapier alternative
+  - ifttt alternative
+  - api
+  - open source
+vm_requirements:
+  memory: 2048
+  cores: 2
+  disk: 15
+  os_template: ubuntu-22.04
+deployment:
+  method: docker
+  docker_compose: |
+    version: '3'
+    services:
+      n8n:
+        image: n8nio/n8n:latest
+        container_name: n8n
+        restart: unless-stopped
+        ports:
+          - "5678:5678"
+        environment:
+          - N8N_BASIC_AUTH_ACTIVE=${N8N_BASIC_AUTH:-false}
+          - N8N_BASIC_AUTH_USER=${N8N_USER:-admin}
+          - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD:-admin}
+          - N8N_HOST=${N8N_HOST:-localhost}
+          - N8N_PORT=5678
+          - N8N_PROTOCOL=${N8N_PROTOCOL:-http}
+          - NODE_ENV=production
+          - WEBHOOK_URL=${WEBHOOK_URL:-http://localhost:5678/}
+          - DB_TYPE=postgresdb
+          - DB_POSTGRESDB_HOST=postgres
+          - DB_POSTGRESDB_PORT=5432
+          - DB_POSTGRESDB_DATABASE=n8n
+          - DB_POSTGRESDB_USER=n8n
+          - DB_POSTGRESDB_PASSWORD=${DB_PASSWORD:-n8n}
+        volumes:
+          - n8n_data:/home/node/.n8n
+        depends_on:
+          - postgres
+
+      postgres:
+        image: postgres:14-alpine
+        container_name: n8n-postgres
+        restart: unless-stopped
+        environment:
+          - POSTGRES_USER=n8n
+          - POSTGRES_PASSWORD=${DB_PASSWORD:-n8n}
+          - POSTGRES_DB=n8n
+          - POSTGRES_NON_ROOT_USER=n8n
+          - POSTGRES_NON_ROOT_PASSWORD=${DB_PASSWORD:-n8n}
+        volumes:
+          - n8n_postgres:/var/lib/postgresql/data
+
+    volumes:
+      n8n_data:
+      n8n_postgres:
+
+  post_install_steps:
+    - "echo 'Setting up n8n environment...'"
+    - "export N8N_BASIC_AUTH=${N8N_BASIC_AUTH:-true}"
+    - "export N8N_USER=${N8N_USER:-admin}"
+    - "export N8N_PASSWORD=${N8N_PASSWORD:-admin}"
+    - "export DB_PASSWORD=${DB_PASSWORD:-n8n}"
+    - "export WEBHOOK_URL=${WEBHOOK_URL:-http://$(hostname -I | cut -d' ' -f1):5678/}"
+    - "echo 'Waiting for n8n to initialize...'"
+    - "sleep 15"
+    - "echo 'n8n setup complete!'"
+
+access_info: |
+  n8n has been successfully deployed!
+  
+  Access the web interface at: http://<VM_IP>:5678
+  
+  If you enabled basic authentication (N8N_BASIC_AUTH=true):
+  - Username: admin (or the username you set in N8N_USER)
+  - Password: admin (or the password you set in N8N_PASSWORD)
+  
+  Initial Setup:
+  1. Log in to the n8n interface
+  2. Create your first workflow by clicking "Create New Workflow"
+  3. Add nodes to your workflow by clicking the "+" button
+  4. Configure each node with the necessary credentials and settings
+  5. Connect nodes by dragging from one node's output to another node's input
+  6. Test your workflow with the "Execute Workflow" button
+  7. Save and activate your workflow when ready
+  
+  For production use:
+  1. Enable basic authentication for security
+  2. Set up HTTPS with proper certificates
+  3. Configure proper credentials encryption
+  4. Set up regular backups of your workflows and data
+
+notes: |
+  n8n is a fair-code licensed workflow automation tool that helps you connect various services and automate tasks.
+  
+  Key features:
+  - Visual workflow editor
+  - 200+ pre-built nodes for different services
+  - Custom JavaScript code nodes for advanced logic
+  - Webhook support for triggering workflows
+  - Cron scheduling for time-based workflows
+  - Error workflow handling
+  - Conditional execution paths
+  - Workflow templates
+  - Credentials management
+  
+  Common use cases:
+  - Data synchronization between services
+  - Automated reporting and notifications
+  - Social media management
+  - Customer journey automation
+  - DevOps automation
+  - Data enrichment and transformation
+  - Monitoring and alerting
+  
+  Security considerations:
+  - Always enable authentication in production environments
+  - Be careful with sensitive credentials and API keys
+  - Use encryption for credentials storage
+  - Limit access to the n8n interface
+  - Regularly backup your workflows and data
+  
+  Performance tips:
+  - For complex workflows, consider increasing memory allocation
+  - Use the built-in queue mode for handling large volumes of executions
+  - Monitor resource usage for busy instances
+  - Consider horizontal scaling for high-load scenarios

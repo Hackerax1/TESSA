@@ -1,0 +1,116 @@
+id: keycloak
+name: Keycloak
+description: Open source identity and access management solution providing single sign-on, identity federation, and user management
+keywords:
+  - authentication
+  - sso
+  - single sign-on
+  - identity
+  - access management
+  - oauth
+  - openid connect
+  - saml
+  - security
+  - open source
+vm_requirements:
+  memory: 2048
+  cores: 2
+  disk: 15
+  os_template: ubuntu-22.04
+deployment:
+  method: docker
+  docker_compose: |
+    version: '3'
+    services:
+      keycloak:
+        image: quay.io/keycloak/keycloak:latest
+        container_name: keycloak
+        environment:
+          - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN:-admin}
+          - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-admin}
+          - KC_DB=postgres
+          - KC_DB_URL=jdbc:postgresql://postgres:5432/keycloak
+          - KC_DB_USERNAME=keycloak
+          - KC_DB_PASSWORD=${DB_PASSWORD:-keycloak}
+          - KC_HOSTNAME=${KC_HOSTNAME:-localhost}
+          - KC_HTTP_ENABLED=true
+          - KC_PROXY=edge
+        command: start-dev
+        ports:
+          - "8080:8080"
+        depends_on:
+          - postgres
+        restart: unless-stopped
+
+      postgres:
+        image: postgres:14-alpine
+        container_name: keycloak-postgres
+        environment:
+          - POSTGRES_DB=keycloak
+          - POSTGRES_USER=keycloak
+          - POSTGRES_PASSWORD=${DB_PASSWORD:-keycloak}
+        volumes:
+          - keycloak_postgres_data:/var/lib/postgresql/data
+        restart: unless-stopped
+
+    volumes:
+      keycloak_postgres_data:
+
+  post_install_steps:
+    - "echo 'Setting up Keycloak environment...'"
+    - "export KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN:-admin}"
+    - "export KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-admin}"
+    - "export DB_PASSWORD=${DB_PASSWORD:-keycloak}"
+    - "echo 'Waiting for Keycloak to initialize...'"
+    - "sleep 15"
+    - "echo 'Keycloak setup complete!'"
+
+access_info: |
+  Keycloak has been successfully deployed!
+  
+  Access the administration console at: http://<VM_IP>:8080/admin
+  Default credentials:
+  - Username: admin
+  - Password: admin (or the password you set in KEYCLOAK_ADMIN_PASSWORD)
+  
+  Initial Setup:
+  1. Log in and change the default admin password immediately
+  2. Create a new realm for your applications
+  3. Set up user federation if needed (LDAP, Active Directory)
+  4. Create client applications that will use Keycloak for authentication
+  5. Configure user attributes and roles
+  6. Set up authentication flows and policies
+  
+  For production use:
+  1. Configure HTTPS with proper certificates
+  2. Set up a reverse proxy for secure access
+  3. Configure regular database backups
+  4. Disable the development mode by removing start-dev command
+
+notes: |
+  Keycloak is a comprehensive identity and access management solution for modern applications and services.
+  
+  Key features:
+  - Single Sign-On (SSO) for web apps and services
+  - Identity Brokering and Social Login
+  - User Federation (LDAP, Active Directory)
+  - Standard Protocols (OpenID Connect, OAuth 2.0, SAML 2.0)
+  - Fine-grained Authorization
+  - User Account Management
+  - Admin Console
+  - Account Management Console
+  
+  Security recommendations:
+  - Never use the default admin credentials in production
+  - Always use HTTPS in production environments
+  - Implement proper password policies
+  - Configure brute force detection
+  - Set up email verification for new accounts
+  - Regularly update Keycloak to the latest version
+  
+  Integration tips:
+  - Use the appropriate client adapters for your applications
+  - Configure proper redirect URIs for your clients
+  - Set up appropriate scopes and claims
+  - Consider using groups and roles for access control
+  - Test your authentication flows thoroughly

@@ -1,0 +1,165 @@
+id: grafana-loki
+name: Grafana Loki
+description: A horizontally-scalable, highly-available, multi-tenant log aggregation system inspired by Prometheus
+keywords:
+  - logging
+  - monitoring
+  - observability
+  - log aggregation
+  - prometheus
+  - grafana
+  - devops
+  - open source
+vm_requirements:
+  memory: 2048
+  cores: 2
+  disk: 20
+  os_template: ubuntu-22.04
+deployment:
+  method: docker
+  docker_compose: |
+    version: '3'
+    services:
+      loki:
+        image: grafana/loki:latest
+        container_name: loki
+        ports:
+          - "3100:3100"
+        volumes:
+          - loki_data:/loki
+          - ./loki-config.yaml:/etc/loki/local-config.yaml
+        command: -config.file=/etc/loki/local-config.yaml
+        restart: unless-stopped
+
+      promtail:
+        image: grafana/promtail:latest
+        container_name: promtail
+        volumes:
+          - /var/log:/var/log
+          - ./promtail-config.yaml:/etc/promtail/config.yaml
+        command: -config.file=/etc/promtail/config.yaml
+        restart: unless-stopped
+        depends_on:
+          - loki
+
+      grafana:
+        image: grafana/grafana:latest
+        container_name: grafana
+        environment:
+          - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+          - GF_USERS_ALLOW_SIGN_UP=false
+          - GF_INSTALL_PLUGINS=grafana-piechart-panel
+        ports:
+          - "3000:3000"
+        volumes:
+          - grafana_data:/var/lib/grafana
+        restart: unless-stopped
+        depends_on:
+          - loki
+
+    volumes:
+      loki_data:
+      grafana_data:
+
+  post_install_steps:
+    - "echo 'Creating Loki configuration file...'"
+    - "cat > loki-config.yaml << 'EOL'
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+
+ingester:
+  lifecycler:
+    address: 127.0.0.1
+    ring:
+      kvstore:
+        store: inmemory
+      replication_factor: 1
+    final_sleep: 0s
+  chunk_idle_period: 5m
+  chunk_retain_period: 30s
+
+schema_config:
+  configs:
+    - from: 2020-05-15
+      store: boltdb
+      object_store: filesystem
+      schema: v11
+      index:
+        prefix: index_
+        period: 24h
+
+storage_config:
+  boltdb:
+    directory: /loki/index
+
+  filesystem:
+    directory: /loki/chunks
+
+limits_config:
+  enforce_metric_name: false
+  reject_old_samples: true
+  reject_old_samples_max_age: 168h
+EOL"
+    - "echo 'Creating Promtail configuration file...'"
+    - "cat > promtail-config.yaml << 'EOL'
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: system
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: varlogs
+          __path__: /var/log/*log
+EOL"
+
+access_info: |
+  Grafana Loki has been successfully deployed!
+  
+  Access Grafana at: http://<VM_IP>:3000
+  Default credentials:
+  - Username: admin
+  - Password: admin (or the password you set in the environment variables)
+  
+  Initial Setup:
+  1. Log in to Grafana and change the default password
+  2. Add Loki as a data source:
+     - Go to Configuration > Data Sources > Add data source
+     - Select Loki
+     - Set the URL to http://loki:3100
+     - Click Save & Test
+  3. Create dashboards to visualize your logs
+  4. Configure additional log sources in Promtail as needed
+
+notes: |
+  Grafana Loki is a horizontally-scalable, highly-available, multi-tenant log aggregation system.
+  
+  Key features:
+  - Inspired by Prometheus, but for logs
+  - Does not index the contents of the logs, but rather a set of labels for each log stream
+  - Uses the same label-based approach as Prometheus
+  - Significantly more cost-effective than other logging solutions
+  - Integrates seamlessly with Grafana
+  
+  This setup includes:
+  - Loki: The main log aggregation system
+  - Promtail: An agent that ships the contents of local logs to Loki
+  - Grafana: For visualization and querying
+  
+  For production environments:
+  - Consider increasing resource allocations
+  - Configure persistent storage for logs
+  - Set up proper authentication
+  - Configure retention policies for logs
+  - Add more Promtail instances for distributed log collection

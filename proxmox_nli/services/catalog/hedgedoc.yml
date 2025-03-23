@@ -1,0 +1,106 @@
+id: hedgedoc
+name: HedgeDoc
+description: A collaborative markdown editor that allows real-time collaboration and note-taking
+keywords:
+  - markdown
+  - collaboration
+  - notes
+  - documentation
+  - wiki
+  - real-time
+  - codimd alternative
+  - open source
+vm_requirements:
+  memory: 1024
+  cores: 1
+  disk: 10
+  os_template: ubuntu-22.04
+deployment:
+  method: docker
+  docker_compose: |
+    version: '3'
+    services:
+      hedgedoc:
+        image: hedgedoc/hedgedoc:latest
+        container_name: hedgedoc
+        environment:
+          - CMD_DB_URL=postgres://hedgedoc:${DB_PASSWORD:-hedgedoc}@database:5432/hedgedoc
+          - CMD_DOMAIN=${DOMAIN:-localhost}
+          - CMD_URL_ADDPORT=true
+          - CMD_PORT=3000
+          - CMD_ALLOW_ANONYMOUS=${ALLOW_ANONYMOUS:-true}
+          - CMD_ALLOW_ANONYMOUS_EDITS=${ALLOW_ANONYMOUS_EDITS:-true}
+          - CMD_ALLOW_FREEURL=${ALLOW_FREEURL:-true}
+          - CMD_DEFAULT_PERMISSION=editable
+          - CMD_SESSION_SECRET=${SESSION_SECRET:-changeme}
+        volumes:
+          - hedgedoc_uploads:/hedgedoc/public/uploads
+        ports:
+          - "3000:3000"
+        restart: unless-stopped
+        depends_on:
+          - database
+
+      database:
+        image: postgres:13-alpine
+        container_name: hedgedoc-db
+        environment:
+          - POSTGRES_USER=hedgedoc
+          - POSTGRES_PASSWORD=${DB_PASSWORD:-hedgedoc}
+          - POSTGRES_DB=hedgedoc
+        volumes:
+          - hedgedoc_db:/var/lib/postgresql/data
+        restart: unless-stopped
+
+    volumes:
+      hedgedoc_uploads:
+      hedgedoc_db:
+
+  post_install_steps:
+    - "echo 'Setting up HedgeDoc environment...'"
+    - "export DB_PASSWORD=${DB_PASSWORD:-hedgedoc}"
+    - "export SESSION_SECRET=$(openssl rand -hex 32)"
+    - "echo 'Generated random session secret for security'"
+    - "echo 'Waiting for HedgeDoc to initialize...'"
+    - "sleep 10"
+
+access_info: |
+  HedgeDoc has been successfully deployed!
+  
+  Access the web interface at: http://<VM_IP>:3000
+  
+  Initial Setup:
+  1. Visit the web interface to create your first note
+  2. Register an account to manage your notes (optional if anonymous access is enabled)
+  3. Explore the Markdown features and real-time collaboration
+  
+  Configuration Options:
+  1. To disable anonymous access, set ALLOW_ANONYMOUS=false in your environment variables
+  2. To require login for editing, set ALLOW_ANONYMOUS_EDITS=false
+  3. For production use, set up a proper domain name and configure CMD_DOMAIN accordingly
+  4. Consider setting up HTTPS with a reverse proxy for secure access
+
+notes: |
+  HedgeDoc (formerly CodiMD) is a collaborative markdown editor that allows real-time collaboration.
+  
+  Key features:
+  - Real-time collaboration on notes
+  - Markdown support with live preview
+  - Supports tables, diagrams, math formulas, and code highlighting
+  - File uploads and embedding
+  - PDF export
+  - Slide mode for presentations
+  - Integration with many authentication providers
+  - Version history
+  
+  Security considerations:
+  - Change the default session secret for production use
+  - Consider disabling anonymous access in public environments
+  - Set up proper authentication for sensitive information
+  - Regular backups of the database are recommended
+  
+  Usage tips:
+  - Use the slide mode (by adding "<!-- .slide -->" between slides) for presentations
+  - Enable syntax highlighting by specifying the language after code block markers
+  - Use the table of contents feature for longer documents
+  - Utilize the history feature to track changes

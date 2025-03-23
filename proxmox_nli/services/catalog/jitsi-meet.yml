@@ -1,0 +1,215 @@
+id: jitsi-meet
+name: Jitsi Meet
+description: Secure, fully featured, and completely free video conferencing solution
+keywords:
+  - video conferencing
+  - meetings
+  - webrtc
+  - collaboration
+  - communication
+  - zoom alternative
+  - self-hosted
+  - open source
+vm_requirements:
+  memory: 4096
+  cores: 4
+  disk: 20
+  os_template: ubuntu-22.04
+deployment:
+  method: docker
+  docker_compose: |
+    version: '3'
+
+    services:
+      # Frontend
+      web:
+        image: jitsi/web:latest
+        container_name: jitsi-web
+        restart: unless-stopped
+        ports:
+          - "8443:443"
+        volumes:
+          - ${CONFIG}/web:/config:Z
+          - ${CONFIG}/web/letsencrypt:/etc/letsencrypt:Z
+          - ${CONFIG}/transcripts:/usr/share/jitsi-meet/transcripts:Z
+        environment:
+          - ENABLE_AUTH=${ENABLE_AUTH:-0}
+          - ENABLE_GUESTS=${ENABLE_GUESTS:-1}
+          - ENABLE_LETSENCRYPT=${ENABLE_LETSENCRYPT:-0}
+          - ENABLE_HTTP_REDIRECT=${ENABLE_HTTP_REDIRECT:-1}
+          - ENABLE_TRANSCRIPTIONS=${ENABLE_TRANSCRIPTIONS:-0}
+          - DISABLE_HTTPS=${DISABLE_HTTPS:-1}
+          - JICOFO_AUTH_USER=focus
+          - LETSENCRYPT_DOMAIN=${LETSENCRYPT_DOMAIN:-meet.example.com}
+          - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-admin@example.com}
+          - PUBLIC_URL=${PUBLIC_URL:-http://localhost:8080}
+          - TZ=UTC
+          - XMPP_DOMAIN=${XMPP_DOMAIN:-meet.jitsi}
+          - XMPP_SERVER=xmpp.${XMPP_DOMAIN:-meet.jitsi}
+          - XMPP_BOSH_URL_BASE=http://xmpp.${XMPP_DOMAIN:-meet.jitsi}:5280
+          - XMPP_AUTH_DOMAIN=auth.${XMPP_DOMAIN:-meet.jitsi}
+          - XMPP_MUC_DOMAIN=muc.${XMPP_DOMAIN:-meet.jitsi}
+          - XMPP_INTERNAL_MUC_DOMAIN=internal-muc.${XMPP_DOMAIN:-meet.jitsi}
+          - XMPP_GUEST_DOMAIN=guest.${XMPP_DOMAIN:-meet.jitsi}
+          - XMPP_RECORDER_DOMAIN=recorder.${XMPP_DOMAIN:-meet.jitsi}
+        networks:
+          meet.jitsi:
+
+      # XMPP server
+      xmpp:
+        image: jitsi/prosody:latest
+        container_name: jitsi-xmpp
+        restart: unless-stopped
+        expose:
+          - "5222"
+          - "5347"
+          - "5280"
+        volumes:
+          - ${CONFIG}/prosody/config:/config:Z
+          - ${CONFIG}/prosody/prosody-plugins-custom:/prosody-plugins-custom:Z
+        environment:
+          - AUTH_TYPE=internal
+          - ENABLE_AUTH=${ENABLE_AUTH:-0}
+          - ENABLE_GUESTS=${ENABLE_GUESTS:-1}
+          - GLOBAL_MODULES=
+          - GLOBAL_CONFIG=
+          - LDAP_URL=
+          - LDAP_BASE=
+          - LDAP_BINDDN=
+          - LDAP_BINDPW=
+          - LDAP_FILTER=
+          - LDAP_AUTH_METHOD=
+          - LDAP_VERSION=
+          - LDAP_USE_TLS=
+          - LDAP_TLS_CIPHERS=
+          - LDAP_TLS_CHECK_PEER=
+          - LDAP_TLS_CACERT_FILE=
+          - LDAP_TLS_CACERT_DIR=
+          - LDAP_START_TLS=
+          - JICOFO_COMPONENT_SECRET=${JICOFO_COMPONENT_SECRET:-s3cr37}
+          - JICOFO_AUTH_USER=focus
+          - JICOFO_AUTH_PASSWORD=${JICOFO_AUTH_PASSWORD:-passw0rd}
+          - JVB_AUTH_USER=jvb
+          - JVB_AUTH_PASSWORD=${JVB_AUTH_PASSWORD:-passw0rd}
+          - JIGASI_XMPP_USER=jigasi
+          - JIGASI_XMPP_PASSWORD=${JIGASI_XMPP_PASSWORD:-passw0rd}
+          - JIBRI_XMPP_USER=jibri
+          - JIBRI_XMPP_PASSWORD=${JIBRI_XMPP_PASSWORD:-passw0rd}
+          - JIBRI_RECORDER_USER=recorder
+          - JIBRI_RECORDER_PASSWORD=${JIBRI_RECORDER_PASSWORD:-passw0rd}
+          - TZ=UTC
+          - XMPP_DOMAIN=${XMPP_DOMAIN:-meet.jitsi}
+          - XMPP_AUTH_DOMAIN=auth.${XMPP_DOMAIN:-meet.jitsi}
+          - XMPP_GUEST_DOMAIN=guest.${XMPP_DOMAIN:-meet.jitsi}
+          - XMPP_MUC_DOMAIN=muc.${XMPP_DOMAIN:-meet.jitsi}
+          - XMPP_INTERNAL_MUC_DOMAIN=internal-muc.${XMPP_DOMAIN:-meet.jitsi}
+          - XMPP_RECORDER_DOMAIN=recorder.${XMPP_DOMAIN:-meet.jitsi}
+        networks:
+          meet.jitsi:
+            aliases:
+              - xmpp.${XMPP_DOMAIN:-meet.jitsi}
+
+      # Focus component
+      jicofo:
+        image: jitsi/jicofo:latest
+        container_name: jitsi-jicofo
+        restart: unless-stopped
+        volumes:
+          - ${CONFIG}/jicofo:/config:Z
+        environment:
+          - ENABLE_AUTH=${ENABLE_AUTH:-0}
+          - JICOFO_COMPONENT_SECRET=${JICOFO_COMPONENT_SECRET:-s3cr37}
+          - JICOFO_AUTH_USER=focus
+          - JICOFO_AUTH_PASSWORD=${JICOFO_AUTH_PASSWORD:-passw0rd}
+          - JICOFO_RESERVATION_ENABLED=false
+          - JICOFO_RESERVATION_REST_BASE_URL=
+          - TZ=UTC
+          - XMPP_DOMAIN=${XMPP_DOMAIN:-meet.jitsi}
+          - XMPP_AUTH_DOMAIN=auth.${XMPP_DOMAIN:-meet.jitsi}
+          - XMPP_INTERNAL_MUC_DOMAIN=internal-muc.${XMPP_DOMAIN:-meet.jitsi}
+          - XMPP_MUC_DOMAIN=muc.${XMPP_DOMAIN:-meet.jitsi}
+          - XMPP_SERVER=xmpp.${XMPP_DOMAIN:-meet.jitsi}
+        depends_on:
+          - xmpp
+        networks:
+          meet.jitsi:
+
+      # Video bridge
+      jvb:
+        image: jitsi/jvb:latest
+        container_name: jitsi-jvb
+        restart: unless-stopped
+        ports:
+          - "${JVB_PORT:-10000}:${JVB_PORT:-10000}/udp"
+        volumes:
+          - ${CONFIG}/jvb:/config:Z
+        environment:
+          - DOCKER_HOST_ADDRESS=${DOCKER_HOST_ADDRESS:-localhost}
+          - XMPP_AUTH_DOMAIN=auth.${XMPP_DOMAIN:-meet.jitsi}
+          - XMPP_INTERNAL_MUC_DOMAIN=internal-muc.${XMPP_DOMAIN:-meet.jitsi}
+          - XMPP_SERVER=xmpp.${XMPP_DOMAIN:-meet.jitsi}
+          - JVB_AUTH_USER=jvb
+          - JVB_AUTH_PASSWORD=${JVB_AUTH_PASSWORD:-passw0rd}
+          - JVB_BREWERY_MUC=jvbbrewery
+          - JVB_PORT=${JVB_PORT:-10000}
+          - JVB_TCP_HARVESTER_DISABLED=true
+          - JVB_TCP_PORT=${JVB_TCP_PORT:-4443}
+          - JVB_STUN_SERVERS=stun.l.google.com:19302,stun1.l.google.com:19302,stun2.l.google.com:19302
+          - TZ=UTC
+        depends_on:
+          - xmpp
+        networks:
+          meet.jitsi:
+
+    networks:
+      meet.jitsi:
+
+  post_install_steps:
+    - "echo 'Creating configuration directories...'"
+    - "mkdir -p ${CONFIG:-./jitsi-meet-cfg}/{web/letsencrypt,transcripts,prosody/config,prosody/prosody-plugins-custom,jicofo,jvb}"
+    - "echo 'Setting environment variables...'"
+    - "export CONFIG=${CONFIG:-./jitsi-meet-cfg}"
+    - "export ENABLE_AUTH=${ENABLE_AUTH:-0}"
+    - "export PUBLIC_URL=${PUBLIC_URL:-http://localhost:8443}"
+    - "export DOCKER_HOST_ADDRESS=${DOCKER_HOST_ADDRESS:-$(hostname -I | cut -d' ' -f1)}"
+
+access_info: |
+  Jitsi Meet has been successfully deployed!
+  
+  Access the web interface at: http://<VM_IP>:8443
+  
+  Initial Setup:
+  1. You can immediately start using Jitsi Meet without any additional configuration
+  2. Create a meeting by entering a room name in the web interface
+  3. Share the meeting URL with participants
+  
+  Advanced Configuration:
+  1. To enable authentication, set ENABLE_AUTH=1 in your environment variables
+  2. For production use, configure a domain name and SSL certificates
+  3. Adjust firewall settings to allow UDP traffic on port 10000
+  4. For larger deployments, consider scaling the JVB (video bridge) component
+
+notes: |
+  Jitsi Meet is a fully encrypted, 100% open source video conferencing solution.
+  
+  Key features:
+  - High quality, scalable video conferencing
+  - No account needed for basic usage
+  - Screen sharing
+  - Chat functionality
+  - Recording capability (with additional components)
+  - Mobile apps available
+  - End-to-end encryption
+  - Custom branding options
+  
+  Performance considerations:
+  - Video quality depends on available bandwidth and CPU resources
+  - For more than 15-20 participants, consider adding additional JVB instances
+  - UDP port 10000 must be accessible for optimal performance
+  - Consider using a TURN server for participants behind restrictive firewalls
+  
+  Security recommendations:
+  - For public instances, enable authentication
+  - Configure a proper domain name and SSL certificates
+  - Regularly update all components
+  - Consider implementing room passwords for sensitive meetings

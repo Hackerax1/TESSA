@@ -1,0 +1,124 @@
+id: mattermost
+name: Mattermost
+description: Open source, self-hosted Slack alternative for secure team collaboration and messaging
+keywords:
+  - team chat
+  - collaboration
+  - messaging
+  - slack alternative
+  - communication
+  - team collaboration
+  - open source
+  - self-hosted
+vm_requirements:
+  memory: 4096
+  cores: 2
+  disk: 20
+  os_template: ubuntu-22.04
+deployment:
+  method: docker
+  docker_compose: |
+    version: '3'
+    services:
+      mattermost:
+        image: mattermost/mattermost-team-edition:latest
+        container_name: mattermost
+        environment:
+          - MM_USERNAME=mmuser
+          - MM_PASSWORD=${DB_PASSWORD:-mmuser_password}
+          - MM_DBNAME=mattermost
+          - MM_SQLSETTINGS_DRIVERNAME=postgres
+          - MM_SQLSETTINGS_DATASOURCE=postgres://mmuser:${DB_PASSWORD:-mmuser_password}@postgres:5432/mattermost?sslmode=disable
+          - MM_SERVICESETTINGS_SITEURL=${SITE_URL:-http://localhost:8065}
+          - MM_EMAILSETTINGS_SENDEMAILNOTIFICATIONS=false
+          - MM_EMAILSETTINGS_REQUIREEMAILVERIFICATION=false
+        ports:
+          - "8065:8065"
+        volumes:
+          - mattermost_data:/mattermost/data
+          - mattermost_logs:/mattermost/logs
+          - mattermost_config:/mattermost/config
+          - mattermost_plugins:/mattermost/plugins
+          - mattermost_client_plugins:/mattermost/client/plugins
+        restart: unless-stopped
+        depends_on:
+          - postgres
+
+      postgres:
+        image: postgres:13-alpine
+        container_name: mattermost-postgres
+        environment:
+          - POSTGRES_USER=mmuser
+          - POSTGRES_PASSWORD=${DB_PASSWORD:-mmuser_password}
+          - POSTGRES_DB=mattermost
+        volumes:
+          - mattermost_postgres:/var/lib/postgresql/data
+        restart: unless-stopped
+
+    volumes:
+      mattermost_data:
+      mattermost_logs:
+      mattermost_config:
+      mattermost_plugins:
+      mattermost_client_plugins:
+      mattermost_postgres:
+
+  post_install_steps:
+    - "echo 'Setting up Mattermost environment...'"
+    - "export DB_PASSWORD=${DB_PASSWORD:-mmuser_password}"
+    - "export SITE_URL=${SITE_URL:-http://$(hostname -I | cut -d' ' -f1):8065}"
+    - "echo 'Waiting for Mattermost to initialize...'"
+    - "sleep 20"
+    - "echo 'Mattermost setup complete!'"
+
+access_info: |
+  Mattermost has been successfully deployed!
+  
+  Access the web interface at: http://<VM_IP>:8065
+  
+  Initial Setup:
+  1. Create the first user account (this will be the System Admin)
+  2. Set up your team and invite members
+  3. Configure notification settings
+  4. Set up channels for different topics or teams
+  5. Explore integrations with other tools
+  
+  For production use:
+  1. Configure SMTP for email notifications
+  2. Set up HTTPS with proper certificates
+  3. Configure authentication (LDAP, SAML, etc.)
+  4. Set up regular backups
+  5. Consider implementing a reverse proxy
+
+notes: |
+  Mattermost is an open source platform for secure collaboration across the entire software development lifecycle.
+  
+  Key features:
+  - Team messaging and file sharing
+  - Voice, video, and screen sharing
+  - Integrations with DevOps tools
+  - Markdown formatting support
+  - Custom emoji support
+  - Webhooks and slash commands
+  - Mobile apps for iOS and Android
+  - Self-hosted control of your data
+  
+  Security features:
+  - Private and public channels
+  - Direct and group messaging
+  - Enterprise-grade security and compliance
+  - Role-based access controls
+  - Multi-factor authentication
+  - Data retention policies
+  
+  Integration options:
+  - Webhooks for custom integrations
+  - Slash commands for interactive features
+  - App framework for advanced integrations
+  - Pre-built integrations with tools like Jira, GitHub, GitLab, and more
+  
+  For larger deployments:
+  - Consider upgrading to Mattermost Enterprise Edition
+  - Implement high availability configuration
+  - Set up proper monitoring and alerting
+  - Scale database and file storage as needed

@@ -1,0 +1,98 @@
+id: bookstack
+name: BookStack
+description: A free and open-source wiki and documentation platform with a simple, clean UI
+keywords:
+  - wiki
+  - documentation
+  - knowledge base
+  - markdown
+  - notes
+  - collaboration
+  - self-hosted
+  - open source
+vm_requirements:
+  memory: 2048
+  cores: 2
+  disk: 10
+  os_template: ubuntu-22.04
+deployment:
+  method: docker
+  docker_compose: |
+    version: '3'
+    services:
+      bookstack:
+        image: linuxserver/bookstack:latest
+        container_name: bookstack
+        environment:
+          - PUID=1000
+          - PGID=1000
+          - APP_URL=http://${APP_URL:-localhost}:6875
+          - DB_HOST=bookstack_db
+          - DB_PORT=3306
+          - DB_USER=bookstack
+          - DB_PASS=${DB_PASSWORD:-bookstack}
+          - DB_DATABASE=bookstack
+        volumes:
+          - bookstack_data:/config
+        ports:
+          - 6875:80
+        restart: unless-stopped
+        depends_on:
+          - bookstack_db
+
+      bookstack_db:
+        image: linuxserver/mariadb:latest
+        container_name: bookstack_db
+        environment:
+          - PUID=1000
+          - PGID=1000
+          - MYSQL_ROOT_PASSWORD=${ROOT_PASSWORD:-bookstack}
+          - TZ=Europe/London
+          - MYSQL_DATABASE=bookstack
+          - MYSQL_USER=bookstack
+          - MYSQL_PASSWORD=${DB_PASSWORD:-bookstack}
+        volumes:
+          - bookstack_db_data:/config
+        restart: unless-stopped
+
+    volumes:
+      bookstack_data:
+      bookstack_db_data:
+
+  post_install_steps:
+    - "echo 'Waiting for BookStack to initialize...'"
+    - "sleep 30"
+    - "echo 'BookStack setup complete!'"
+
+access_info: |
+  BookStack has been successfully deployed!
+  
+  Access the web interface at: http://<VM_IP>:6875
+  Default credentials:
+  - Email: admin@admin.com
+  - Password: password
+  
+  Initial Setup:
+  1. Log in and change the default password immediately
+  2. Set up your wiki structure with Books, Chapters, and Pages
+  3. Configure authentication settings if needed
+  4. Create user accounts for your team members
+  5. Set up backup for your documentation
+
+notes: |
+  BookStack is a free and open-source wiki system that provides a simple, self-hosted platform for organizing and storing information.
+  
+  Key features:
+  - Simple, clean interface focused on content
+  - Hierarchical organization (Books > Chapters > Pages)
+  - Markdown and WYSIWYG editing
+  - Page revisions and change tracking
+  - Image management
+  - Search functionality
+  - User management and permissions
+  - API for integration
+  
+  For optimal performance:
+  - Regular backups are recommended
+  - Consider setting up HTTPS with a reverse proxy
+  - For larger installations, consider separating the database to its own VM
