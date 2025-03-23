@@ -560,3 +560,365 @@ class UpdateManager:
             "has_updates": update_info["has_updates"],
             "updates": update_info.get("updates", [])
         }
+    
+    def get_update_summary(self, service_id: str = None) -> Dict:
+        """Get a summary of available updates in natural language.
+        
+        Args:
+            service_id: Optional service ID to get update summary for.
+                       If None, generates summary for all services.
+                        
+        Returns:
+            Dictionary with update summary
+        """
+        if service_id and service_id not in self.update_data:
+            return {
+                "success": False,
+                "message": f"No update data available for service '{service_id}'"
+            }
+            
+        summaries = []
+        services_to_summarize = [service_id] if service_id else list(self.update_data.keys())
+        
+        for sid in services_to_summarize:
+            service_updates = self.update_data[sid]
+            service_name = service_updates.get("name", sid)
+            
+            # Check if there are available updates
+            available_updates = service_updates.get("available_updates", [])
+            
+            if not available_updates:
+                summary = f"{service_name} is up to date."
+                update_status = "up_to_date"
+            else:
+                # Count updates by type and severity
+                update_types = {}
+                critical_count = 0
+                warning_count = 0
+                normal_count = 0
+                
+                for update in available_updates:
+                    update_type = update.get("type", "unknown")
+                    if update_type not in update_types:
+                        update_types[update_type] = 0
+                    update_types[update_type] += 1
+                    
+                    severity = update.get("severity", "normal")
+                    if severity == "critical":
+                        critical_count += 1
+                    elif severity == "warning":
+                        warning_count += 1
+                    else:
+                        normal_count += 1
+                
+                # Generate natural language summary
+                if len(available_updates) == 1:
+                    update = available_updates[0]
+                    summary = f"{service_name} has 1 update available: {update.get('description', 'Unknown update')}"
+                else:
+                    summary = f"{service_name} has {len(available_updates)} updates available"
+                    
+                    # Add details about update types
+                    type_descriptions = []
+                    for update_type, count in update_types.items():
+                        if update_type == "docker_image":
+                            type_descriptions.append(f"{count} image update{'s' if count > 1 else ''}")
+                        elif update_type == "container_config":
+                            type_descriptions.append(f"{count} configuration update{'s' if count > 1 else ''}")
+                        elif update_type == "dependency":
+                            type_descriptions.append(f"{count} dependency update{'s' if count > 1 else ''}")
+                        else:
+                            type_descriptions.append(f"{count} {update_type} update{'s' if count > 1 else ''}")
+                    
+                    if type_descriptions:
+                        summary += f" ({', '.join(type_descriptions)})"
+                
+                # Add severity assessment
+                if critical_count > 0:
+                    update_status = "critical"
+                    summary += f"\nThere {'is' if critical_count == 1 else 'are'} {critical_count} critical update{'s' if critical_count > 1 else ''} that should be applied immediately."
+                elif warning_count > 0:
+                    update_status = "warning"
+                    summary += f"\nThere {'is' if warning_count == 1 else 'are'} {warning_count} update{'s' if warning_count > 1 else ''} marked as important."
+                else:
+                    update_status = "normal"
+                
+                # Add last check time if available
+                if service_updates.get("checks"):
+                    last_check = service_updates["checks"][-1]
+                    if "timestamp" in last_check:
+                        try:
+                            check_time = datetime.fromisoformat(last_check["timestamp"])
+                            now = datetime.now()
+                            days_ago = (now - check_time).days
+                            
+                            if days_ago == 0:
+                                summary += "\nLast checked today."
+                            elif days_ago == 1:
+                                summary += "\nLast checked yesterday."
+                            else:
+                                summary += f"\nLast checked {days_ago} days ago."
+                        except (ValueError, TypeError):
+                            pass
+            
+            summaries.append({
+                "service_id": sid,
+                "service_name": service_name,
+                "update_status": update_status,
+                "summary": summary,
+                "updates_count": len(available_updates),
+                "updates": available_updates
+            })
+        
+        return {
+            "success": True,
+            "summaries": summaries,
+            "timestamp": datetime.now().isoformat()
+        }
+    
+    def apply_updates(self, service_id: str, update_ids: List[str] = None) -> Dict:
+        """Apply updates to a service.
+        
+        Args:
+            service_id: ID of the service to update
+            update_ids: Optional list of specific update IDs to apply.
+                        If None, applies all available updates.
+                        
+        Returns:
+            Dictionary with update result
+        """
+        if service_id not in self.update_data:
+            return {
+                "success": False,
+                "message": f"No update data available for service '{service_id}'"
+            }
+            
+        service_updates = self.update_data[service_id]
+        service_name = service_updates.get("name", service_id)
+        vm_id = service_updates.get("vm_id")
+        
+        if not vm_id:
+            return {
+                "success": False,
+                "message": f"VM ID not found for service '{service_id}'"
+            }
+            
+        # Get available updates
+        available_updates = service_updates.get("available_updates", [])
+        if not available_updates:
+            return {
+                "success": False,
+                "message": f"No updates available for service '{service_id}'"
+            }
+            
+        # Filter updates if specific IDs are provided
+        if update_ids:
+            updates_to_apply = [u for u in available_updates if u.get("id") in update_ids]
+            if not updates_to_apply:
+                return {
+                    "success": False,
+                    "message": f"No matching updates found for the provided update IDs"
+                }
+        else:
+            updates_to_apply = available_updates
+            
+        # Get service definition
+        service_def = self.service_manager.catalog.get_service(service_id)
+        if not service_def:
+            return {
+                "success": False,
+                "message": f"Service definition not found for '{service_id}'"
+            }
+            
+        deployment_method = service_def['deployment'].get('method', 'docker')
+        
+        # Apply updates based on deployment method
+        applied_updates = []
+        failed_updates = []
+        
+        try:
+            # For Docker services
+            if deployment_method == 'docker':
+                # Pull latest image
+                pull_result = self.service_manager.docker_deployer.run_command(vm_id,
+                    f"docker pull {service_def['deployment'].get('image', '')}")
+                
+                if not pull_result.get("success"):
+                    return {
+                        "success": False,
+                        "message": f"Failed to pull latest image: {pull_result.get('error', '')}"
+                    }
+                
+                # Stop the container
+                stop_result = self.service_manager.docker_deployer.run_command(vm_id,
+                    f"docker stop {service_id}")
+                
+                if not stop_result.get("success"):
+                    return {
+                        "success": False,
+                        "message": f"Failed to stop container: {stop_result.get('error', '')}"
+                    }
+                
+                # Remove the container
+                rm_result = self.service_manager.docker_deployer.run_command(vm_id,
+                    f"docker rm {service_id}")
+                
+                # Redeploy with the same parameters
+                deploy_result = self.service_manager.deploy_service(service_id, vm_id)
+                
+                if deploy_result.get("success"):
+                    # Mark all updates as applied
+                    for update in updates_to_apply:
+                        applied_updates.append(update)
+                else:
+                    # All updates failed
+                    for update in updates_to_apply:
+                        failed_updates.append({
+                            "update": update,
+                            "error": deploy_result.get("message", "Deployment failed")
+                        })
+                    
+                    return {
+                        "success": False,
+                        "message": f"Failed to redeploy service: {deploy_result.get('message', '')}",
+                        "applied_updates": applied_updates,
+                        "failed_updates": failed_updates
+                    }
+            
+            elif deployment_method == 'script':
+                # For script-based services, run the update script if defined
+                if 'update_script' in service_def['deployment']:
+                    update_script = service_def['deployment']['update_script']
+                    update_result = self.service_manager.script_deployer.run_command(vm_id, update_script)
+                    
+                    if update_result.get("success"):
+                        # Mark all updates as applied
+                        for update in updates_to_apply:
+                            applied_updates.append(update)
+                    else:
+                        # All updates failed
+                        for update in updates_to_apply:
+                            failed_updates.append({
+                                "update": update,
+                                "error": update_result.get("error", "Update script failed")
+                            })
+                        
+                        return {
+                            "success": False,
+                            "message": f"Update script failed: {update_result.get('error', '')}",
+                            "applied_updates": applied_updates,
+                            "failed_updates": failed_updates
+                        }
+                else:
+                    return {
+                        "success": False,
+                        "message": "No update script defined for this service"
+                    }
+            
+            # Update the service update data
+            if applied_updates:
+                # Remove applied updates from available updates
+                service_updates["available_updates"] = [u for u in available_updates if u not in applied_updates]
+                
+                # Update last_updated timestamp
+                service_updates["last_updated"] = datetime.now().isoformat()
+                
+                # Save update data
+                self._save_update_data()
+            
+            return {
+                "success": True,
+                "message": f"Successfully applied {len(applied_updates)} updates to {service_name}",
+                "applied_updates": applied_updates,
+                "failed_updates": failed_updates
+            }
+            
+        except Exception as e:
+            logger.error(f"Error applying updates: {str(e)}")
+            return {
+                "success": False,
+                "message": f"Error applying updates: {str(e)}",
+                "applied_updates": applied_updates,
+                "failed_updates": failed_updates
+            }
+    
+    def generate_update_plan(self, service_id: str = None) -> Dict:
+        """Generate a natural language update plan.
+        
+        Args:
+            service_id: Optional service ID to generate plan for.
+                        If None, generates plan for all services with updates.
+                        
+        Returns:
+            Dictionary with update plan
+        """
+        # Get update summary first
+        summary_result = self.get_update_summary(service_id)
+        if not summary_result.get("success", False):
+            return summary_result
+            
+        summaries = summary_result["summaries"]
+        
+        # Filter services that have updates
+        services_with_updates = [s for s in summaries if s["updates_count"] > 0]
+        
+        if not services_with_updates:
+            return {
+                "success": True,
+                "message": "All services are up to date",
+                "plan": "No updates are needed at this time.",
+                "services": []
+            }
+            
+        # Generate plan
+        plan = "Here's the recommended update plan:\n\n"
+        
+        # Sort services by update status (critical first, then warning, then normal)
+        services_with_updates.sort(key=lambda s: 0 if s["update_status"] == "critical" else 
+                                              (1 if s["update_status"] == "warning" else 2))
+        
+        for service in services_with_updates:
+            service_name = service["service_name"]
+            update_status = service["update_status"]
+            updates_count = service["updates_count"]
+            
+            # Add service section to plan
+            if update_status == "critical":
+                plan += f"## {service_name} (CRITICAL - {updates_count} updates)\n"
+                plan += "These updates should be applied immediately for security or stability reasons.\n\n"
+            elif update_status == "warning":
+                plan += f"## {service_name} (IMPORTANT - {updates_count} updates)\n"
+                plan += "These updates are important and should be applied soon.\n\n"
+            else:
+                plan += f"## {service_name} ({updates_count} updates)\n"
+                plan += "These are routine updates that can be applied during your next maintenance window.\n\n"
+            
+            # Add update details
+            for update in service["updates"]:
+                plan += f"- {update.get('description', 'Unknown update')}"
+                if update.get("severity") == "critical":
+                    plan += " (CRITICAL)"
+                elif update.get("severity") == "warning":
+                    plan += " (IMPORTANT)"
+                plan += "\n"
+            
+            plan += "\n"
+            
+        # Add recommendations
+        plan += "## Recommendations\n\n"
+        
+        if any(s["update_status"] == "critical" for s in services_with_updates):
+            plan += "- Apply all CRITICAL updates as soon as possible\n"
+            plan += "- Consider taking a backup before updating\n"
+            plan += "- Test services after updating to ensure they're working correctly\n"
+        else:
+            plan += "- Schedule updates during a maintenance window\n"
+            plan += "- Take backups before updating\n"
+            plan += "- Test services after updating to ensure they're working correctly\n"
+        
+        return {
+            "success": True,
+            "plan": plan,
+            "services": services_with_updates,
+            "timestamp": datetime.now().isoformat()
+        }

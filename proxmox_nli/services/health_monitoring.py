@@ -616,3 +616,196 @@ class ServiceHealthMonitor:
             "services_running": running,
             "issues_total": total_issues
         }
+    
+    def generate_natural_language_report(self, service_id: str = None) -> Dict:
+        """Generate a natural language report of service health.
+        
+        Args:
+            service_id: Optional service ID to generate report for.
+                        If None, generates report for all services.
+                        
+        Returns:
+            Dictionary with natural language report
+        """
+        if service_id and service_id not in self.health_data:
+            return {
+                "success": False,
+                "message": f"No health data available for service '{service_id}'"
+            }
+            
+        reports = []
+        services_to_report = [service_id] if service_id else list(self.health_data.keys())
+        
+        for sid in services_to_report:
+            service_health = self.health_data[sid]
+            service_name = service_health.get("name", sid)
+            
+            # Get the latest check
+            if not service_health.get("checks"):
+                continue
+                
+            latest_check = service_health["checks"][-1]
+            status = latest_check.get("status", "Unknown")
+            
+            # Basic report based on status
+            if "Up" in status or status == "Running":
+                report = f"{service_name} is running normally"
+                health_status = "healthy"
+            elif "Exited" in status or "Stopped" in status:
+                report = f"{service_name} is currently stopped"
+                health_status = "stopped"
+            elif "Restarting" in status:
+                report = f"{service_name} is currently restarting"
+                health_status = "restarting"
+            else:
+                report = f"{service_name} status is {status}"
+                health_status = "unknown"
+                
+            # Add uptime information if available
+            if service_health.get("last_uptime"):
+                uptime_hours = service_health["last_uptime"] / 3600
+                if uptime_hours < 24:
+                    report += f" and has been up for {uptime_hours:.1f} hours"
+                else:
+                    uptime_days = uptime_hours / 24
+                    report += f" and has been up for {uptime_days:.1f} days"
+            
+            # Add information about recent issues
+            recent_issues = [issue for issue in service_health.get("issues", []) 
+                            if issue.get("active", False)]
+            
+            if recent_issues:
+                if len(recent_issues) == 1:
+                    report += f". There is 1 active issue: {recent_issues[0]['description']}"
+                else:
+                    report += f". There are {len(recent_issues)} active issues"
+                    for i, issue in enumerate(recent_issues[:3]):  # Show top 3 issues
+                        report += f"\n- {issue['description']}"
+                    if len(recent_issues) > 3:
+                        report += f"\n- Plus {len(recent_issues) - 3} more issues"
+                        
+                # Add severity assessment
+                critical_count = sum(1 for issue in recent_issues if issue.get("severity") == "critical")
+                warning_count = sum(1 for issue in recent_issues if issue.get("severity") == "warning")
+                
+                if critical_count > 0:
+                    health_status = "critical"
+                    report += f"\nThis service requires immediate attention due to {critical_count} critical issues."
+                elif warning_count > 0:
+                    health_status = "warning"
+                    report += f"\nThis service has {warning_count} warnings that should be addressed soon."
+            
+            # Add performance insights if metrics are available
+            if latest_check.get("metrics"):
+                metrics = latest_check["metrics"]
+                
+                # CPU usage insights
+                if "cpu_usage" in metrics:
+                    cpu_value = metrics["cpu_usage"].strip("%")
+                    try:
+                        cpu_percent = float(cpu_value)
+                        if cpu_percent > 90:
+                            report += f"\nCPU usage is very high at {cpu_percent:.1f}%."
+                        elif cpu_percent > 70:
+                            report += f"\nCPU usage is elevated at {cpu_percent:.1f}%."
+                    except ValueError:
+                        pass
+                
+                # Memory usage insights
+                if "memory_usage" in metrics and " / " in metrics["memory_usage"]:
+                    try:
+                        used, total = metrics["memory_usage"].split(" / ")
+                        used_value = used.rstrip("MiB").rstrip("GiB").strip()
+                        total_value = total.rstrip("MiB").rstrip("GiB").strip()
+                        
+                        used_float = float(used_value)
+                        total_float = float(total_value)
+                        
+                        # Calculate percentage
+                        if total_float > 0:
+                            mem_percent = (used_float / total_float) * 100
+                            if mem_percent > 90:
+                                report += f"\nMemory usage is very high at {mem_percent:.1f}%."
+                            elif mem_percent > 70:
+                                report += f"\nMemory usage is elevated at {mem_percent:.1f}%."
+                    except (ValueError, ZeroDivisionError):
+                        pass
+            
+            # Add trend analysis if we have enough history
+            if len(service_health.get("status_history", [])) > 5:
+                # Check for frequent restarts
+                restart_count = 0
+                for i in range(1, min(10, len(service_health["status_history"]))):
+                    prev = service_health["status_history"][-i-1]["status"]
+                    curr = service_health["status_history"][-i]["status"]
+                    if ("Up" in curr or "Running" in curr) and not ("Up" in prev or "Running" in prev):
+                        restart_count += 1
+                
+                if restart_count > 3:
+                    report += f"\nThis service has restarted {restart_count} times recently, which may indicate instability."
+                    if health_status == "healthy":
+                        health_status = "warning"
+            
+            reports.append({
+                "service_id": sid,
+                "service_name": service_name,
+                "health_status": health_status,
+                "report": report
+            })
+        
+        return {
+            "success": True,
+            "reports": reports,
+            "timestamp": datetime.now().isoformat()
+        }
+    
+    def get_service_health_summary(self, service_id: str) -> Dict:
+        """Get a summary of service health in natural language.
+        
+        Args:
+            service_id: ID of the service to get health summary for
+            
+        Returns:
+            Dictionary with health summary
+        """
+        if service_id not in self.health_data:
+            return {
+                "success": False,
+                "message": f"No health data available for service '{service_id}'"
+            }
+        
+        service_health = self.health_data[service_id]
+        service_name = service_health.get("name", service_id)
+        
+        # Generate natural language report
+        report_result = self.generate_natural_language_report(service_id)
+        if not report_result.get("success", False):
+            return report_result
+        
+        # Get the report for this service
+        report = report_result["reports"][0]["report"]
+        health_status = report_result["reports"][0]["health_status"]
+        
+        # Add recommendations based on health status
+        recommendations = []
+        if health_status == "critical":
+            recommendations.append("Investigate and resolve critical issues immediately")
+            recommendations.append("Consider restarting the service if appropriate")
+            recommendations.append("Check logs for error messages")
+        elif health_status == "warning":
+            recommendations.append("Monitor the service closely")
+            recommendations.append("Check resource usage and consider scaling if needed")
+            recommendations.append("Review logs for warning messages")
+        elif health_status == "stopped":
+            recommendations.append("Start the service if it should be running")
+            recommendations.append("Check for configuration issues before starting")
+        
+        return {
+            "success": True,
+            "service_id": service_id,
+            "service_name": service_name,
+            "health_status": health_status,
+            "report": report,
+            "recommendations": recommendations,
+            "timestamp": datetime.now().isoformat()
+        }

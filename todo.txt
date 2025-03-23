@@ -36,24 +36,24 @@
   - [ ] Implement performance benchmarking for optimal placement decisions
 
 - [ ] **Expanded Service Catalog Integration:**
-  - [ ] Add service health monitoring with natural language status reports
+  - [X] Add service health monitoring with natural language status reports
   - [ ] Implement update management through the NLI
-  - [ ] Create service dependency visualization
+  - [X] Create service dependency visualization
   - [ ] Add custom service template creation and sharing
   - [ ] Build service metrics dashboard with plain language explanations
 
-- [ ] **Improved Backup and Recovery Features:**
-  - [ ] Implement automated recovery testing
-  - [ ] Create sophisticated backup retention policy management
-  - [ ] Develop backup verification and integrity checking
-  - [ ] Implement data deduplication for efficient backups
+- [X] **Improved Backup and Recovery Features:**
+  - [X] Implement automated recovery testing
+  - [X] Create sophisticated backup retention policy management
+  - [X] Develop backup verification and integrity checking
+  - [X] Implement data deduplication for efficient backups
 
-- [ ] **Natural Language Security Management:**
-  - [ ] Add security audit commands and reporting
-  - [ ] Implement natural language permission management
-  - [ ] Develop certificate management through conversation
-  - [ ] Create firewall rule management via natural language
-  - [ ] Add security posture assessment and recommendations
+- [X] **Natural Language Security Management:**
+  - [X] Add security audit commands and reporting
+  - [X] Implement natural language permission management
+  - [X] Develop certificate management through conversation
+  - [X] Create firewall rule management via natural language
+  - [X] Add security posture assessment and recommendations
 
 # Medium Priority - Usability & Integration
 
@@ -81,12 +81,12 @@
   - [X] Integrate with Proxmox Backup Server (if available).
   - [X] Add support for scheduling backups.
 
-- [ ] **Troubleshooting Assistant:**
-  - [ ] Implement guided diagnostics for common issues
-  - [ ] Add natural language log analysis
-  - [ ] Develop performance bottleneck detection
-  - [ ] Create network diagnostics visualization
-  - [ ] Add self-healing recommendations for common problems
+- [X] **Troubleshooting Assistant:**
+  - [X] Implement guided diagnostics for common issues
+  - [X] Add natural language log analysis
+  - [X] Develop performance bottleneck detection
+  - [X] Create network diagnostics visualization
+  - [X] Add self-healing recommendations for common problems
 
 - [ ] **Multi-node Management Enhancement:**
   - [ ] Implement cluster-wide commands

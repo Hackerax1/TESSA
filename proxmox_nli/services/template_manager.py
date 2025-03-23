@@ -14,6 +14,7 @@ import shutil
 import requests
 import tempfile
 import zipfile
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -718,4 +719,490 @@ class TemplateManager:
             "total_count": len(self.templates),
             "local_templates": local_templates,
             "shared_templates": shared_templates
+        }
+    
+    def generate_template_from_description(self, template_name: str, description: str) -> Dict:
+        """Generate a service template from a natural language description.
+        
+        Args:
+            template_name: Name for the new template
+            description: Natural language description of the service
+            
+        Returns:
+            Template creation result dictionary
+        """
+        # Create a template ID
+        template_id = f"template_{str(uuid.uuid4())[:8]}"
+        
+        # Start with a basic template structure
+        template = {
+            'template_id': template_id,
+            'template_name': template_name,
+            'created_at': datetime.now().isoformat(),
+            'description': description,
+            'generated': True,
+            'dependencies': [],
+            'deployment': {
+                'method': 'docker',
+                'image': '',
+                'ports': [],
+                'environment': {},
+                'volumes': []
+            }
+        }
+        
+        # Extract information from description
+        # This is a simple implementation - in a real system, this would use NLP
+        # to extract more detailed information from the description
+        
+        # Check for docker image
+        if 'docker' in description.lower():
+            # Look for image name patterns
+            import re
+            image_match = re.search(r'(docker\s+image|image)[\s:]+([a-zA-Z0-9_\-./]+:[a-zA-Z0-9_\-.]+|[a-zA-Z0-9_\-./]+)', description.lower())
+            if image_match:
+                template['deployment']['image'] = image_match.group(2)
+                
+        # Check for ports
+        port_matches = re.findall(r'port\s+(\d+)', description.lower())
+        for port in port_matches:
+            template['deployment']['ports'].append({
+                'container': int(port),
+                'host': int(port)
+            })
+            
+        # Check for environment variables
+        env_matches = re.findall(r'(environment|env)[\s:]+([A-Z_][A-Z0-9_]*)[\s:=]+([^\s,]+)', description)
+        for _, key, value in env_matches:
+            template['deployment']['environment'][key] = value
+            
+        # Check for volumes
+        volume_matches = re.findall(r'volume[\s:]+([^\s,]+):([^\s,]+)', description)
+        for host_path, container_path in volume_matches:
+            template['deployment']['volumes'].append({
+                'host': host_path,
+                'container': container_path
+            })
+            
+        # Check for dependencies
+        dep_matches = re.findall(r'depends\s+on\s+([a-zA-Z0-9_\-]+)', description.lower())
+        for dep in dep_matches:
+            template['dependencies'].append(dep)
+            
+        # Save the template to disk
+        template_filename = f"{template_id}.yml"
+        template_path = os.path.join(self.templates_dir, template_filename)
+        
+        try:
+            with open(template_path, 'w') as f:
+                yaml.dump(template, f, default_flow_style=False)
+                
+            # Add to templates dictionary
+            self.templates[template_id] = {
+                'template': template,
+                'path': template_path,
+                'type': 'local'
+            }
+            
+            return {
+                "success": True,
+                "message": f"Successfully created template '{template_name}' from description",
+                "template_id": template_id,
+                "template": template
+            }
+        except Exception as e:
+            logger.error(f"Error creating template from description: {str(e)}")
+            return {
+                "success": False,
+                "message": f"Failed to create template: {str(e)}"
+            }
+    
+    def get_template_recommendations(self, requirements: str) -> Dict:
+        """Get template recommendations based on natural language requirements.
+        
+        Args:
+            requirements: Natural language description of requirements
+            
+        Returns:
+            Dictionary with recommended templates
+        """
+        # Get all available templates
+        all_templates = self.get_all_templates()
+        
+        # Simple keyword matching for recommendations
+        # In a real system, this would use more sophisticated NLP techniques
+        keywords = requirements.lower().split()
+        
+        # Score templates based on keyword matches
+        scored_templates = []
+        for template in all_templates:
+            score = 0
+            
+            # Check template name
+            template_name = template.get('template_name', '').lower()
+            for keyword in keywords:
+                if keyword in template_name:
+                    score += 3
+            
+            # Check template description
+            description = template.get('description', '').lower()
+            for keyword in keywords:
+                if keyword in description:
+                    score += 2
+            
+            # Check deployment details
+            deployment = template.get('deployment', {})
+            image = deployment.get('image', '').lower()
+            for keyword in keywords:
+                if keyword in image:
+                    score += 1
+            
+            # Add to scored templates if there's any match
+            if score > 0:
+                scored_templates.append({
+                    'template': template,
+                    'score': score
+                })
+        
+        # Sort templates by score
+        scored_templates.sort(key=lambda x: x['score'], reverse=True)
+        
+        # Return top recommendations
+        recommendations = [item['template'] for item in scored_templates[:5]]
+        
+        return {
+            "success": True,
+            "recommendations": recommendations,
+            "requirements": requirements,
+            "total_matches": len(scored_templates)
+        }
+    
+    def generate_template_comparison(self, template_ids: List[str]) -> Dict:
+        """Generate a comparison between multiple templates.
+        
+        Args:
+            template_ids: List of template IDs to compare
+            
+        Returns:
+            Dictionary with comparison data
+        """
+        if not template_ids or len(template_ids) < 2:
+            return {
+                "success": False,
+                "message": "At least two template IDs are required for comparison"
+            }
+            
+        # Get templates
+        templates = []
+        for template_id in template_ids:
+            template = self.get_template(template_id)
+            if not template:
+                return {
+                    "success": False,
+                    "message": f"Template with ID '{template_id}' not found"
+                }
+            templates.append(template)
+            
+        # Generate comparison
+        comparison = {
+            "templates": templates,
+            "comparison_points": {}
+        }
+        
+        # Compare basic properties
+        comparison["comparison_points"]["basic"] = {
+            "name": "Basic Information",
+            "properties": [
+                {
+                    "name": "Template Name",
+                    "values": [t.get('template_name', 'Unnamed') for t in templates]
+                },
+                {
+                    "name": "Created At",
+                    "values": [t.get('created_at', 'Unknown') for t in templates]
+                },
+                {
+                    "name": "Description",
+                    "values": [t.get('description', 'No description') for t in templates]
+                }
+            ]
+        }
+        
+        # Compare deployment methods
+        comparison["comparison_points"]["deployment"] = {
+            "name": "Deployment",
+            "properties": [
+                {
+                    "name": "Method",
+                    "values": [t.get('deployment', {}).get('method', 'Unknown') for t in templates]
+                },
+                {
+                    "name": "Docker Image",
+                    "values": [t.get('deployment', {}).get('image', 'N/A') for t in templates]
+                },
+                {
+                    "name": "Port Mappings",
+                    "values": [
+                        ", ".join([f"{p.get('container')}:{p.get('host')}" 
+                                for p in t.get('deployment', {}).get('ports', [])]) or "None"
+                        for t in templates
+                    ]
+                },
+                {
+                    "name": "Environment Variables",
+                    "values": [
+                        ", ".join([f"{k}={v}" 
+                                for k, v in t.get('deployment', {}).get('environment', {}).items()]) or "None"
+                        for t in templates
+                    ]
+                },
+                {
+                    "name": "Volumes",
+                    "values": [
+                        ", ".join([f"{v.get('host')}:{v.get('container')}" 
+                                for v in t.get('deployment', {}).get('volumes', [])]) or "None"
+                        for t in templates
+                    ]
+                }
+            ]
+        }
+        
+        # Compare dependencies
+        comparison["comparison_points"]["dependencies"] = {
+            "name": "Dependencies",
+            "properties": [
+                {
+                    "name": "Dependencies",
+                    "values": [
+                        ", ".join(t.get('dependencies', [])) or "None"
+                        for t in templates
+                    ]
+                },
+                {
+                    "name": "Dependency Count",
+                    "values": [len(t.get('dependencies', [])) for t in templates]
+                }
+            ]
+        }
+        
+        # Generate natural language summary
+        summary = f"Comparison of {len(templates)} templates:\n\n"
+        
+        # Add template names
+        for i, template in enumerate(templates):
+            summary += f"Template {i+1}: {template.get('template_name', 'Unnamed')}\n"
+        
+        summary += "\n## Key Differences\n\n"
+        
+        # Find key differences
+        differences = []
+        
+        # Check deployment method
+        methods = [t.get('deployment', {}).get('method', 'Unknown') for t in templates]
+        if len(set(methods)) > 1:
+            differences.append(f"Deployment methods differ: {', '.join(methods)}")
+            
+        # Check Docker images
+        images = [t.get('deployment', {}).get('image', 'N/A') for t in templates]
+        if len(set(images)) > 1:
+            differences.append(f"Docker images differ: {', '.join(images)}")
+            
+        # Check port counts
+        port_counts = [len(t.get('deployment', {}).get('ports', [])) for t in templates]
+        if len(set(port_counts)) > 1:
+            differences.append(f"Number of exposed ports differ: {', '.join(map(str, port_counts))}")
+            
+        # Check dependency counts
+        dep_counts = [len(t.get('dependencies', [])) for t in templates]
+        if len(set(dep_counts)) > 1:
+            differences.append(f"Number of dependencies differ: {', '.join(map(str, dep_counts))}")
+            
+        # Add differences to summary
+        if differences:
+            for diff in differences:
+                summary += f"- {diff}\n"
+        else:
+            summary += "These templates are very similar in their core configuration.\n"
+            
+        # Add recommendation
+        summary += "\n## Recommendation\n\n"
+        
+        # Simple recommendation based on dependencies and configuration
+        if differences:
+            # Find the template with the most complete configuration
+            scores = []
+            for i, template in enumerate(templates):
+                score = 0
+                # More dependencies might mean more complete
+                score += len(template.get('dependencies', []))
+                # More environment variables might mean more configurable
+                score += len(template.get('deployment', {}).get('environment', {}))
+                # More volumes might mean more data persistence
+                score += len(template.get('deployment', {}).get('volumes', []))
+                scores.append((i, score))
+                
+            # Get highest scoring template
+            best_template_idx, _ = max(scores, key=lambda x: x[1])
+            best_template = templates[best_template_idx]
+            
+            summary += f"Template '{best_template.get('template_name', 'Unnamed')}' appears to have the most complete configuration.\n"
+            summary += "However, you should review the specific differences to ensure it meets your requirements.\n"
+        else:
+            # If templates are very similar, recommend the most recently created one
+            created_times = []
+            for i, template in enumerate(templates):
+                try:
+                    created_at = datetime.fromisoformat(template.get('created_at', '2000-01-01'))
+                    created_times.append((i, created_at))
+                except (ValueError, TypeError):
+                    created_times.append((i, datetime.min))
+                    
+            # Get most recent template
+            most_recent_idx, _ = max(created_times, key=lambda x: x[1])
+            most_recent = templates[most_recent_idx]
+            
+            summary += f"Since these templates are very similar, the most recently created one ('{most_recent.get('template_name', 'Unnamed')}') is recommended.\n"
+        
+        comparison["summary"] = summary
+        
+        return {
+            "success": True,
+            "comparison": comparison
+        }
+    
+    def get_template_natural_language_description(self, template_id: str) -> Dict:
+        """Get a natural language description of a template.
+        
+        Args:
+            template_id: ID of the template to describe
+            
+        Returns:
+            Dictionary with template description
+        """
+        template = self.get_template(template_id)
+        if not template:
+            return {
+                "success": False,
+                "message": f"Template with ID '{template_id}' not found"
+            }
+            
+        # Generate natural language description
+        template_name = template.get('template_name', 'Unnamed template')
+        description = f"# {template_name}\n\n"
+        
+        # Add basic information
+        description += "## Basic Information\n\n"
+        description += f"- **Template ID**: {template_id}\n"
+        if 'created_at' in template:
+            description += f"- **Created**: {template['created_at']}\n"
+        if 'description' in template and template['description']:
+            description += f"- **Description**: {template['description']}\n"
+        if 'created_from' in template:
+            description += f"- **Created from service**: {template['created_from']}\n"
+            
+        # Add deployment information
+        description += "\n## Deployment Configuration\n\n"
+        
+        deployment = template.get('deployment', {})
+        method = deployment.get('method', 'Unknown')
+        description += f"- **Deployment method**: {method}\n"
+        
+        if method == 'docker':
+            image = deployment.get('image', 'Not specified')
+            description += f"- **Docker image**: {image}\n"
+            
+            # Add ports
+            ports = deployment.get('ports', [])
+            if ports:
+                description += "- **Port mappings**:\n"
+                for port in ports:
+                    container_port = port.get('container', 'Unknown')
+                    host_port = port.get('host', 'Unknown')
+                    description += f"  - Container port {container_port} -> Host port {host_port}\n"
+            else:
+                description += "- **Port mappings**: None\n"
+                
+            # Add environment variables
+            env_vars = deployment.get('environment', {})
+            if env_vars:
+                description += "- **Environment variables**:\n"
+                for key, value in env_vars.items():
+                    description += f"  - {key}={value}\n"
+            else:
+                description += "- **Environment variables**: None\n"
+                
+            # Add volumes
+            volumes = deployment.get('volumes', [])
+            if volumes:
+                description += "- **Volumes**:\n"
+                for volume in volumes:
+                    host_path = volume.get('host', 'Unknown')
+                    container_path = volume.get('container', 'Unknown')
+                    description += f"  - Host path {host_path} -> Container path {container_path}\n"
+            else:
+                description += "- **Volumes**: None\n"
+                
+        elif method == 'script':
+            # Add script details
+            script = deployment.get('script', 'Not specified')
+            description += f"- **Deployment script**: {script}\n"
+            
+            # Add script arguments
+            args = deployment.get('arguments', [])
+            if args:
+                description += "- **Script arguments**:\n"
+                for arg in args:
+                    description += f"  - {arg}\n"
+            else:
+                description += "- **Script arguments**: None\n"
+                
+        # Add dependencies
+        dependencies = template.get('dependencies', [])
+        if dependencies:
+            description += "\n## Dependencies\n\n"
+            description += f"This template depends on {len(dependencies)} other service{'s' if len(dependencies) > 1 else ''}:\n\n"
+            for dep in dependencies:
+                description += f"- {dep}\n"
+        else:
+            description += "\n## Dependencies\n\n"
+            description += "This template does not depend on any other services.\n"
+            
+        # Add usage instructions
+        description += "\n## Usage Instructions\n\n"
+        
+        if method == 'docker':
+            description += "To deploy this template:\n\n"
+            description += "1. Ensure Docker is installed on the target system\n"
+            description += "2. Pull the Docker image if needed\n"
+            description += f"3. Deploy the service using this template ID: `{template_id}`\n"
+            
+            # Add specific configuration notes
+            if deployment.get('environment', {}):
+                description += "4. Make sure to configure the required environment variables\n"
+            if deployment.get('volumes', []):
+                description += "5. Ensure the volume mount points exist on the host system\n"
+                
+        elif method == 'script':
+            description += "To deploy this template:\n\n"
+            description += "1. Ensure the target system meets all prerequisites\n"
+            description += "2. Make sure the deployment script is executable\n"
+            description += f"3. Deploy the service using this template ID: `{template_id}`\n"
+            
+        # Add customization notes
+        description += "\n## Customization\n\n"
+        description += "This template can be customized by modifying the following:\n\n"
+        
+        if method == 'docker':
+            description += "- Environment variables to configure the application\n"
+            description += "- Port mappings to change how the service is accessed\n"
+            description += "- Volume mounts to persist data or provide configuration files\n"
+        elif method == 'script':
+            description += "- Script arguments to modify deployment behavior\n"
+            description += "- Dependencies to ensure required services are available\n"
+            
+        return {
+            "success": True,
+            "template_id": template_id,
+            "template_name": template_name,
+            "description": description
         }

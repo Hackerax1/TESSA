@@ -3,16 +3,20 @@ import subprocess
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
-from .backup_scheduler_commands import BackupSchedulerCommands
-from datetime import datetime
-from typing import List, Dict, Any, Optional
+from .backup_commands import BackupCommands
+from ..core.security.security_commands import SecurityCommands
+from .troubleshooting_commands import TroubleshootingCommands
 
 class ProxmoxCommands:
     def __init__(self, api):
         self.api = api
-        # Initialize backup scheduler commands
-        self.backup_scheduler = BackupSchedulerCommands(api)
-
+        # Initialize backup commands
+        self.backup_commands = BackupCommands(api)
+        # Initialize security commands
+        self.security_commands = SecurityCommands(api, self)
+        # Initialize troubleshooting commands
+        self.troubleshooting_commands = TroubleshootingCommands(api, self)
+        
     def list_vms(self):
         """Get a list of all VMs with their status"""
         result = self.api.api_request('GET', 'cluster/resources?type=vm')
@@ -289,33 +293,124 @@ class ProxmoxCommands:
             "set environment merge options - Configure which elements to include in merger",
             "get merge history - View history of previously merged environments",
             
+            # Security Management Commands
+            "run security audit - Perform a comprehensive security audit of the system",
+            "show audit history - Display history of security audits",
+            "list permissions - Show all user permissions in the system",
+            "list permissions for user <username> - Show permissions for a specific user",
+            "add <role> role to user <username> - Grant a role to a user",
+            "remove <role> role from user <username> - Revoke a role from a user",
+            "list certificates - Show all SSL certificates in the system",
+            "generate certificate for <domain> - Generate a self-signed SSL certificate",
+            "request Let's Encrypt certificate for <domain> - Request a Let's Encrypt SSL certificate",
+            "check certificates - Check SSL certificates for expiration and issues",
+            "list firewall rules - Show all firewall rules",
+            "allow <service> service - Add a firewall rule to allow a service",
+            "allow tcp port <port> - Add a firewall rule to allow a specific port",
+            "block <service> service - Add a firewall rule to block a service",
+            "block tcp port <port> - Add a firewall rule to block a specific port",
+            "assess security posture - Evaluate the overall security posture of the system",
+            "assess network security - Evaluate a specific security area",
+            "generate security report - Generate a comprehensive security posture report",
+            "improve security posture - Get recommendations to improve security",
+            
+            # Troubleshooting Commands
+            "diagnose vm issues - Run diagnostics for VM-related issues",
+            "diagnose network issues - Run diagnostics for network-related issues",
+            "diagnose storage issues - Run diagnostics for storage-related issues",
+            "diagnose performance issues - Run diagnostics for performance-related issues",
+            "analyze logs for vm <id> - Analyze logs for a specific VM",
+            "analyze logs for node <node> - Analyze logs for a specific node",
+            "analyze logs for cluster - Analyze cluster-wide logs",
+            "check network connectivity - Run network connectivity diagnostics",
+            "check network dns - Run DNS diagnostics",
+            "check network ports - Check network port availability",
+            "visualize network - Generate network visualization",
+            "analyze cpu performance - Analyze CPU performance and bottlenecks",
+            "analyze memory performance - Analyze memory usage and bottlenecks",
+            "analyze disk performance - Analyze disk I/O and bottlenecks",
+            "analyze network performance - Analyze network throughput and bottlenecks",
+            "analyze all performance - Analyze performance across all resources",
+            "fix vm issues - Auto-resolve VM-related issues",
+            "fix network issues - Auto-resolve network-related issues",
+            "fix storage issues - Auto-resolve storage-related issues",
+            "fix performance issues - Auto-resolve performance-related issues",
+            "generate text report - Generate a text-format troubleshooting report",
+            "generate html report - Generate an HTML-format troubleshooting report",
+            "generate json report - Generate a JSON-format troubleshooting report",
+            "show troubleshooting history - View history of troubleshooting activities",
+            
             "help - Show this help message"
         ]
         return {"success": True, "message": "Available commands", "commands": commands}
 
-    def backup_vm(self, vm_id, backup_dir):
-        """Backup a VM to the specified directory"""
-        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-        backup_file = os.path.join(backup_dir, f'vm_{vm_id}_backup_{timestamp}.tar.gz')
-        command = [
-            'vzdump',
-            '--dumpdir', backup_dir,
-            '--compress', 'gzip',
-            '--mode', 'snapshot',
-            str(vm_id)
-        ]
-        subprocess.run(command, check=True)
-        return backup_file
-
-    def restore_vm(self, backup_file, vm_id):
-        """Restore a VM from the specified backup file"""
-        command = [
-            'qmrestore',
-            backup_file,
-            str(vm_id)
-        ]
-        subprocess.run(command, check=True)
-
+    def create_backup(self, vm_id: str, mode: str = 'snapshot', 
+                    storage: str = None, compression: str = 'zstd', 
+                    notes: str = None) -> Dict:
+        """Create a backup of a VM.
+        
+        Args:
+            vm_id: VM ID
+            mode: Backup mode (snapshot or suspend)
+            storage: Storage location
+            compression: Compression algorithm
+            notes: Backup notes
+            
+        Returns:
+            Dict: Result of the operation
+        """
+        return self.backup_commands.create_backup(vm_id, mode, storage, compression, notes)
+    
+    def restore_backup(self, vm_id: str, backup_file: str, 
+                      target_storage: str = None, 
+                      restore_options: Dict = None) -> Dict:
+        """Restore a VM from backup.
+        
+        Args:
+            vm_id: VM ID
+            backup_file: Backup file path
+            target_storage: Target storage location
+            restore_options: Additional restore options
+            
+        Returns:
+            Dict: Result of the operation
+        """
+        return self.backup_commands.restore_backup(vm_id, backup_file, target_storage, restore_options)
+    
+    def list_backups(self, vm_id: str = None) -> Dict:
+        """List available backups.
+        
+        Args:
+            vm_id: Optional VM ID to filter backups
+            
+        Returns:
+            Dict: List of backups
+        """
+        return self.backup_commands.list_backups(vm_id)
+    
+    def delete_backup(self, backup_id: str) -> Dict:
+        """Delete a backup.
+        
+        Args:
+            backup_id: Backup ID
+            
+        Returns:
+            Dict: Result of the operation
+        """
+        return self.backup_commands.delete_backup(backup_id)
+    
+    def verify_backup(self, vm_id: str, backup_file: str = None) -> Dict:
+        """Verify a backup's integrity.
+        
+        Args:
+            vm_id: VM ID
+            backup_file: Optional backup file path
+            
+        Returns:
+            Dict: Verification result
+        """
+        return self.backup_commands.verify_backup(vm_id, backup_file)
+    
     def create_zfs_pool(self, node: str, name: str, devices: list, raid_level: str = 'mirror') -> dict:
         """Create a ZFS storage pool on a node.
         
@@ -1154,7 +1249,7 @@ class ProxmoxCommands:
         Returns:
             Dict: Result of the operation
         """
-        return self.backup_scheduler.start_scheduler()
+        return self.backup_commands.start_backup_scheduler()
     
     def stop_backup_scheduler(self) -> Dict:
         """Stop the backup scheduler service.
@@ -1162,7 +1257,7 @@ class ProxmoxCommands:
         Returns:
             Dict: Result of the operation
         """
-        return self.backup_scheduler.stop_scheduler()
+        return self.backup_commands.stop_backup_scheduler()
     
     def get_scheduler_status(self) -> Dict:
         """Get the status of the backup scheduler.
@@ -1170,7 +1265,7 @@ class ProxmoxCommands:
         Returns:
             Dict: Scheduler status information
         """
-        return self.backup_scheduler.get_scheduler_status()
+        return self.backup_commands.get_scheduler_status()
     
     def schedule_backup(self, vm_id: str, schedule: Dict) -> Dict:
         """Configure backup schedule for a VM.
@@ -1182,7 +1277,7 @@ class ProxmoxCommands:
         Returns:
             Dict: Result of the operation
         """
-        return self.backup_scheduler.configure_backup_schedule(vm_id, schedule)
+        return self.backup_commands.schedule_backup(vm_id, schedule)
     
     def configure_recovery_testing(self, config: Dict) -> Dict:
         """Configure automated recovery testing.
@@ -1193,7 +1288,7 @@ class ProxmoxCommands:
         Returns:
             Dict: Result of the operation
         """
-        return self.backup_scheduler.configure_recovery_testing(config)
+        return self.backup_commands.configure_recovery_testing(config)
     
     def configure_retention_policy(self, vm_id: str, policy: Dict) -> Dict:
         """Configure backup retention policy for a VM.
@@ -1205,7 +1300,7 @@ class ProxmoxCommands:
         Returns:
             Dict: Result of the operation
         """
-        return self.backup_scheduler.configure_retention_policy(vm_id, policy)
+        return self.backup_commands.configure_retention_policy(vm_id, policy)
     
     def run_backup_now(self, vm_id: str) -> Dict:
         """Run a backup immediately.
@@ -1216,7 +1311,7 @@ class ProxmoxCommands:
         Returns:
             Dict: Result of the operation
         """
-        return self.backup_scheduler.run_backup_now(vm_id)
+        return self.backup_commands.run_backup_now(vm_id)
     
     def run_recovery_test_now(self, vm_ids: Optional[List[str]] = None) -> Dict:
         """Run a recovery test immediately.
@@ -1227,7 +1322,7 @@ class ProxmoxCommands:
         Returns:
             Dict: Result of the operation
         """
-        return self.backup_scheduler.run_recovery_testing_now(vm_ids)
+        return self.backup_commands.run_recovery_test_now(vm_ids)
     
     def run_retention_enforcement_now(self) -> Dict:
         """Run retention policy enforcement immediately.
@@ -1235,7 +1330,7 @@ class ProxmoxCommands:
         Returns:
             Dict: Result of the operation
         """
-        return self.backup_scheduler.run_retention_enforcement_now()
+        return self.backup_commands.run_retention_enforcement_now()
     
     def run_deduplication_now(self) -> Dict:
         """Run data deduplication immediately.
@@ -1243,7 +1338,7 @@ class ProxmoxCommands:
         Returns:
             Dict: Result of the operation
         """
-        return self.backup_scheduler.run_deduplication_now()
+        return self.backup_commands.run_deduplication_now()
     
     def configure_notifications(self, config: Dict) -> Dict:
         """Configure backup notifications.
@@ -1254,4 +1349,279 @@ class ProxmoxCommands:
         Returns:
             Dict: Result of the operation
         """
-        return self.backup_scheduler.configure_notifications(config)
+        return self.backup_commands.configure_notifications(config)
+        
+    # Security Management Methods
+    
+    def run_security_audit(self, scope: str = 'full') -> Dict:
+        """Run a security audit on the system.
+        
+        Args:
+            scope: Audit scope (full, updates, firewall, permissions, certificates)
+            
+        Returns:
+            Dict: Audit results
+        """
+        command = f"run a security audit with scope {scope}"
+        return self.security_commands.handle_command(command)
+    
+    def get_audit_history(self, limit: int = 5) -> Dict:
+        """Get security audit history.
+        
+        Args:
+            limit: Maximum number of audit records to retrieve
+            
+        Returns:
+            Dict: Audit history
+        """
+        command = f"show audit history limit {limit}"
+        return self.security_commands.handle_command(command)
+    
+    def manage_permissions(self, action: str, user: str, role: str = None) -> Dict:
+        """Manage user permissions.
+        
+        Args:
+            action: Action to perform (add, remove, list)
+            user: Username
+            role: Role name (required for add/remove)
+            
+        Returns:
+            Dict: Result of the operation
+        """
+        if action == "list":
+            command = f"list permissions for user {user}" if user else "list all permissions"
+        elif action == "add":
+            command = f"add {role} role to user {user}"
+        elif action == "remove":
+            command = f"remove {role} role from user {user}"
+        else:
+            return {"success": False, "message": "Invalid action. Use 'add', 'remove', or 'list'."}
+            
+        return self.security_commands.handle_command(command)
+    
+    def manage_certificates(self, action: str, domain: str = None, email: str = None) -> Dict:
+        """Manage SSL certificates.
+        
+        Args:
+            action: Action to perform (list, generate_self_signed, request_lets_encrypt, check)
+            domain: Domain name (required for generate/request)
+            email: Email address (required for Let's Encrypt)
+            
+        Returns:
+            Dict: Result of the operation
+        """
+        if action == "list":
+            command = "list certificates"
+        elif action == "generate_self_signed":
+            command = f"generate self-signed certificate for {domain}"
+        elif action == "request_lets_encrypt":
+            command = f"request Let's Encrypt certificate for {domain} with email {email}"
+        elif action == "check":
+            command = "check certificates"
+        else:
+            return {"success": False, "message": "Invalid action. Use 'list', 'generate_self_signed', 'request_lets_encrypt', or 'check'."}
+            
+        return self.security_commands.handle_command(command)
+    
+    def manage_firewall(self, action: str, port: str = None, protocol: str = "tcp", 
+                      service: str = None, source: str = None) -> Dict:
+        """Manage firewall rules.
+        
+        Args:
+            action: Action to perform (list, allow, deny, delete)
+            port: Port number (required for allow/deny)
+            protocol: Protocol (tcp, udp)
+            service: Service name (alternative to port)
+            source: Source IP/network
+            
+        Returns:
+            Dict: Result of the operation
+        """
+        if action == "list":
+            command = "list firewall rules"
+        elif action == "allow":
+            if service:
+                command = f"allow {service} service"
+                if source:
+                    command += f" from {source}"
+            else:
+                command = f"allow {protocol} port {port}"
+                if source:
+                    command += f" from {source}"
+        elif action == "deny":
+            if service:
+                command = f"block {service} service"
+                if source:
+                    command += f" from {source}"
+            else:
+                command = f"block {protocol} port {port}"
+                if source:
+                    command += f" from {source}"
+        elif action == "delete":
+            command = f"delete firewall rule {port}"
+        else:
+            return {"success": False, "message": "Invalid action. Use 'list', 'allow', 'deny', or 'delete'."}
+            
+        return self.security_commands.handle_command(command)
+    
+    def assess_security_posture(self, area: str = None) -> Dict:
+        """Assess the security posture of the system.
+        
+        Args:
+            area: Specific security area to assess (system_hardening, network_security, 
+                  authentication, updates_patching, monitoring_logging)
+            
+        Returns:
+            Dict: Security posture assessment
+        """
+        if area:
+            command = f"assess {area} security"
+        else:
+            command = "assess security posture"
+            
+        return self.security_commands.handle_command(command)
+    
+    def generate_security_report(self) -> Dict:
+        """Generate a comprehensive security posture report.
+        
+        Returns:
+            Dict: Security posture report
+        """
+        command = "generate security posture report"
+        return self.security_commands.handle_command(command)
+    
+    def get_security_recommendations(self, area: str = None) -> Dict:
+        """Get security improvement recommendations.
+        
+        Args:
+            area: Specific security area for recommendations
+            
+        Returns:
+            Dict: Security recommendations
+        """
+        if area:
+            command = f"improve {area} security"
+        else:
+            command = "improve security posture"
+            
+        return self.security_commands.handle_command(command)
+    
+    # Troubleshooting Commands
+    
+    def diagnose_issue(self, issue_type: str, context: str = None) -> Dict:
+        """Run diagnostics for a specific issue type.
+        
+        Args:
+            issue_type: Type of issue to diagnose (vm, container, network, storage, service, security, performance)
+            context: Additional context for the diagnostics
+            
+        Returns:
+            Dict: Diagnostic results
+        """
+        command = f"diagnose {issue_type}"
+        if context:
+            command += f" {context}"
+            
+        return self.troubleshooting_commands.process_command(command)
+    
+    def analyze_logs(self, log_type: str = None, context: str = None) -> Dict:
+        """Analyze logs for issues and patterns.
+        
+        Args:
+            log_type: Type of logs to analyze (vm, container, node, cluster, service)
+            context: Additional context for log analysis
+            
+        Returns:
+            Dict: Log analysis results
+        """
+        command = "analyze logs"
+        if log_type:
+            command += f" for {log_type}"
+        if context:
+            command += f" {context}"
+            
+        return self.troubleshooting_commands.process_command(command)
+    
+    def run_network_diagnostics(self, diagnostic_type: str, context: str = None) -> Dict:
+        """Run network diagnostics.
+        
+        Args:
+            diagnostic_type: Type of network diagnostic to run (connectivity, dns, ports, visualization)
+            context: Additional context for the diagnostics
+            
+        Returns:
+            Dict: Network diagnostic results
+        """
+        command = f"check network {diagnostic_type}"
+        if context:
+            command += f" {context}"
+            
+        return self.troubleshooting_commands.process_command(command)
+    
+    def analyze_performance(self, resource_type: str = "all", context: str = None) -> Dict:
+        """Analyze system performance.
+        
+        Args:
+            resource_type: Type of resource to analyze (cpu, memory, disk, network, all)
+            context: Additional context for performance analysis
+            
+        Returns:
+            Dict: Performance analysis results
+        """
+        command = f"analyze {resource_type} performance"
+        if context:
+            command += f" {context}"
+            
+        return self.troubleshooting_commands.process_command(command)
+    
+    def auto_resolve_issues(self, issue_type: str, context: str = None) -> Dict:
+        """Automatically resolve identified issues.
+        
+        Args:
+            issue_type: Type of issue to resolve (vm, container, network, storage, service, security, performance)
+            context: Additional context for issue resolution
+            
+        Returns:
+            Dict: Resolution results
+        """
+        command = f"fix {issue_type}"
+        if context:
+            command += f" {context}"
+            
+        return self.troubleshooting_commands.process_command(command)
+    
+    def generate_troubleshooting_report(self, report_format: str = "text", issue_type: str = None, context: str = None) -> Dict:
+        """Generate a troubleshooting report.
+        
+        Args:
+            report_format: Format of the report (text, html, json)
+            issue_type: Type of issue to include in the report
+            context: Additional context for report generation
+            
+        Returns:
+            Dict: Report generation results
+        """
+        command = f"generate {report_format} report"
+        if issue_type:
+            command += f" for {issue_type}"
+        if context:
+            command += f" {context}"
+            
+        return self.troubleshooting_commands.process_command(command)
+    
+    def view_troubleshooting_history(self, issue_type: str = None, limit: int = 10) -> Dict:
+        """View troubleshooting history.
+        
+        Args:
+            issue_type: Type of issue to filter by
+            limit: Maximum number of history entries to return
+            
+        Returns:
+            Dict: Troubleshooting history
+        """
+        command = "show troubleshooting history"
+        if issue_type:
+            command += f" for {issue_type}"
+        command += f" limit {limit}"
+            
+        return self.troubleshooting_commands.process_command(command)
