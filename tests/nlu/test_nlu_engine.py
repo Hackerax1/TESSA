@@ -1,11 +1,11 @@
 import pytest
 from unittest.mock import Mock, patch
-from ...nlu.nlu_engine import NLU_Engine
-from ...nlu.preprocessing import Preprocessor
-from ...nlu.context_management import ContextManager
-from ...nlu.entity_extraction import EntityExtractor
-from ...nlu.intent_identification import IntentIdentifier
-from ...nlu.ollama_client import OllamaClient
+from proxmox_nli.nlu.nlu_engine import NLU_Engine
+from proxmox_nli.nlu.preprocessing import Preprocessor
+from proxmox_nli.nlu.context_management import ContextManager
+from proxmox_nli.nlu.entity_extraction import EntityExtractor
+from proxmox_nli.nlu.intent_identification import IntentIdentifier
+from proxmox_nli.nlu.ollama_client import OllamaClient
 
 @pytest.fixture
 def nlu_engine():
