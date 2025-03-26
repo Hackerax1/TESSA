@@ -1,0 +1,27 @@
+{
+  "enabled": true,
+  "backup_schedule": {
+    "daily": "02:00",
+    "weekly": "Sunday 03:00",
+    "monthly": "1 04:00"
+  },
+  "recovery_testing": {
+    "enabled": true,
+    "frequency": "weekly",
+    "schedule": "Saturday 05:00",
+    "vms": []
+  },
+  "retention_enforcement": {
+    "schedule": "daily 06:00"
+  },
+  "deduplication": {
+    "enabled": true,
+    "schedule": "weekly Sunday 07:00"
+  },
+  "notification": {
+    "enabled": true,
+    "on_success": false,
+    "on_failure": true,
+    "email": ""
+  }
+}

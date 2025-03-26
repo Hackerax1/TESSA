@@ -8,7 +8,7 @@ import logging
 from typing import Dict, List, Optional
 from datetime import datetime
 import threading
-from queue import Queue
+from queue import Queue, Empty  # Fix: Import Empty exception directly from queue module
 import time
 
 logger = logging.getLogger(__name__)
@@ -85,7 +85,7 @@ class ProfileSyncManager:
             try:
                 sync_task = self.sync_queue.get(timeout=30)  # 30 second timeout
                 self._process_sync_task(sync_task)
-            except Queue.Empty:
+            except Empty:  # Fix: Use the directly imported Empty exception
                 # Timeout occurred, check for any missed syncs
                 self._check_pending_syncs()
                 continue

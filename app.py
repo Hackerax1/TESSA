@@ -93,12 +93,12 @@ def monitor_vm_status():
                     try:
                         cluster_status = proxmox_nli.commands.get_cluster_status()
                         if cluster_status.get('success'):
-                            # Check if 'nodes' exists in the response
-                            if 'nodes' in cluster_status:
-                                socketio.emit('cluster_status_update', {'status': cluster_status['nodes']})
+                            # The get_cluster_status method returns data in the 'status' field, not 'nodes'
+                            if 'status' in cluster_status:
+                                socketio.emit('cluster_status_update', {'status': cluster_status['status']})
                             else:
-                                # Handle missing nodes field
-                                logger.warning(f"Cluster status response doesn't contain 'nodes' field: {cluster_status}")
+                                # Handle missing status field
+                                logger.warning(f"Cluster status response doesn't contain 'status' field: {cluster_status}")
                                 socketio.emit('cluster_status_update', {'error': 'Invalid cluster status response format'})
                         else:
                             error_msg = cluster_status.get('message', 'Failed to get cluster status')

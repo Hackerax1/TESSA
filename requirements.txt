@@ -30,3 +30,5 @@ win10toast; platform_system == "Windows"
 python-jose
 PyJWT
 schedule
+scipy
+librosa

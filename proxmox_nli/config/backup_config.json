@@ -1,0 +1,17 @@
+{
+  "backup_locations": {
+    "local": "c:\\Users\\jackd\\Documents\\Projects\\proxmox-nli\\proxmox_nli\\backups",
+    "remote": []
+  },
+  "retention": {
+    "hourly": 24,
+    "daily": 7,
+    "weekly": 4,
+    "monthly": 3
+  },
+  "verification": {
+    "enabled": true,
+    "frequency": "weekly"
+  },
+  "vms": {}
+}
