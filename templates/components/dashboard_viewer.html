@@ -1,0 +1,189 @@
+<!-- Dashboard Viewer Component -->
+<div class="dashboard-viewer-container">
+    <div class="dashboard-header mb-3">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h4 id="dashboard-title">Dashboard</h4>
+                <p id="dashboard-description" class="text-muted">Loading dashboard...</p>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-outline-secondary btn-sm" id="refresh-dashboard">
+                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" id="edit-current-dashboard">
+                    <i class="bi bi-pencil"></i> Edit
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" id="close-dashboard">
+                    <i class="bi bi-x"></i> Close
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Grid Layout Dashboard -->
+    <div id="grid-dashboard" class="dashboard-grid">
+        <!-- Panels will be dynamically added here -->
+    </div>
+    
+    <!-- Free Layout Dashboard -->
+    <div id="free-dashboard" class="dashboard-free position-relative" style="display:none; height:700px;">
+        <!-- Panels will be dynamically positioned here -->
+    </div>
+    
+    <!-- Loading Indicator -->
+    <div id="dashboard-loading" class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading dashboard...</span>
+        </div>
+        <p class="mt-2">Loading dashboard...</p>
+    </div>
+    
+    <!-- Error Message -->
+    <div id="dashboard-error" class="alert alert-danger" style="display:none;">
+        An error occurred while loading the dashboard.
+    </div>
+    
+    <!-- Empty Dashboard Message -->
+    <div id="dashboard-empty" class="text-center py-5" style="display:none;">
+        <i class="bi bi-grid-3x3-gap" style="font-size: 3rem; opacity: 0.5;"></i>
+        <h5 class="mt-3">This dashboard is empty</h5>
+        <p class="text-muted">Add panels to display information and metrics.</p>
+        <button class="btn btn-primary btn-sm mt-2" id="add-panel-to-empty">
+            <i class="bi bi-plus"></i> Add Panel
+        </button>
+    </div>
+</div>
+
+<!-- Panel Templates -->
+<div class="d-none">
+    <!-- VM Status Panel Template -->
+    <div id="template-vm_status" class="panel-template">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0 panel-title">VM Status</h6>
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-link text-muted" type="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-three-dots-vertical"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item refresh-panel" href="#"><i class="bi bi-arrow-clockwise me-2"></i>Refresh</a></li>
+                        <li><a class="dropdown-item edit-panel" href="#"><i class="bi bi-pencil me-2"></i>Edit</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item remove-panel text-danger" href="#"><i class="bi bi-trash me-2"></i>Remove</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="card-body panel-content">
+                <!-- VM Status content will be loaded here -->
+                <div class="vm-status-list">
+                    <div class="d-flex justify-content-center">
+                        <div class="spinner-border spinner-border-sm" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- System Metrics Panel Template -->
+    <div id="template-system_metrics" class="panel-template">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0 panel-title">System Metrics</h6>
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-link text-muted" type="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-three-dots-vertical"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item refresh-panel" href="#"><i class="bi bi-arrow-clockwise me-2"></i>Refresh</a></li>
+                        <li><a class="dropdown-item edit-panel" href="#"><i class="bi bi-pencil me-2"></i>Edit</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item remove-panel text-danger" href="#"><i class="bi bi-trash me-2"></i>Remove</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="card-body panel-content">
+                <!-- System Metrics content will be loaded here -->
+                <div class="system-metrics-container">
+                    <div class="d-flex justify-content-center">
+                        <div class="spinner-border spinner-border-sm" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Storage Usage Panel Template -->
+    <div id="template-storage_usage" class="panel-template">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0 panel-title">Storage Usage</h6>
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-link text-muted" type="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-three-dots-vertical"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item refresh-panel" href="#"><i class="bi bi-arrow-clockwise me-2"></i>Refresh</a></li>
+                        <li><a class="dropdown-item edit-panel" href="#"><i class="bi bi-pencil me-2"></i>Edit</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item remove-panel text-danger" href="#"><i class="bi bi-trash me-2"></i>Remove</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="card-body panel-content">
+                <!-- Storage Usage content will be loaded here -->
+                <div class="storage-usage-container">
+                    <div class="d-flex justify-content-center">
+                        <div class="spinner-border spinner-border-sm" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- More panel templates can be added here for other panel types -->
+</div>
+
+<style>
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: repeat(12, 1fr);
+        grid-gap: 15px;
+        margin: 0 auto;
+    }
+    
+    .dashboard-panel {
+        transition: all 0.2s ease-in-out;
+    }
+    
+    .dashboard-panel:hover {
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    
+    .dashboard-free .dashboard-panel {
+        position: absolute;
+        min-width: 200px;
+    }
+    
+    /* Make panels completely fill their grid area */
+    .dashboard-grid .dashboard-panel {
+        height: 100%;
+    }
+    
+    /* Responsive sizing for panels */
+    @media (max-width: 767px) {
+        .dashboard-grid {
+            grid-template-columns: repeat(4, 1fr);
+            grid-gap: 10px;
+        }
+        
+        .dashboard-grid .dashboard-panel {
+            grid-column: span 4 !important; /* Force full width on mobile */
+        }
+    }
+</style>

@@ -11,6 +11,7 @@ import Notifications from './modules/notifications.js';
 import Commands from './modules/commands.js';
 import SocketHandler from './modules/socket.js';
 import Shortcuts from './modules/shortcuts.js';
+import Dashboards from './modules/dashboards.js';
 
 class ProxmoxNLI {
     constructor() {
@@ -29,6 +30,7 @@ class ProxmoxNLI {
         this.notifications = new Notifications();
         this.commands = new Commands();
         this.shortcuts = new Shortcuts();
+        this.dashboards = new Dashboards();
         this.networkDiagram = new NetworkDiagram('network-diagram-container');
         
         // Initialize socket with callbacks
@@ -81,6 +83,7 @@ class ProxmoxNLI {
             await this.notifications.initialize();
             await this.commands.initialize();
             await this.shortcuts.initialize();
+            await this.dashboards.initialize();
             
             // Set up wizard
             this.setupWizard();

@@ -1,0 +1,137 @@
+<!-- Dashboard Editor Modal -->
+<div class="modal fade" id="dashboardEditorModal" tabindex="-1" aria-labelledby="dashboardEditorModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="dashboardEditorModalLabel">Edit Dashboard</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="dashboard-name" class="form-label">Dashboard Name</label>
+                    <input type="text" class="form-control" id="dashboard-name" placeholder="My Dashboard">
+                </div>
+                
+                <div class="mb-3 form-check">
+                    <input class="form-check-input" type="checkbox" id="is-default-dashboard">
+                    <label class="form-check-label" for="is-default-dashboard">Set as Default Dashboard</label>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="dashboard-layout" class="form-label">Layout Type</label>
+                    <select class="form-select" id="dashboard-layout">
+                        <option value="grid">Grid (Responsive)</option>
+                        <option value="free">Free Positioning</option>
+                    </select>
+                </div>
+                
+                <hr>
+                <h6>Dashboard Panels</h6>
+                
+                <div id="dashboard-panels" class="mb-3">
+                    <!-- Panels will be loaded here -->
+                    <div class="text-center py-4" id="no-panels-message">
+                        <p class="text-muted">No panels added yet. Add your first panel to get started.</p>
+                    </div>
+                </div>
+                
+                <button id="add-panel-btn" class="btn btn-outline-primary">
+                    <i class="bi bi-plus"></i> Add Panel
+                </button>
+                
+                <!-- Hidden panel template used for adding new panels -->
+                <div class="d-none" id="panel-template">
+                    <div class="card mb-3 dashboard-panel">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h6 class="panel-title mb-0">Panel Title</h6>
+                            <div>
+                                <button class="btn btn-sm btn-outline-secondary panel-edit-btn">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger panel-delete-btn">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <p class="panel-type-label mb-1"><span class="badge bg-secondary">Panel Type</span></p>
+                            <p class="panel-description text-muted small">Panel description</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger me-auto" id="delete-dashboard-btn">Delete Dashboard</button>
+                <button type="button" class="btn btn-primary" id="save-dashboard-btn">Save Dashboard</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Panel Editor Modal -->
+<div class="modal fade" id="panelEditorModal" tabindex="-1" aria-labelledby="panelEditorModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="panelEditorModalLabel">Edit Panel</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="panel-title" class="form-label">Panel Title</label>
+                    <input type="text" class="form-control" id="panel-title" placeholder="Panel Title">
+                </div>
+                
+                <div class="mb-3">
+                    <label for="panel-type" class="form-label">Panel Type</label>
+                    <select class="form-select" id="panel-type">
+                        <option value="vm_status">VM Status</option>
+                        <option value="system_metrics">System Metrics</option>
+                        <option value="storage_usage">Storage Usage</option>
+                        <option value="network_traffic">Network Traffic</option>
+                        <option value="recent_commands">Recent Commands</option>
+                        <option value="favorite_commands">Favorite Commands</option>
+                        <option value="recent_events">Recent Events</option>
+                        <option value="backup_status">Backup Status</option>
+                        <option value="performance_chart">Performance Chart</option>
+                        <option value="resource_usage_table">Resource Usage Table</option>
+                    </select>
+                </div>
+                
+                <!-- Panel size options (for grid layout) -->
+                <div class="row" id="panel-size-options">
+                    <div class="col-md-6 mb-3">
+                        <label for="panel-width" class="form-label">Width (1-12)</label>
+                        <input type="number" class="form-control" id="panel-width" min="1" max="12" value="6">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="panel-height" class="form-label">Height (1-12)</label>
+                        <input type="number" class="form-control" id="panel-height" min="1" max="12" value="4">
+                    </div>
+                </div>
+                
+                <!-- Position options (for free layout) -->
+                <div class="row d-none" id="panel-position-options">
+                    <div class="col-md-6 mb-3">
+                        <label for="panel-x" class="form-label">X Position</label>
+                        <input type="number" class="form-control" id="panel-x" min="0" value="0">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="panel-y" class="form-label">Y Position</label>
+                        <input type="number" class="form-control" id="panel-y" min="0" value="0">
+                    </div>
+                </div>
+                
+                <!-- Panel specific configuration options -->
+                <div class="mb-3" id="panel-config-container">
+                    <!-- Dynamic config options will be loaded here based on panel type -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="save-panel-btn">Save Panel</button>
+            </div>
+        </div>
+    </div>
+</div>
