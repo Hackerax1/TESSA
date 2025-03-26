@@ -1,3 +1,4 @@
 @echo off
-python run.py
+echo Starting Proxmox NLI web interface...
+python main.py --web
 pause

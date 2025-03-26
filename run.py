@@ -8,6 +8,8 @@ import shutil
 from pathlib import Path
 import webbrowser
 import time
+import requests
+import socket
 
 def is_docker():
     """Check if running in a Docker container"""
@@ -49,6 +51,28 @@ def setup_windows():
         
     return True
 
+def check_server_ready(port=5000, max_attempts=10):
+    """Check if the Flask server is ready to accept connections"""
+    print("Waiting for server to start...")
+    for attempt in range(max_attempts):
+        try:
+            # First check if port is open
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(1)
+                result = s.connect_ex(('localhost', port))
+                if result == 0:
+                    # Port is open, try to make a request
+                    response = requests.get(f"http://localhost:{port}/", timeout=2)
+                    if response.status_code == 200:
+                        print(f"Server is ready on port {port}")
+                        return True
+            print(f"Waiting for server to start (attempt {attempt+1}/{max_attempts})...")
+            time.sleep(2)
+        except (requests.RequestException, socket.error):
+            time.sleep(2)
+    print("Server did not start properly in the expected time.")
+    return False
+
 def start_app():
     """Start the application"""
     if is_docker():
@@ -59,13 +83,14 @@ def start_app():
         python_cmd = os.path.join('venv', 'Scripts', 'python.exe')
     
     print("\nStarting Proxmox NLI...")
-    process = subprocess.Popen([python_cmd, 'app.py'])
+    # Use main.py with --web flag instead of app.py directly
+    port = os.environ.get('API_PORT', '5000')
+    process = subprocess.Popen([python_cmd, 'main.py', '--web'])
     
-    # Wait a bit for the server to start
-    time.sleep(2)
-    
-    # Open the browser
-    webbrowser.open('http://localhost:5000')
+    # Wait for server to start
+    if check_server_ready(int(port)):
+        # Open the browser
+        webbrowser.open(f'http://localhost:{port}')
     
     try:
         process.wait()

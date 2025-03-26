@@ -292,20 +292,56 @@ def generate_optimization_recommendations():
 @app.route('/auth/login', methods=['POST'])
 def login():
     """Authenticate user and return JWT token"""
-    data = request.json
+    # Log incoming request details (except password)
+    content_type = request.headers.get('Content-Type', '')
+    logger.info(f"Login attempt - Content-Type: {content_type}")
+    
+    # Support both JSON and form data
+    if request.is_json:
+        data = request.json
+        logger.info(f"Login request with JSON data for username: {data.get('username', 'unknown')}")
+    else:
+        data = request.form
+        logger.info(f"Login request with form data for username: {data.get('username', 'unknown')}")
+    
     username = data.get('username')
     password = data.get('password')
     
     if not username or not password:
+        logger.warning("Login attempt failed: Missing credentials")
         return jsonify({'error': 'Missing credentials'}), 400
-        
+    
+    # Check credentials against environment variables
+    admin_user = os.getenv('ADMIN_USER')
+    admin_password = os.getenv('ADMIN_PASSWORD')
+    
+    if not admin_user or not admin_password:
+        logger.error("Server configuration error: ADMIN_USER or ADMIN_PASSWORD not set")
+        return jsonify({'error': 'Server configuration error. Please contact administrator.'}), 500
+    
     # Here you would validate credentials against your user database
     # For now, we'll use a simple check against environment variables
-    if username == os.getenv('ADMIN_USER') and password == os.getenv('ADMIN_PASSWORD'):
+    if username == admin_user and password == admin_password:
         token = auth_manager.create_token(username, ['admin'])
-        return jsonify({'token': token})
+        logger.info(f"Login successful for user: {username}")
+        return jsonify({'token': token, 'user_id': username})
     
+    logger.warning(f"Login failed for user: {username}")
     return jsonify({'error': 'Invalid credentials'}), 401
+
+@app.route('/auth/test-login', methods=['GET'])
+def test_login_config():
+    """Test endpoint to check login configuration"""
+    admin_user = os.getenv('ADMIN_USER')
+    # Don't expose the actual password, just check if it exists
+    has_admin_password = bool(os.getenv('ADMIN_PASSWORD'))
+    
+    return jsonify({
+        'admin_user_configured': bool(admin_user),
+        'admin_password_configured': has_admin_password,
+        'admin_user': admin_user,  # It's okay to show this for debugging
+        'content_type_accepted': 'application/json'
+    })
 
 @app.route('/auth/refresh', methods=['POST'])
 @token_required()
