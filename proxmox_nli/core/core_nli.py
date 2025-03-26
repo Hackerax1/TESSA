@@ -55,7 +55,7 @@ class ProxmoxNLI(BaseNLI):
         
         # Initialize update management components
         self.update_manager = UpdateManager(self.service_manager)
-        self.update_command = UpdateCommand(self)
+        self.update_command = UpdateCommand(self.update_manager)
         
         # Start automatic update checking (once per day by default)
         self.update_manager.start_checking()

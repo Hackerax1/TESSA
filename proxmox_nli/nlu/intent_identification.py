@@ -138,12 +138,14 @@ class IntentIdentifier:
                 r'check\s+(?:for\s+)?(?:available\s+)?updates(?:\s+for\s+(?:service\s+)?([a-zA-Z0-9-_]+))?',
                 r'see\s+(?:if\s+there\s+are\s+)?(?:any\s+)?(?:available\s+)?updates(?:\s+for\s+(?:service\s+)?([a-zA-Z0-9-_]+))?',
                 r'are\s+there\s+(?:any\s+)?updates(?:\s+for\s+(?:service\s+)?([a-zA-Z0-9-_]+))?',
-                r'(?:any|find)\s+updates(?:\s+for\s+(?:service\s+)?([a-zA-Z0-9-_]+))?'
+                r'(?:any|find)\s+updates(?:\s+for\s+(?:service\s+)?([a-zA-Z0-9-_]+))?',
+                r'scan\s+(?:for\s+)?updates(?:\s+for\s+(?:service\s+)?([a-zA-Z0-9-_]+))?'
             ],
             'list_updates': [
                 r'list\s+(?:all\s+)?(?:available\s+)?updates(?:\s+for\s+(?:service\s+)?([a-zA-Z0-9-_]+))?',
                 r'show\s+(?:all\s+)?(?:available\s+)?updates(?:\s+for\s+(?:service\s+)?([a-zA-Z0-9-_]+))?',
-                r'what\s+updates\s+(?:are|do\s+I\s+have)(?:\s+(?:available|for)\s+(?:service\s+)?([a-zA-Z0-9-_]+))?'
+                r'what\s+updates\s+(?:are|do\s+I\s+have)(?:\s+(?:available|for)\s+(?:service\s+)?([a-zA-Z0-9-_]+))?',
+                r'tell\s+me\s+(?:about\s+)?(?:available\s+)?updates(?:\s+for\s+(?:service\s+)?([a-zA-Z0-9-_]+))?'
             ],
             'apply_updates': [
                 r'apply\s+(?:all\s+)?updates(?:\s+(?:for|to)\s+(?:service\s+)?([a-zA-Z0-9-_]+))?',
@@ -164,7 +166,49 @@ class IntentIdentifier:
                 r'(?:get|show)\s+update\s+status',
                 r'check\s+update\s+settings',
                 r'show\s+update\s+configuration',
-                r'(?:what|how)\s+(?:are|is)\s+(?:the\s+)?update\s+settings'
+                r'(?:what|how)\s+(?:are|is)\s+(?:the\s+)?update\s+settings',
+                r'(?:when|how\s+often)\s+(?:do\s+you|does\s+the\s+system)\s+check\s+for\s+updates'
+            ],
+            # New update-related patterns
+            'generate_update_plan': [
+                r'(?:make|generate|create)\s+(?:an\s+)?update\s+plan(?:\s+for\s+(?:service\s+)?([a-zA-Z0-9-_]+))?',
+                r'plan\s+(?:an\s+)?update(?:\s+for\s+(?:service\s+)?([a-zA-Z0-9-_]+))?',
+                r'how\s+should\s+I\s+update(?:\s+(?:service\s+)?([a-zA-Z0-9-_]+))?',
+                r'what\'s\s+the\s+best\s+way\s+to\s+update(?:\s+(?:service\s+)?([a-zA-Z0-9-_]+))?'
+            ],
+            'schedule_updates': [
+                r'schedule\s+(?:an\s+)?update(?:\s+for\s+(?:service\s+)?([a-zA-Z0-9-_]+))?(?:\s+(?:at|on|for)\s+(.+))?',
+                r'update\s+(?:service\s+)?([a-zA-Z0-9-_]+)\s+(?:at|on)\s+(.+)',
+                r'update\s+all\s+services\s+(?:at|on)\s+(.+)',
+                r'plan\s+(?:an\s+)?update(?:\s+for\s+(?:service\s+)?([a-zA-Z0-9-_]+))?(?:\s+(?:at|on|for)\s+(.+))?',
+                r'set\s+(?:an\s+)?update\s+(?:time|date)(?:\s+for\s+(?:service\s+)?([a-zA-Z0-9-_]+))?(?:\s+(?:to|at|on|for)\s+(.+))?'
+            ],
+            'get_scheduled_updates': [
+                r'(?:show|list|get)\s+scheduled\s+updates',
+                r'what\s+updates\s+(?:are|have\s+been)\s+scheduled',
+                r'when\s+(?:are|is)\s+the\s+(?:next|upcoming)\s+(?:scheduled\s+)?update(?:s)?',
+                r'(?:show|list|get)\s+update\s+schedule'
+            ],
+            'analyze_updates': [
+                r'(?:analyze|examine|evaluate)\s+(?:available\s+)?updates',
+                r'update\s+analysis',
+                r'tell\s+me\s+(?:about|what\s+I\s+should\s+know\s+about)\s+(?:available\s+)?updates',
+                r'should\s+I\s+update\s+(?:service\s+)?([a-zA-Z0-9-_]+)?',
+                r'(?:what|which)\s+updates\s+(?:should\s+I|are)\s+(?:apply|install|important)',
+                r'prioritize\s+updates'
+            ],
+            'get_update_history': [
+                r'(?:show|list|get)\s+update\s+history(?:\s+for\s+(?:service\s+)?([a-zA-Z0-9-_]+))?',
+                r'when\s+was\s+(?:service\s+)?([a-zA-Z0-9-_]+)\s+last\s+updated',
+                r'what\s+updates\s+have\s+been\s+applied(?:\s+to\s+(?:service\s+)?([a-zA-Z0-9-_]+))?',
+                r'show\s+me\s+(?:past|previous)\s+updates(?:\s+for\s+(?:service\s+)?([a-zA-Z0-9-_]+))?'
+            ],
+            'explain_updates': [
+                r'explain\s+(?:the\s+)?updates?(?:\s+for\s+(?:service\s+)?([a-zA-Z0-9-_]+))?',
+                r'what\s+(?:do|does)\s+the\s+updates?\s+(?:do|include|contain)(?:\s+for\s+(?:service\s+)?([a-zA-Z0-9-_]+))?',
+                r'(?:tell\s+me|explain)\s+(?:more\s+)?about\s+(?:the\s+)?updates?(?:\s+for\s+(?:service\s+)?([a-zA-Z0-9-_]+))?',
+                r'what\'s\s+(?:in|included\s+in)\s+the\s+updates?(?:\s+for\s+(?:service\s+)?([a-zA-Z0-9-_]+))?',
+                r'what\s+changes\s+(?:do|does)\s+the\s+updates?\s+make(?:\s+to\s+(?:service\s+)?([a-zA-Z0-9-_]+))?'
             ],
             'help': [
                 r'help',
@@ -274,7 +318,7 @@ class IntentIdentifier:
             return 'find_service', [service_match.group(1) if service_match else None]
 
         # Update related intents
-        if ('check' in tokens or 'search' in tokens) and 'update' in tokens:
+        if ('check' in tokens or 'search' in tokens or 'scan' in tokens) and 'update' in tokens:
             service_match = re.search(r'for\s+(?:service\s+)?(\w+)', preprocessed_query)
             return 'check_updates', [service_match.group(1) if service_match else None]
 
@@ -288,6 +332,27 @@ class IntentIdentifier:
 
         if ('update' in tokens and 'settings' in tokens) or ('configure' in tokens and 'update' in tokens):
             return 'update_settings', []
+
+        # Update planning and analysis
+        if ('plan' in tokens or 'generate' in tokens or 'create' in tokens) and 'update' in tokens:
+            service_match = re.search(r'for\s+(?:service\s+)?(\w+)', preprocessed_query)
+            return 'generate_update_plan', [service_match.group(1) if service_match else None]
+
+        if 'schedule' in tokens and 'update' in tokens:
+            service_match = re.search(r'for\s+(?:service\s+)?(\w+)', preprocessed_query)
+            time_match = re.search(r'(?:at|on|for)\s+(.+)$', preprocessed_query)
+            return 'schedule_updates', [service_match.group(1) if service_match else None, time_match.group(1) if time_match else None]
+
+        if ('analyze' in tokens or 'examine' in tokens or 'evaluate' in tokens) and 'update' in tokens:
+            return 'analyze_updates', []
+
+        if 'history' in tokens and 'update' in tokens:
+            service_match = re.search(r'for\s+(?:service\s+)?(\w+)', preprocessed_query)
+            return 'get_update_history', [service_match.group(1) if service_match else None]
+
+        if 'explain' in tokens and 'update' in tokens:
+            service_match = re.search(r'for\s+(?:service\s+)?(\w+)', preprocessed_query)
+            return 'explain_updates', [service_match.group(1) if service_match else None]
 
         if any(word in tokens for word in ['want', 'need', 'like', 'looking']):
             if any(word in tokens for word in ['install', 'setup', 'deploy']):
@@ -315,6 +380,10 @@ class IntentIdentifier:
         # Update status check
         if ('status' in tokens or 'settings' in tokens) and 'update' in tokens:
             return 'get_update_status', []
+            
+        # Check for scheduled updates
+        if (('scheduled' in tokens or 'schedule' in tokens) and 'update' in tokens) or ('update' in tokens and 'schedule' in tokens):
+            return 'get_scheduled_updates', []
 
         # Handle contextual commands like "start it" or "check its status"
         if 'it' in tokens or 'its' in tokens:
@@ -326,6 +395,8 @@ class IntentIdentifier:
                 return 'vm_status', [self.context['current_vm']]
             elif ('update' in tokens or 'upgrade' in tokens) and self.context.get('current_service'):
                 return 'apply_updates', [self.context['current_service']]
+            elif ('explain' in tokens or 'tell' in tokens or 'about' in tokens) and 'update' in tokens and self.context.get('current_service'):
+                return 'explain_updates', [self.context['current_service']]
 
         # Handle contextual commands for Docker containers
         if self.context.get('current_container') and self.context.get('current_vm'):
@@ -348,6 +419,10 @@ class IntentIdentifier:
                 return 'apply_updates', [self.context['current_service']]
             elif 'check' in tokens and 'update' in tokens:
                 return 'check_updates', [self.context['current_service']]
+            elif 'explain' in tokens and 'update' in tokens:
+                return 'explain_updates', [self.context['current_service']]
+            elif 'plan' in tokens and 'update' in tokens:
+                return 'generate_update_plan', [self.context['current_service']]
 
         # Default to help intent if no other intent is identified
         return 'help', []

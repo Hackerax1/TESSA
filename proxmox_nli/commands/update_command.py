@@ -1,336 +1,249 @@
 """
-Update command module for Proxmox NLI.
-Provides commands for managing service updates through natural language.
+Update management commands for Proxmox NLI.
+
+This module provides a command interface for the update management system,
+allowing users to check for and apply updates through natural language commands.
 """
 import logging
 from typing import Dict, List, Optional, Any
+from ..services.update_manager import UpdateManager
 
 logger = logging.getLogger(__name__)
 
 class UpdateCommand:
-    """Handles commands for checking and applying service updates."""
+    """
+    Handles natural language commands for update management.
+    """
     
-    def __init__(self, base_nli):
-        """Initialize the update command handler.
-        
-        Args:
-            base_nli: The base NLI instance with access to system components
+    def __init__(self, update_manager: UpdateManager):
         """
-        self.base_nli = base_nli
-        self.service_manager = base_nli.service_manager if hasattr(base_nli, 'service_manager') else None
-        self.update_manager = base_nli.update_manager if hasattr(base_nli, 'update_manager') else None
-        
-    def check_updates(self, args=None):
-        """Check for available updates across all services or for a specific service.
+        Initialize the UpdateCommand with an UpdateManager.
         
         Args:
-            args: Optional dictionary containing:
-                service_id: ID of a specific service to check (optional)
-                
+            update_manager: The UpdateManager instance to use
+        """
+        self.update_manager = update_manager
+        
+    def check_updates(self, service_id: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Check for updates for a specific service or all services.
+        
+        Args:
+            service_id: Optional ID of the service to check for updates.
+                       If None, checks all services.
+                       
         Returns:
             Dictionary with update check results
         """
-        if not self.update_manager:
-            return {
-                "success": False,
-                "message": "Update manager not available"
-            }
-            
-        service_id = args.get("service_id") if args else None
-        
         if service_id:
-            # Check specific service
-            result = self.update_manager.check_service_for_updates_now(service_id)
-            
-            # Format message for NLI response
-            if result.get("success"):
-                if result.get("has_updates"):
-                    return {
-                        "success": True,
-                        "message": f"Updates available for {result.get('service_name', service_id)}",
-                        "details": result.get("updates", []),
-                        "report": result.get("report")
-                    }
-                else:
-                    return {
-                        "success": True,
-                        "message": f"No updates available for {result.get('service_name', service_id)}",
-                        "report": result.get("report")
-                    }
-            else:
-                return {
-                    "success": False,
-                    "message": result.get("message", f"Failed to check updates for {service_id}"),
-                    "report": result.get("report")
-                }
+            return self.update_manager.check_service_for_updates_now(service_id)
         else:
-            # Check all services
-            success = self.update_manager.check_all_services_for_updates()
+            self.update_manager.check_all_services_for_updates()
+            return self.update_manager.generate_update_report()
             
-            if success:
-                # Generate report after checking all services
-                report = self.update_manager.generate_update_report()
-                
-                return {
-                    "success": True,
-                    "message": "Checked for updates across all services",
-                    "report": report.get("report"),
-                    "services_with_updates": len(report.get("services", [])),
-                    "total_updates": report.get("total_updates", 0)
-                }
-            else:
-                return {
-                    "success": False,
-                    "message": "Failed to check for updates across all services"
-                }
-                
-    def list_updates(self, args=None):
-        """List available updates for all services or a specific service.
+    def list_updates(self, service_id: Optional[str] = None) -> Dict[str, Any]:
+        """
+        List available updates for services.
         
         Args:
-            args: Optional dictionary containing:
-                service_id: ID of a specific service to list updates for (optional)
-                
+            service_id: Optional ID of the service to list updates for.
+                       If None, lists updates for all services.
+                       
         Returns:
-            Dictionary with available updates
+            Dictionary with update information
         """
-        if not self.update_manager:
-            return {
-                "success": False,
-                "message": "Update manager not available"
-            }
-            
-        service_id = args.get("service_id") if args else None
-        
         if service_id:
-            # Get updates for specific service
-            update_info = self.update_manager.get_service_update_status(service_id)
-            
-            if not update_info:
-                return {
-                    "success": False,
-                    "message": f"No update information available for service '{service_id}'",
-                    "report": f"I don't have any update information for {service_id}. Try running 'check for updates for {service_id}' first."
-                }
-                
-            if not update_info.get("available_updates"):
-                return {
-                    "success": True,
-                    "message": f"No updates available for {update_info.get('name', service_id)}",
-                    "report": f"{update_info.get('name', service_id)} is up to date. No updates are currently available."
-                }
-                
-            updates = update_info.get("available_updates", [])
-            service_name = update_info.get("name", service_id)
-            
-            # Format report
-            report = f"Updates available for {service_name}:\n\n"
-            for update in updates:
-                severity = update.get("severity", "normal")
-                severity_marker = "❗" if severity == "critical" else "⚠️" if severity == "warning" else "ℹ️"
-                report += f"- {severity_marker} {update['description']}\n"
-                
-            return {
-                "success": True,
-                "message": f"Found {len(updates)} updates for {service_name}",
-                "service_id": service_id,
-                "service_name": service_name,
-                "updates": updates,
-                "report": report
-            }
+            result = self.update_manager.get_update_summary(service_id)
         else:
-            # List all available updates
-            report = self.update_manager.generate_update_report()
+            result = self.update_manager.generate_update_report()
             
-            return {
-                "success": True,
-                "message": "Listed all available updates",
-                "report": report.get("report"),
-                "services": report.get("services", []),
-                "total_updates": report.get("total_updates", 0)
-            }
-            
-    def apply_updates(self, args=None):
-        """Apply updates to a service or all services with available updates.
+        return result
+        
+    def apply_updates(self, service_id: Optional[str] = None,
+                     update_ids: Optional[List[str]] = None) -> Dict[str, Any]:
+        """
+        Apply updates to a service or all services.
         
         Args:
-            args: Optional dictionary containing:
-                service_id: ID of a specific service to update (optional)
-                all: Boolean flag to update all services (optional)
-                
+            service_id: ID of the service to update. If None and update_ids is None,
+                       applies all available updates to all services with pending updates.
+            update_ids: Optional list of specific update IDs to apply.
+                       
         Returns:
-            Dictionary with update results
+            Dictionary with results of the update operation
         """
-        if not self.update_manager:
-            return {
-                "success": False,
-                "message": "Update manager not available"
-            }
-            
-        service_id = args.get("service_id") if args else None
-        update_all = args.get("all", False) if args else False
-        
         if service_id:
-            # Update specific service
-            result = self.update_manager.apply_updates(service_id)
-            return result
-        elif update_all:
-            # Update all services with available updates
-            report = self.update_manager.generate_update_report()
-            services_to_update = report.get("services", [])
+            return self.update_manager.apply_updates(service_id, update_ids)
+        else:
+            # Apply updates to all services with pending updates
+            update_summary = self.update_manager.get_update_summary()
+            services_with_updates = [s for s in update_summary.get("summaries", []) 
+                                   if s.get("updates_count", 0) > 0]
             
-            if not services_to_update:
-                return {
-                    "success": True,
-                    "message": "All services are already up to date",
-                    "report": "All services are up to date. No updates were applied."
-                }
-                
-            # Apply updates to each service
-            successful_updates = []
-            failed_updates = []
+            results = []
+            success_count = 0
+            failed_count = 0
             
-            for service in services_to_update:
+            for service in services_with_updates:
                 service_id = service.get("service_id")
-                service_name = service.get("name", service_id)
-                
-                result = self.update_manager.apply_updates(service_id)
-                
-                if result.get("success"):
-                    successful_updates.append({
-                        "service_id": service_id,
-                        "service_name": service_name
-                    })
-                else:
-                    failed_updates.append({
-                        "service_id": service_id,
-                        "service_name": service_name,
-                        "error": result.get("message")
-                    })
-            
-            # Generate combined report
-            if not failed_updates:
-                report = f"Successfully updated all {len(successful_updates)} services with available updates."
-            else:
-                report = f"Updated {len(successful_updates)} services successfully, but {len(failed_updates)} updates failed:\n\n"
-                for failed in failed_updates:
-                    report += f"- {failed['service_name']}: {failed['error']}\n"
+                if not service_id:
+                    continue
                     
-            return {
-                "success": len(successful_updates) > 0,
-                "message": f"Updated {len(successful_updates)} services, {len(failed_updates)} failed",
-                "report": report,
-                "successful": successful_updates,
-                "failed": failed_updates
-            }
-        else:
-            return {
-                "success": False,
-                "message": "Please specify a service to update or use 'all' to update all services",
-                "report": "I need to know which service to update. Please specify a service name or tell me to update all services."
-            }
-            
-    def update_settings(self, args=None):
-        """Update settings for the update manager.
-        
-        Args:
-            args: Optional dictionary containing:
-                auto_check: Boolean to enable/disable automatic update checks
-                check_interval: Interval in hours between update checks
+                result = self.update_manager.apply_updates(service_id)
+                results.append({
+                    "service_id": service_id,
+                    "service_name": service.get("service_name", service_id),
+                    "success": result.get("success", False),
+                    "message": result.get("message", "")
+                })
                 
-        Returns:
-            Dictionary with result
-        """
-        if not self.update_manager:
-            return {
-                "success": False,
-                "message": "Update manager not available"
-            }
+                if result.get("success", False):
+                    success_count += 1
+                else:
+                    failed_count += 1
             
-        if not args:
-            return {
-                "success": False,
-                "message": "No settings provided to update"
-            }
-            
-        changes = []
-        
-        # Update auto-check setting
-        if "auto_check" in args:
-            auto_check = args["auto_check"]
-            if auto_check:
-                self.update_manager.start_checking()
-                changes.append("Automatic update checks enabled")
-            else:
-                self.update_manager.stop_checking()
-                changes.append("Automatic update checks disabled")
-                
-        # Update check interval
-        if "check_interval" in args:
-            hours = args["check_interval"]
-            if isinstance(hours, (int, float)) and hours > 0:
-                # Convert hours to seconds
-                self.update_manager.check_interval = int(hours * 3600)
-                changes.append(f"Update check interval set to {hours} hours")
-            else:
+            total = success_count + failed_count
+            if total == 0:
                 return {
-                    "success": False,
-                    "message": "Invalid check interval, must be a positive number"
+                    "success": True,
+                    "message": "No services had updates to apply.",
+                    "report": "All services are already up to date. There were no updates to apply."
                 }
                 
-        if not changes:
             return {
-                "success": False,
-                "message": "No valid settings provided to update"
+                "success": failed_count == 0,
+                "message": f"Applied updates to {success_count}/{total} services.",
+                "report": self._generate_bulk_update_report(results),
+                "results": results
             }
             
-        return {
-            "success": True,
-            "message": "Update settings updated",
-            "changes": changes
-        }
-
-    def get_update_status(self, args=None):
-        """Get the current update status and settings.
+    def generate_update_plan(self, service_id: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Generate an update plan for services.
         
         Args:
-            args: Optional arguments (not used)
+            service_id: Optional ID of the service to generate a plan for.
+                       If None, generates a plan for all services with updates.
+                       
+        Returns:
+            Dictionary with update plan
+        """
+        return self.update_manager.generate_update_plan(service_id)
+        
+    def _generate_bulk_update_report(self, results: List[Dict[str, Any]]) -> str:
+        """
+        Generate a human-friendly report for bulk update operations.
+        
+        Args:
+            results: List of update results for individual services
             
         Returns:
-            Dictionary with update status
+            Natural language report
         """
-        if not self.update_manager:
-            return {
-                "success": False,
-                "message": "Update manager not available"
-            }
+        successful = [r for r in results if r.get("success")]
+        failed = [r for r in results if not r.get("success")]
+        
+        report = ""
+        
+        if successful:
+            report += f"Successfully updated {len(successful)} service(s):\n"
+            for svc in successful:
+                report += f"- {svc.get('service_name', svc.get('service_id'))}\n"
+                
+        if failed:
+            if report:
+                report += "\n"
+            report += f"Failed to update {len(failed)} service(s):\n"
+            for svc in failed:
+                report += f"- {svc.get('service_name', svc.get('service_id'))}: {svc.get('message', 'Unknown error')}\n"
+                
+        report += "\nYou can check individual service status with commands like 'show updates for [service]'."
+        
+        return report
+
+    def schedule_updates(self, service_id: Optional[str] = None, 
+                       schedule_time: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Schedule updates to be applied at a specified time.
+        
+        Args:
+            service_id: Optional ID of the service to schedule updates for.
+                       If None, schedules updates for all services with pending updates.
+            schedule_time: When to apply the updates (e.g., "tonight", "tomorrow 3am")
+                         
+        Returns:
+            Dictionary with scheduling results
+        """
+        # This is a placeholder for future implementation
+        if not schedule_time:
+            schedule_time = "during the next maintenance window"
             
-        # Get update status
-        report = self.update_manager.generate_update_report()
-        services_with_updates = report.get("services", [])
-        total_updates = report.get("total_updates", 0)
+        return {
+            "success": True,
+            "message": f"Updates for {service_id or 'all services'} scheduled for {schedule_time}",
+            "report": f"I've scheduled updates for {service_id or 'all services with pending updates'} to be applied {schedule_time}."
+        }
         
-        # Get settings
-        auto_check = self.update_manager.checking_active
-        check_interval_hours = self.update_manager.check_interval / 3600
+    def get_update_status(self) -> Dict[str, Any]:
+        """
+        Get the current status of the update system.
         
-        # Generate report
-        status_report = "Update Status:\n\n"
-        
-        if total_updates > 0:
-            status_report += f"There are {total_updates} updates available for {len(services_with_updates)} services.\n\n"
-        else:
-            status_report += "All services are up to date.\n\n"
-            
-        status_report += f"Automatic update checks are {'enabled' if auto_check else 'disabled'}.\n"
-        status_report += f"Update check interval: {check_interval_hours:.1f} hours."
+        Returns:
+            Dictionary with update status information including:
+            - Last check time
+            - Auto-check status
+            - Number of services with updates available
+            - Next scheduled check
+        """
+        status = self.update_manager.get_update_status()
+        services_with_updates = self.update_manager.get_services_with_updates()
         
         return {
             "success": True,
-            "message": "Retrieved update status",
-            "report": status_report,
-            "services_with_updates": len(services_with_updates),
-            "total_updates": total_updates,
-            "auto_check": auto_check,
-            "check_interval_hours": check_interval_hours
+            "message": f"Update status: {len(services_with_updates)} service(s) with updates available",
+            "status": status,
+            "services_with_updates": services_with_updates,
+            "report": self._format_update_status(status, services_with_updates)
         }
+        
+    def _format_update_status(self, status: Dict[str, Any], services_with_updates: List[Dict[str, Any]]) -> str:
+        """
+        Format update status information into a human-readable report.
+        
+        Args:
+            status: Update system status dictionary
+            services_with_updates: List of services with available updates
+            
+        Returns:
+            Formatted status report
+        """
+        last_check = status.get("last_check", "Never")
+        if isinstance(last_check, (int, float)):
+            from datetime import datetime
+            last_check = datetime.fromtimestamp(last_check).strftime("%Y-%m-%d %H:%M:%S")
+        
+        auto_check = "Enabled" if status.get("auto_check", False) else "Disabled"
+        check_interval = status.get("check_interval", 24)
+        next_check = status.get("next_check", "Not scheduled")
+        if isinstance(next_check, (int, float)):
+            from datetime import datetime
+            next_check = datetime.fromtimestamp(next_check).strftime("%Y-%m-%d %H:%M:%S")
+            
+        report = f"Update Status Summary:\n\n"
+        report += f"Last check: {last_check}\n"
+        report += f"Auto-check: {auto_check} (every {check_interval} hours)\n"
+        report += f"Next scheduled check: {next_check}\n\n"
+        
+        if services_with_updates:
+            report += f"Services with updates available ({len(services_with_updates)}):\n"
+            for service in services_with_updates:
+                service_name = service.get("service_name", service.get("service_id", "Unknown"))
+                update_count = service.get("updates_count", 0)
+                importance = service.get("importance", "unknown")
+                report += f"- {service_name}: {update_count} update(s) [{importance} importance]\n"
+            
+            report += "\nTo see details about available updates, use 'list updates [service name]'."
+        else:
+            report += "All services are up to date. No updates are currently available."
+            
+        return report

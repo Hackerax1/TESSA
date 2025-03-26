@@ -22,7 +22,7 @@
   - [X] Develop driver auto-installation system for common hardware components.
   - [X] Create a pre-installation compatibility checker tool.
 
-- [X] **Enhanced User Profiles and Preferences:**
+- [ ] **Enhanced User Profiles and Preferences:**
   - [ ] Implement personal dashboards with customizable metrics and panels
   - [X] Add command history and favorites system
   - [X] Create notification preferences configuration

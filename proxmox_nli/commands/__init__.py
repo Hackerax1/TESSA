@@ -9,5 +9,6 @@ from .proxmox_commands import ProxmoxCommands
 from .docker_commands import DockerCommands
 from .vm_command import VMCommand
 from .ssh_commands import SSHCommands
+from .update_command import UpdateCommand
 
-__all__ = ['ProxmoxCommands', 'DockerCommands', 'VMCommand', 'SSHCommands']
+__all__ = ['ProxmoxCommands', 'DockerCommands', 'VMCommand', 'SSHCommands', 'UpdateCommand']
