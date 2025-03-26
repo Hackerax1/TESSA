@@ -41,7 +41,7 @@ replaces_services:
     quality: good
     reason: "Paperless-ngx provides similar document scanning and organization capabilities"
   - id: google_drive
-    quality: medium
+    quality: good
     reason: "While focused on documents rather than all files, it provides better document-specific features"
 personality_recommendation: "I think you'll find Paperless-ngx incredibly useful for organizing your household documents! It's perfect for digitizing all those receipts, bills, and important papers that pile up. The OCR is surprisingly accurate, and being able to search the full text of any document is a game-changer. No more digging through file cabinets!"
 deployment:
