@@ -16,8 +16,8 @@
   - [X] Create personalized greeting system based on time of day and user history.
   - [X] Add TESSA service recommendations with personality.
   - [X] Design goal-based setup workflow ("What would you like me to help you replace?").
-  - [ ] Implement personal dashboards with customizable metrics and panels.
-  - [ ] Add cross-device profile synchronization.
+  - [X] Implement personal dashboards with customizable metrics and panels.
+  - [X] Add cross-device profile synchronization.
 
 - [ ] **Web Interface:**
   - [X] Implement real-time updates with WebSockets for VM/container status.
@@ -31,8 +31,8 @@
   - [X] Develop backup verification and integrity checking.
 
 - [ ] **AI-Driven Features:**
-  - [ ] Build predictive resource allocation based on usage patterns.
-  - [ ] Add power management recommendations for energy efficiency.
+  - [X] Build predictive resource allocation based on usage patterns.
+  - [X] Add power management recommendations for energy efficiency.
 
 - [ ] **Documentation:**
   - [X] Create beginner-friendly setup guides with visual aids using Mermaid.
@@ -40,7 +40,7 @@
   - [X] Provide examples and tutorials.
 
 - [ ] **Testing:**
-  - [ ] Add tests for hardware detection and compatibility scripts.
+  - [X] Add tests for hardware detection and compatibility scripts.
   - [ ] Conduct beta testing with community feedback.
 
 ---
@@ -56,7 +56,6 @@
 - [ ] **User Experience:**
   - [ ] Add natural conversation transitions and topic memory between sessions.
   - [ ] Improve ambient mode and wake word detection.
-  - [ ] Add multi-language voice support.
   - [ ] Implement voice authentication for different users.
 
 - [ ] **Web Interface:**
@@ -73,6 +72,14 @@
   - [ ] Implement automatic VM/container migration based on server load.
   - [ ] Create predictive maintenance alerts based on hardware performance data.
   - [ ] Develop personality growth for TESSA based on household usage patterns.
+
+- [ ] **Documentation:**
+  - [ ] Implement automatic documentation generation from codebase.
+  - [ ] Create API documentation with interactive examples.
+  - [ ] Add automated changelog generation from commits.
+  - [ ] Build documentation search and indexing system.
+  - [ ] Generate visual diagrams from code structure.
+  - [ ] Add contextual help integration with autodoc system.
 
 - [ ] **Community Integration:**
   - [ ] Create community templates gallery for sharing service configurations.
@@ -106,3 +113,13 @@
   - [ ] Implement predictive scaling based on workload patterns.
   - [ ] Add GPU passthrough optimization assistant.
   - [ ] Create resource quota management system.
+
+- [ ] **LLM Integration:**
+  - [ ] Train specialized LLM model on homelab and Proxmox documentation
+  - [ ] Fine-tune model on historical TESSA conversations and commands
+  - [ ] Implement domain-specific context injection for improved accuracy
+  - [ ] Add self-supervised learning from successful command executions
+  - [ ] Create synthetic training data from common homelab scenarios
+  - [ ] Develop model pruning and optimization for local deployment
+
+- [ ] Add multi-language voice support.

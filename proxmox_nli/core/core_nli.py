@@ -11,7 +11,7 @@ from .base_nli import BaseNLI
 from .command_executor import CommandExecutor
 from .response_generator import ResponseGenerator
 from .service_handler import ServiceHandler
-from .user_manager import UserManager
+from .security.user_manager import UserManager
 from ..nlu.nlu_engine import NLU_Engine
 from ..nlu.ollama_client import OllamaClient
 from ..nlu.huggingface_client import HuggingFaceClient
