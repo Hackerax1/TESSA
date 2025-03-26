@@ -318,10 +318,15 @@ def refresh_token():
     return jsonify({'error': 'Could not refresh token'}), 401
 
 @app.route('/')
-@token_required()
 def home():
-    """Render the home page"""
-    return render_template('base.html')
+    """Render the home page or login page depending on authentication"""
+    auth_header = request.headers.get('Authorization')
+    if auth_header and auth_header.startswith('Bearer '):
+        # User is authenticated, render the home page
+        return render_template('base.html')
+    else:
+        # User is not authenticated, redirect to login page
+        return render_template('login.html')
 
 @app.route('/initial-status')
 def get_initial_status():
