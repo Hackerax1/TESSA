@@ -469,3 +469,79 @@ class DashboardManager:
         except Exception as e:
             logger.error(f"Error initializing default dashboard: {e}")
             return None
+
+    def sync_user_dashboards(self, user_id: str, remote_dashboards: List[Dict]) -> bool:
+        """Sync dashboards with remote data for cross-device support.
+        
+        Args:
+            user_id: The user identifier
+            remote_dashboards: List of dashboard configurations from remote
+            
+        Returns:
+            bool: True if sync successful, False otherwise
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                # Get local dashboard IDs
+                cursor.execute('SELECT id FROM user_dashboards WHERE user_id = ?', (user_id,))
+                local_ids = set(row[0] for row in cursor.fetchall())
+                remote_ids = set(d['id'] for d in remote_dashboards)
+                
+                # Handle deletions (dashboards that exist locally but not in remote)
+                for dashboard_id in local_ids - remote_ids:
+                    self.delete_dashboard(dashboard_id)
+                
+                # Handle updates and additions
+                for dashboard in remote_dashboards:
+                    if dashboard['id'] in local_ids:
+                        # Update existing dashboard
+                        self.update_dashboard(
+                            dashboard_id=dashboard['id'],
+                            name=dashboard.get('name'),
+                            is_default=dashboard.get('is_default', False),
+                            layout=dashboard.get('layout', 'grid')
+                        )
+                        
+                        # Update panels
+                        cursor.execute('DELETE FROM dashboard_panels WHERE dashboard_id = ?', (dashboard['id'],))
+                        for panel in dashboard.get('panels', []):
+                            self.add_panel(
+                                dashboard_id=dashboard['id'],
+                                panel_type=panel['panel_type'],
+                                title=panel['title'],
+                                config=panel.get('config'),
+                                position_x=panel.get('position_x', 0),
+                                position_y=panel.get('position_y', 0),
+                                width=panel.get('width', 6),
+                                height=panel.get('height', 4)
+                            )
+                    else:
+                        # Create new dashboard
+                        new_id = self.create_dashboard(
+                            user_id=user_id,
+                            name=dashboard['name'],
+                            is_default=dashboard.get('is_default', False),
+                            layout=dashboard.get('layout', 'grid')
+                        )
+                        
+                        if new_id:
+                            for panel in dashboard.get('panels', []):
+                                self.add_panel(
+                                    dashboard_id=new_id,
+                                    panel_type=panel['panel_type'],
+                                    title=panel['title'],
+                                    config=panel.get('config'),
+                                    position_x=panel.get('position_x', 0),
+                                    position_y=panel.get('position_y', 0),
+                                    width=panel.get('width', 6),
+                                    height=panel.get('height', 4)
+                                )
+                
+                conn.commit()
+                return True
+                
+        except Exception as e:
+            logger.error(f"Error syncing dashboards: {e}")
+            return False

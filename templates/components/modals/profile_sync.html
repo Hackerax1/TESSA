@@ -1,0 +1,71 @@
+<!-- Profile Synchronization Settings Modal -->
+<div class="modal fade" id="profileSyncModal" tabindex="-1" aria-labelledby="profileSyncModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="profileSyncModalLabel">Profile Synchronization</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-4">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="sync-toggle">
+                        <label class="form-check-label" for="sync-toggle">Enable Profile Sync</label>
+                    </div>
+                    <div id="sync-status" class="mt-2"></div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="device-name" class="form-label">Device Name</label>
+                    <input type="text" class="form-control" id="device-name" placeholder="Enter device name">
+                    <div class="form-text">This helps identify this device in your synced devices list.</div>
+                </div>
+                
+                <div class="mb-4">
+                    <h6>Sync Settings</h6>
+                    <div class="list-group">
+                        <div class="list-group-item">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="sync-dashboards" checked disabled>
+                                <label class="form-check-label" for="sync-dashboards">
+                                    Dashboards and Layouts
+                                </label>
+                            </div>
+                        </div>
+                        <div class="list-group-item">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="sync-preferences" checked disabled>
+                                <label class="form-check-label" for="sync-preferences">
+                                    User Preferences
+                                </label>
+                            </div>
+                        </div>
+                        <div class="list-group-item">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="sync-favorites" checked disabled>
+                                <label class="form-check-label" for="sync-favorites">
+                                    Favorite Commands
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <h6>Connected Devices</h6>
+                    <div class="list-group" id="connected-devices">
+                        <div class="list-group-item text-muted">
+                            No other devices connected
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="sync-now">
+                    <i class="bi bi-arrow-repeat"></i> Sync Now
+                </button>
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Done</button>
+            </div>
+        </div>
+    </div>
+</div>

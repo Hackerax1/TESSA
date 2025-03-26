@@ -1,304 +1,255 @@
 """
-Profile synchronization module for managing user profiles across devices.
+Profile synchronization module for cross-device support.
 """
 import os
 import json
 import sqlite3
-import uuid
-from datetime import datetime
-from typing import Dict, Any, List, Optional
 import logging
+from typing import Dict, List, Optional
+from datetime import datetime
+import threading
+from queue import Queue
+import time
 
 logger = logging.getLogger(__name__)
 
 class ProfileSyncManager:
-    def __init__(self, data_dir: str = None):
-        """Initialize the profile synchronization manager
+    """Manages synchronization of user profiles and preferences across devices."""
+    
+    def __init__(self, data_dir: str = None, dashboard_manager=None):
+        """Initialize the profile sync manager.
         
         Args:
-            data_dir: Directory to store sync data. If None,
-                     defaults to the 'data' directory in the project root.
+            data_dir: Directory to store sync data
+            dashboard_manager: DashboardManager instance for dashboard sync
         """
         self.data_dir = data_dir or os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'data')
         os.makedirs(self.data_dir, exist_ok=True)
         
-        # Initialize SQLite database for user devices
-        self.db_path = os.path.join(self.data_dir, 'user_preferences.db')
+        self.dashboard_manager = dashboard_manager
+        self.sync_queue = Queue()
+        self.sync_thread = None
+        self._stop_sync = False
+        
+        # Initialize SQLite database for sync state
+        self.db_path = os.path.join(self.data_dir, 'profile_sync.db')
         self._init_db()
         
     def _init_db(self):
-        """Initialize the SQLite database for profile sync tables"""
+        """Initialize the SQLite database for sync state tracking"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             
-            # User devices table
+            # Sync state table
             cursor.execute('''
-                CREATE TABLE IF NOT EXISTS user_devices (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id TEXT NOT NULL,
+                CREATE TABLE IF NOT EXISTS sync_state (
+                    user_id TEXT PRIMARY KEY,
+                    last_sync TEXT NOT NULL,
                     device_id TEXT NOT NULL,
-                    device_name TEXT NOT NULL,
-                    device_type TEXT NOT NULL,
-                    last_sync TEXT,
-                    created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL,
-                    UNIQUE(user_id, device_id)
+                    sync_enabled BOOLEAN DEFAULT 1
                 )
             ''')
             
-            # Profile sync data table
+            # Device registrations table
             cursor.execute('''
-                CREATE TABLE IF NOT EXISTS profile_sync_data (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                CREATE TABLE IF NOT EXISTS device_registrations (
+                    device_id TEXT PRIMARY KEY,
                     user_id TEXT NOT NULL,
-                    device_id TEXT NOT NULL,
-                    sync_token TEXT NOT NULL,
-                    sync_data TEXT NOT NULL,
-                    created_at TEXT NOT NULL,
-                    UNIQUE(user_id, sync_token)
+                    device_name TEXT NOT NULL,
+                    last_seen TEXT NOT NULL,
+                    is_active BOOLEAN DEFAULT 1,
+                    FOREIGN KEY (user_id) REFERENCES sync_state (user_id)
                 )
             ''')
             
             conn.commit()
+    
+    def start_sync_service(self):
+        """Start the background sync service"""
+        if self.sync_thread and self.sync_thread.is_alive():
+            return
             
-    def register_device(self, user_id: str, device_id: str, device_name: str, device_type: str) -> bool:
-        """Register a device for profile synchronization
+        self._stop_sync = False
+        self.sync_thread = threading.Thread(target=self._sync_worker, daemon=True)
+        self.sync_thread.start()
         
-        Args:
-            user_id: The user identifier
-            device_id: Unique device identifier
-            device_name: Human-readable device name
-            device_type: Type of device (desktop, mobile, tablet, etc.)
+    def stop_sync_service(self):
+        """Stop the background sync service"""
+        self._stop_sync = True
+        if self.sync_thread:
+            self.sync_thread.join()
             
-        Returns:
-            bool: True if successful, False otherwise
-        """
-        now = datetime.now().isoformat()
+    def _sync_worker(self):
+        """Background worker for processing sync tasks"""
+        while not self._stop_sync:
+            try:
+                sync_task = self.sync_queue.get(timeout=30)  # 30 second timeout
+                self._process_sync_task(sync_task)
+            except Queue.Empty:
+                # Timeout occurred, check for any missed syncs
+                self._check_pending_syncs()
+                continue
+            except Exception as e:
+                logger.error(f"Error in sync worker: {e}")
+                
+    def _process_sync_task(self, task: Dict):
+        """Process a sync task from the queue"""
+        try:
+            user_id = task.get('user_id')
+            task_type = task.get('type')
+            
+            if not user_id or not task_type:
+                return
+                
+            if task_type == 'dashboards':
+                remote_dashboards = task.get('data', [])
+                if remote_dashboards and self.dashboard_manager:
+                    self.dashboard_manager.sync_user_dashboards(user_id, remote_dashboards)
+                    
+            elif task_type == 'preferences':
+                preferences = task.get('data', {})
+                if preferences:
+                    self._sync_user_preferences(user_id, preferences)
+                    
+            # Update last sync time
+            self._update_sync_state(user_id)
+            
+        except Exception as e:
+            logger.error(f"Error processing sync task: {e}")
+            
+    def _sync_user_preferences(self, user_id: str, preferences: Dict):
+        """Sync user preferences with remote data"""
+        # Implementation will vary based on preferences structure
+        pass
+        
+    def _update_sync_state(self, user_id: str):
+        """Update the last sync time for a user"""
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
+                now = datetime.now().isoformat()
                 
                 cursor.execute('''
-                    INSERT INTO user_devices
-                    (user_id, device_id, device_name, device_type, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(user_id, device_id) 
-                    DO UPDATE SET device_name = ?, device_type = ?, updated_at = ?
-                ''', (user_id, device_id, device_name, device_type, now, now, 
-                      device_name, device_type, now))
+                    INSERT OR REPLACE INTO sync_state (user_id, last_sync, device_id, sync_enabled)
+                    VALUES (?, ?, ?, (SELECT sync_enabled FROM sync_state WHERE user_id = ? OR 1))
+                ''', (user_id, now, self._get_device_id(), user_id))
                 
                 conn.commit()
-                return True
+        except Exception as e:
+            logger.error(f"Error updating sync state: {e}")
+            
+    def queue_sync_task(self, user_id: str, task_type: str, data: Dict):
+        """Queue a sync task for processing
+        
+        Args:
+            user_id: The user identifier
+            task_type: Type of sync task ('dashboards', 'preferences', etc.)
+            data: The data to sync
+        """
+        self.sync_queue.put({
+            'user_id': user_id,
+            'type': task_type,
+            'data': data,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    def register_device(self, user_id: str, device_name: str) -> str:
+        """Register a new device for sync
+        
+        Args:
+            user_id: The user identifier
+            device_name: Name of the device
+            
+        Returns:
+            str: Device ID for the registered device
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                now = datetime.now().isoformat()
+                device_id = self._get_device_id()
+                
+                cursor.execute('''
+                    INSERT OR REPLACE INTO device_registrations
+                    (device_id, user_id, device_name, last_seen, is_active)
+                    VALUES (?, ?, ?, ?, 1)
+                ''', (device_id, user_id, device_name, now))
+                
+                conn.commit()
+                return device_id
+                
         except Exception as e:
             logger.error(f"Error registering device: {e}")
-            return False
-            
-    def get_user_devices(self, user_id: str) -> List[Dict[str, Any]]:
-        """Get all devices registered for a user
-        
-        Args:
-            user_id: The user identifier
-            
-        Returns:
-            List[Dict[str, Any]]: List of device objects
-        """
-        try:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.row_factory = sqlite3.Row
-                cursor = conn.cursor()
-                
-                cursor.execute('''
-                    SELECT device_id, device_name, device_type, last_sync, created_at, updated_at
-                    FROM user_devices
-                    WHERE user_id = ?
-                    ORDER BY updated_at DESC
-                ''', (user_id,))
-                
-                return [dict(row) for row in cursor.fetchall()]
-        except Exception as e:
-            logger.error(f"Error getting user devices: {e}")
-            return []
-            
-    def remove_device(self, user_id: str, device_id: str) -> bool:
-        """Remove a device from synchronization
-        
-        Args:
-            user_id: The user identifier
-            device_id: Device identifier to remove
-            
-        Returns:
-            bool: True if successful, False otherwise
-        """
-        try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.cursor()
-                
-                # Remove device
-                cursor.execute('''
-                    DELETE FROM user_devices
-                    WHERE user_id = ? AND device_id = ?
-                ''', (user_id, device_id))
-                
-                # Also clean up any sync data for this device
-                cursor.execute('''
-                    DELETE FROM profile_sync_data
-                    WHERE user_id = ? AND device_id = ?
-                ''', (user_id, device_id))
-                
-                conn.commit()
-                return True
-        except Exception as e:
-            logger.error(f"Error removing device: {e}")
-            return False
-            
-    def update_sync_data(self, user_id: str, device_id: str, sync_data: Dict[str, Any]) -> bool:
-        """Update profile sync data
-        
-        Args:
-            user_id: The user identifier
-            device_id: Device identifier
-            sync_data: Profile data to synchronize
-            
-        Returns:
-            bool: True if successful, False otherwise
-        """
-        now = datetime.now().isoformat()
-        sync_token = str(uuid.uuid4())
-        
-        try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.cursor()
-                
-                # Store sync data
-                cursor.execute('''
-                    INSERT INTO profile_sync_data
-                    (user_id, device_id, sync_token, sync_data, created_at)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', (user_id, device_id, sync_token, json.dumps(sync_data), now))
-                
-                # Update device last sync time
-                cursor.execute('''
-                    UPDATE user_devices
-                    SET last_sync = ?, updated_at = ?
-                    WHERE user_id = ? AND device_id = ?
-                ''', (now, now, user_id, device_id))
-                
-                conn.commit()
-                return True
-        except Exception as e:
-            logger.error(f"Error updating sync data: {e}")
-            return False
-            
-    def get_latest_sync_data(self, user_id: str, device_id: str = None) -> Optional[Dict[str, Any]]:
-        """Get latest profile sync data
-        
-        Args:
-            user_id: The user identifier
-            device_id: Optional device identifier to filter by
-            
-        Returns:
-            Optional[Dict[str, Any]]: Latest sync data if available, None otherwise
-        """
-        try:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.row_factory = sqlite3.Row
-                cursor = conn.cursor()
-                
-                # Get latest sync data for this user
-                if device_id:
-                    # Get most recent sync data from OTHER devices (not the requesting device)
-                    cursor.execute('''
-                        SELECT sync_data, created_at
-                        FROM profile_sync_data
-                        WHERE user_id = ? AND device_id != ?
-                        ORDER BY created_at DESC
-                        LIMIT 1
-                    ''', (user_id, device_id))
-                else:
-                    # Get most recent sync data for any device
-                    cursor.execute('''
-                        SELECT sync_data, created_at
-                        FROM profile_sync_data
-                        WHERE user_id = ?
-                        ORDER BY created_at DESC
-                        LIMIT 1
-                    ''', (user_id,))
-                
-                row = cursor.fetchone()
-                if not row:
-                    return None
-                    
-                try:
-                    sync_data = json.loads(row['sync_data'])
-                    return {
-                        "data": sync_data,
-                        "last_sync": row['created_at']
-                    }
-                except Exception as e:
-                    logger.error(f"Error parsing sync data: {e}")
-                    return None
-        except Exception as e:
-            logger.error(f"Error getting latest sync data: {e}")
             return None
             
-    def get_sync_history(self, user_id: str, limit: int = 10) -> List[Dict[str, Any]]:
-        """Get sync history for a user
+    def _get_device_id(self) -> str:
+        """Get or generate a unique device identifier"""
+        config_file = os.path.join(self.data_dir, 'device_config.json')
+        
+        try:
+            if os.path.exists(config_file):
+                with open(config_file, 'r') as f:
+                    config = json.load(f)
+                    return config.get('device_id')
+                    
+            # Generate new device ID if none exists
+            import uuid
+            device_id = str(uuid.uuid4())
+            
+            with open(config_file, 'w') as f:
+                json.dump({'device_id': device_id}, f)
+                
+            return device_id
+            
+        except Exception as e:
+            logger.error(f"Error getting device ID: {e}")
+            return None
+            
+    def _check_pending_syncs(self):
+        """Check for any pending syncs that need to be processed"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                # Get users with sync enabled
+                cursor.execute('''
+                    SELECT user_id, last_sync
+                    FROM sync_state
+                    WHERE sync_enabled = 1
+                ''')
+                
+                now = datetime.now()
+                for user_id, last_sync in cursor.fetchall():
+                    try:
+                        last_sync_time = datetime.fromisoformat(last_sync)
+                        # If more than 5 minutes since last sync
+                        if (now - last_sync_time).total_seconds() > 300:
+                            # Queue sync tasks for this user
+                            self.queue_sync_task(user_id, 'dashboards', None)
+                            self.queue_sync_task(user_id, 'preferences', None)
+                    except (ValueError, TypeError):
+                        continue
+                        
+        except Exception as e:
+            logger.error(f"Error checking pending syncs: {e}")
+            
+    def enable_sync(self, user_id: str, enabled: bool = True):
+        """Enable or disable sync for a user
         
         Args:
             user_id: The user identifier
-            limit: Maximum number of history items
-            
-        Returns:
-            List[Dict[str, Any]]: Sync history items
+            enabled: Whether sync should be enabled
         """
         try:
             with sqlite3.connect(self.db_path) as conn:
-                conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
                 
                 cursor.execute('''
-                    SELECT d.device_name, p.device_id, p.sync_token, p.created_at
-                    FROM profile_sync_data p
-                    JOIN user_devices d ON p.user_id = d.user_id AND p.device_id = d.device_id
-                    WHERE p.user_id = ?
-                    ORDER BY p.created_at DESC
-                    LIMIT ?
-                ''', (user_id, limit))
-                
-                return [dict(row) for row in cursor.fetchall()]
-        except Exception as e:
-            logger.error(f"Error getting sync history: {e}")
-            return []
-            
-    def clean_old_sync_data(self, user_id: str = None, days: int = 30) -> bool:
-        """Clean up old sync data
-        
-        Args:
-            user_id: Optional user identifier to clean data for
-            days: Number of days to keep data for
-            
-        Returns:
-            bool: True if successful, False otherwise
-        """
-        try:
-            cutoff_date = (datetime.now() - datetime.timedelta(days=days)).isoformat()
-            
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.cursor()
-                
-                if user_id:
-                    cursor.execute('''
-                        DELETE FROM profile_sync_data
-                        WHERE user_id = ? AND created_at < ?
-                    ''', (user_id, cutoff_date))
-                else:
-                    cursor.execute('''
-                        DELETE FROM profile_sync_data
-                        WHERE created_at < ?
-                    ''', (cutoff_date,))
+                    INSERT OR REPLACE INTO sync_state (user_id, sync_enabled, last_sync, device_id)
+                    VALUES (?, ?, ?, ?)
+                ''', (user_id, enabled, datetime.now().isoformat(), self._get_device_id()))
                 
                 conn.commit()
-                return True
+                
         except Exception as e:
-            logger.error(f"Error cleaning old sync data: {e}")
-            return False
+            logger.error(f"Error updating sync enabled state: {e}")

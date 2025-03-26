@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from flask import Flask, render_template, request, jsonify, url_for
+from flask import Flask, render_template, request, jsonify, url_for, g
 from flask_socketio import SocketIO, emit
 import os
 import sys
@@ -7,7 +7,9 @@ from proxmox_nli.core import ProxmoxNLI
 from proxmox_nli.core.voice_handler import VoiceHandler, VoiceProfile
 from proxmox_nli.services.goal_mapper import GoalMapper
 from proxmox_nli.core.security.auth_manager import AuthManager
-from proxmox_nli.core.user_preferences import UserManager
+from proxmox_nli.core.user_preferences import UserManager, UserPreferencesManager
+from proxmox_nli.core.profile_sync import ProfileSyncManager
+from proxmox_nli.core.dashboard_manager import DashboardManager
 from functools import wraps
 from dotenv import load_dotenv
 import logging
@@ -38,6 +40,9 @@ status_monitor_thread = None
 resource_monitor_thread = None
 auth_manager = AuthManager()
 user_manager = UserManager()
+user_preferences = UserPreferencesManager()
+profile_sync_manager = None  # Will be initialized in start_app
+dashboard_manager = None  # Will be initialized in start_app
 
 # Store resource history for optimization analysis
 vm_resource_history = defaultdict(lambda: {"cpu": [], "memory": [], "disk_io": [], "network": [], "timestamps": []})
@@ -1242,6 +1247,127 @@ def sync_profile(user_id, device_id):
     result = proxmox_nli.user_manager.sync_profile(user_id, device_id, sync_data)
     return jsonify(result)
 
+# Profile sync API endpoints
+@app.route('/api/profile/sync/status', methods=['GET'])
+@token_required(['user', 'admin'])
+def get_sync_status():
+    """Get profile sync status for current device."""
+    try:
+        if not profile_sync_manager:
+            return jsonify({'error': 'Profile sync not initialized'}), 500
+            
+        device_id = profile_sync_manager._get_device_id()
+        sync_state = profile_sync_manager.get_sync_state(device_id)
+        
+        return jsonify({
+            'success': True,
+            'sync_enabled': sync_state.get('sync_enabled', False),
+            'device_name': sync_state.get('device_name', ''),
+            'last_sync': sync_state.get('last_sync')
+        })
+    except Exception as e:
+        logger.error(f"Error getting sync status: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/profile/sync/enable', methods=['POST'])
+@token_required(['user', 'admin'])
+def enable_sync():
+    """Enable or disable profile sync."""
+    try:
+        if not profile_sync_manager:
+            return jsonify({'error': 'Profile sync not initialized'}), 500
+            
+        data = request.json
+        enabled = data.get('enabled', False)
+        
+        device_id = profile_sync_manager._get_device_id()
+        profile_sync_manager.enable_sync(device_id, enabled)
+        
+        if enabled:
+            profile_sync_manager.start_sync_service()
+        else:
+            profile_sync_manager.stop_sync_service()
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        logger.error(f"Error setting sync enabled: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/profile/sync/device', methods=['POST'])
+@token_required(['user', 'admin'])
+def update_device_name():
+    """Update device name for sync."""
+    try:
+        if not profile_sync_manager:
+            return jsonify({'error': 'Profile sync not initialized'}), 500
+            
+        data = request.json
+        device_name = data.get('device_name')
+        
+        if not device_name:
+            return jsonify({'error': 'Device name is required'}), 400
+            
+        device_id = profile_sync_manager._get_device_id()
+        profile_sync_manager.register_device(device_id, device_name)
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        logger.error(f"Error updating device name: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/profile/sync/now', methods=['POST'])
+@token_required(['user', 'admin'])
+def sync_now():
+    """Perform immediate profile sync."""
+    try:
+        if not profile_sync_manager:
+            return jsonify({'error': 'Profile sync not initialized'}), 500
+            
+        device_id = profile_sync_manager._get_device_id()
+        
+        # Get current user's dashboards and preferences
+        dashboards = dashboard_manager.get_user_dashboards(g.user_id)
+        preferences = user_preferences.get_preferences(g.user_id)
+        
+        # Queue sync tasks
+        profile_sync_manager.queue_sync_task(g.user_id, 'dashboards', dashboards)
+        profile_sync_manager.queue_sync_task(g.user_id, 'preferences', preferences)
+        
+        return jsonify({
+            'success': True,
+            'type': 'sync_update',
+            'dashboards': dashboards,
+            'preferences': preferences
+        })
+    except Exception as e:
+        logger.error(f"Error performing sync: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# WebSocket route for real-time sync
+@socketio.on('connect', namespace='/ws/sync')
+@token_required(['user', 'admin'])
+def sync_ws_connect():
+    """Handle WebSocket connection for sync."""
+    try:
+        if not profile_sync_manager:
+            return False
+            
+        device_id = profile_sync_manager._get_device_id()
+        sync_state = profile_sync_manager.get_sync_state(device_id)
+        
+        if not sync_state.get('sync_enabled', False):
+            return False
+            
+        return True
+    except Exception as e:
+        logger.error(f"Error in sync WebSocket connection: {str(e)}")
+        return False
+
+@socketio.on('disconnect', namespace='/ws/sync')
+def sync_ws_disconnect():
+    """Handle WebSocket disconnection for sync."""
+    pass  # Cleanup handled by Flask-SocketIO
+
 @socketio.on('connect')
 def handle_connect():
     """Handle client connection"""
@@ -1254,7 +1380,7 @@ def handle_disconnect():
 
 def start_app(host, user, password, realm='pam', verify_ssl=False, debug=False):
     """Start the Flask application with the given configuration"""
-    global proxmox_nli, status_monitor_thread, resource_monitor_thread
+    global proxmox_nli, status_monitor_thread, resource_monitor_thread, profile_sync_manager, dashboard_manager
     
     # Initialize ProxmoxNLI
     try:
@@ -1271,6 +1397,14 @@ def start_app(host, user, password, realm='pam', verify_ssl=False, debug=False):
         proxmox_nli = None
         if debug:
             print(f"Failed to initialize Proxmox NLI: {str(e)}")
+    
+    # Initialize dashboard manager
+    dashboard_manager = DashboardManager()
+    
+    # Initialize profile sync manager with dashboard manager
+    data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
+    profile_sync_manager = ProfileSyncManager(data_dir=data_dir, dashboard_manager=dashboard_manager)
+    profile_sync_manager.start_sync_service()
     
     # Initialize app config for storing optimization recommendations
     app.config['optimization_recommendations'] = []
@@ -1290,6 +1424,8 @@ def start_app(host, user, password, realm='pam', verify_ssl=False, debug=False):
         socketio.run(app, debug=debug, host='0.0.0.0', port=int(os.getenv('API_PORT', 5000)))
     except KeyboardInterrupt:
         logger.info("Web server terminated by keyboard interrupt")
+        if profile_sync_manager:
+            profile_sync_manager.stop_sync_service()
         print("\nShutting down server...")
 
 if __name__ == '__main__':
