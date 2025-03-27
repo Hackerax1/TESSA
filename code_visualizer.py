@@ -239,83 +239,174 @@ class CodeVisualizer:
             logger.error(f"Error processing file {file_path}: {str(e)}")
     
     def _generate_class_diagram(self) -> None:
-        """Generate a class hierarchy diagram using Mermaid syntax."""
-        output_path = os.path.join(self.output_dir, "class_diagram.md")
+        """Generate class hierarchy diagrams using Mermaid syntax, split by packages."""
+        # Group classes by top-level package
+        package_classes = {}
+        for class_name, class_info in self.classes.items():
+            package = class_info["module"].split('.')[0] if '.' in class_info["module"] else class_info["module"]
+            if package not in package_classes:
+                package_classes[package] = {}
+            package_classes[package][class_name] = class_info
         
-        with open(output_path, "w") as f:
-            f.write("# TESSA Class Hierarchy Diagram\n\n")
-            f.write("This diagram shows the class hierarchy of the main classes in TESSA.\n\n")
+        # Create main index file
+        index_path = os.path.join(self.output_dir, "class_diagram.md")
+        with open(index_path, "w") as f:
+            f.write("# TESSA Class Hierarchy Diagrams\n\n")
+            f.write("These diagrams show the class hierarchy of TESSA, organized by package.\n\n")
             
-            f.write("```mermaid\nclassDiagram\n")
+            # Add links to each package diagram
+            f.write("## Package Diagrams\n\n")
+            for package in sorted(package_classes.keys()):
+                # Count classes in this package
+                class_count = len(package_classes[package])
+                f.write(f"- [{package} ({class_count} classes)](class_diagram_{package}.md)\n")
             
-            # Write class definitions and relationships
-            for class_name, class_info in self.classes.items():
-                short_name = class_info["name"]
+            # Add a note about the diagram organization
+            f.write("\n## Note\n\n")
+            f.write("The class diagrams have been split by package to improve readability. ")
+            f.write("Each package diagram shows the classes defined in that package and their relationships.\n")
+        
+        # Generate a diagram for each package
+        for package, classes in package_classes.items():
+            package_path = os.path.join(self.output_dir, f"class_diagram_{package}.md")
+            with open(package_path, "w") as f:
+                f.write(f"# {package} Class Hierarchy\n\n")
+                f.write(f"This diagram shows the class hierarchy of the `{package}` package.\n\n")
+                f.write("[Back to main class diagram index](class_diagram.md)\n\n")
                 
-                # Add class with methods
-                if class_info["methods"]:
-                    f.write(f"    class {short_name} {{\n")
-                    for method in class_info["methods"]:
-                        if method == "__init__":
-                            f.write(f"        +{method}()\n")
-                        elif method.startswith("_"):
-                            f.write(f"        -{method}()\n")
+                f.write("```mermaid\nclassDiagram\n")
+                
+                # Write class definitions
+                for class_name, class_info in classes.items():
+                    short_name = class_info["name"]
+                    
+                    # Add class with methods (limit to max 10 methods to avoid diagram bloat)
+                    if class_info["methods"]:
+                        f.write(f"    class {short_name} {{\n")
+                        # Take at most 10 methods to avoid massive diagram
+                        displayed_methods = class_info["methods"][:10]
+                        if len(class_info["methods"]) > 10:
+                            displayed_methods.append("...")
+                            
+                        for method in displayed_methods:
+                            if method == "...":
+                                f.write(f"        ...\n")
+                            elif method == "__init__":
+                                f.write(f"        +{method}()\n")
+                            elif method.startswith("_"):
+                                f.write(f"        -{method}()\n")
+                            else:
+                                f.write(f"        +{method}()\n")
+                        f.write("    }\n")
+                    else:
+                        f.write(f"    class {short_name}\n")
+                
+                # Add inheritance relationships within this package
+                for class_name, class_info in classes.items():
+                    short_name = class_info["name"]
+                    for base in class_info["bases"]:
+                        if "." in base:
+                            base_short = base.split(".")[-1]
                         else:
-                            f.write(f"        +{method}()\n")
-                    f.write("    }\n")
-                else:
-                    f.write(f"    class {short_name}\n")
+                            base_short = base
+                        f.write(f"    {base_short} <|-- {short_name}\n")
                 
-                # Add inheritance relationships
-                for base in class_info["bases"]:
-                    if "." in base:
-                        base = base.split(".")[-1]
-                    f.write(f"    {base} <|-- {short_name}\n")
-            
-            f.write("```\n")
-            
-            # Add legend
-            f.write("\n## Legend\n\n")
-            f.write("- Classes are shown with their methods\n")
-            f.write("- `+` indicates public methods\n")
-            f.write("- `-` indicates private/protected methods\n")
-            f.write("- Inheritance is shown with arrows pointing from the child to the parent class\n")
+                f.write("```\n\n")
+                
+                # Add legend
+                f.write("\n## Legend\n\n")
+                f.write("- Classes are shown with their methods (maximum 10 methods shown)\n")
+                f.write("- `+` indicates public methods\n")
+                f.write("- `-` indicates private/protected methods\n")
+                f.write("- Inheritance is shown with arrows pointing from the child to the parent class\n")
     
     def _generate_dependency_diagram(self) -> None:
         """Generate a module dependency diagram using Mermaid syntax."""
         output_path = os.path.join(self.output_dir, "dependency_diagram.md")
         
-        # Filter dependencies to include only modules in our codebase
-        filtered_deps = {}
-        for module, deps in self.dependencies.items():
-            filtered_deps[module] = set()
-            for dep in deps:
-                # Check if it's one of our own modules
-                if any(dep.startswith(src_dir) for src_dir in self.source_dirs) or dep in self.modules:
-                    filtered_deps[module].add(dep)
+        # Group modules by top-level package to reduce complexity
+        package_modules = defaultdict(list)
+        for module in self.modules:
+            top_package = module.split('.')[0]
+            package_modules[top_package].append(module)
         
+        # Create a more focused dependency diagram
         with open(output_path, "w") as f:
             f.write("# TESSA Module Dependency Diagram\n\n")
             f.write("This diagram shows the dependencies between modules in TESSA.\n\n")
             
+            # Add subpackage diagrams for each top-level package
+            for package, modules in package_modules.items():
+                if len(modules) > 1:  # Only create diagrams for packages with multiple modules
+                    f.write(f"## {package} Package Dependencies\n\n")
+                    f.write("```mermaid\nflowchart LR\n")
+                    
+                    # Add nodes for all modules in this package
+                    for module in modules:
+                        safe_name = self._safe_id(module)
+                        # Use just the last part of the module name for display
+                        module_short = module.split(".")[-1]
+                        f.write(f"    {safe_name}[\"{module_short}\"]\n")
+                    
+                    # Add edges for dependencies within this package
+                    added_deps = set()
+                    for module in modules:
+                        if module in self.dependencies:
+                            source = self._safe_id(module)
+                            
+                            for dep in self.dependencies[module]:
+                                # Check if this is an intra-package dependency
+                                if dep in modules:
+                                    target = self._safe_id(dep)
+                                    dep_key = f"{source}_{target}"
+                                    
+                                    # Avoid duplicate edges
+                                    if dep_key not in added_deps and source != target:
+                                        f.write(f"    {source} --> {target}\n")
+                                        added_deps.add(dep_key)
+                    
+                    f.write("```\n\n")
+            
+            # Add a cross-package dependency diagram
+            f.write("## Cross-Package Dependencies\n\n")
             f.write("```mermaid\nflowchart LR\n")
             
-            # Add nodes for all modules
-            for module in self.modules:
-                safe_name = self._safe_id(module)
-                module_short = module.split(".")[-1]
-                f.write(f"    {safe_name}[{module_short}]\n")
+            # Add nodes for each package
+            for package in package_modules:
+                safe_name = self._safe_id(f"pkg_{package}")
+                f.write(f"    {safe_name}[\"{package}\"]\n")
             
-            # Add edges for dependencies
-            for module, deps in filtered_deps.items():
-                safe_source = self._safe_id(module)
+            # Add edges for cross-package dependencies
+            added_deps = set()
+            for source_module in self.modules:
+                source_pkg = source_module.split('.')[0]
+                source = self._safe_id(f"pkg_{source_pkg}")
                 
-                for dep in deps:
-                    safe_target = self._safe_id(dep)
-                    if safe_source != safe_target and dep in self.modules:
-                        f.write(f"    {safe_source} --> {safe_target}\n")
+                if source_module in self.dependencies:
+                    for dep_module in self.dependencies[source_module]:
+                        # Skip if dep_module isn't in our modules (external dependency)
+                        parts = dep_module.split('.')
+                        if parts[0] not in package_modules:
+                            continue
+                            
+                        dep_pkg = parts[0]
+                        if dep_pkg != source_pkg:
+                            target = self._safe_id(f"pkg_{dep_pkg}")
+                            dep_key = f"{source}_{target}"
+                            
+                            # Avoid duplicate edges
+                            if dep_key not in added_deps:
+                                f.write(f"    {source} --> {target}\n")
+                                added_deps.add(dep_key)
             
-            f.write("```\n")
+            f.write("```\n\n")
+            
+            # Add a note about the diagram organization
+            f.write("## Notes\n\n")
+            f.write("1. The diagrams are split by package to improve readability.\n")
+            f.write("2. Each package diagram shows dependencies between modules within that package.\n")
+            f.write("3. The cross-package diagram shows dependencies between different packages.\n")
+            f.write("4. External dependencies (outside the codebase) are not shown.\n")
     
     def _generate_package_diagram(self) -> None:
         """Generate a package structure diagram using Mermaid syntax."""

@@ -140,8 +140,8 @@ class APIDocGenerator:
         logger.debug(f"Processing file: {file_path} (module: {module_name})")
         
         try:
-            # Parse the Python file
-            with open(file_path, "r") as f:
+            # Parse the Python file with UTF-8 encoding
+            with open(file_path, "r", encoding="utf-8", errors="replace") as f:
                 source_code = f.read()
             
             # Parse AST
@@ -167,7 +167,7 @@ class APIDocGenerator:
             
             output_path = os.path.join(output_subdir, f"{module_parts[-1]}.md")
             
-            with open(output_path, "w") as f:
+            with open(output_path, "w", encoding="utf-8") as f:
                 # Write module header
                 f.write(f"# {module_parts[-1]}\n\n")
                 
@@ -488,6 +488,8 @@ class APIDocGenerator:
                 # This is a file
                 rel_path = value
                 link_text = key
+                # Replace backslashes with forward slashes for Markdown links
+                rel_path = rel_path.replace('\\', '/')
                 f.write(f"{indent}- [{link_text}]({rel_path})\n")
 
 
