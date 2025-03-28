@@ -35,7 +35,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        test-group: [core, nlu, hardware, plugins, backup, api, integration]
+        test-group: [core, nlu, hardware, plugins, backup, api, integration, login, template]
         include:
           - test-group: core
             path: tests/core/
@@ -51,6 +51,10 @@ jobs:
             path: tests/api/
           - test-group: integration
             path: tests/integration/
+          - test-group: login
+            path: tests/test_login.py
+          - test-group: template
+            path: tests/test_templates.py
     name: ${{ matrix.test-group }} Tests
     steps:
     - uses: actions/checkout@v3
