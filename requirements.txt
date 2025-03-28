@@ -33,3 +33,7 @@ PyJWT
 schedule
 scipy
 librosa
+mkdocs
+mkdocs-material
+mkdocstrings
+pydocstyle
