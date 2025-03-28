@@ -1,0 +1,99 @@
+id: linuxgsm
+name: LinuxGSM
+description: Linux Game Server Manager - Command-line tool for quick and simple deployment of dedicated game servers
+keywords:
+  - gaming
+  - game server
+  - dedicated server
+  - multiplayer
+  - server management
+  - hosting
+  - game hosting
+vm_requirements:
+  memory: 4096
+  cores: 4
+  disk: 50
+  os_template: ubuntu-22.04
+user_goals:
+  - id: gaming
+    relevance: high
+    reason: "LinuxGSM makes it easy to host your own game servers for multiplayer gaming"
+deployment:
+  method: script
+  script: |
+    #!/bin/bash
+    # Install LinuxGSM dependencies
+    echo "Installing LinuxGSM dependencies..."
+    apt-get update
+    apt-get install -y curl wget file tar bzip2 gzip unzip bsdmainutils python3 util-linux ca-certificates binutils bc jq tmux netcat lib32gcc-s1 lib32stdc++6 libsdl2-2.0-0:i386 steamcmd
+    
+    # Create a dedicated user for the game servers
+    useradd -m -s /bin/bash gameserver
+    
+    # Switch to gameserver user
+    su - gameserver << EOF
+    # Download LinuxGSM
+    wget -O linuxgsm.sh https://linuxgsm.sh
+    chmod +x linuxgsm.sh
+    
+    # Create installation directories
+    mkdir -p ~/gameservers
+    cd ~/gameservers
+    
+    # Initialize LinuxGSM
+    echo "LinuxGSM has been installed. Use './linuxgsm.sh' to install specific game servers."
+    EOF
+    
+  post_install_steps:
+    - "echo 'LinuxGSM installed successfully.'"
+    - "echo 'To install a specific game server, login as gameserver user and follow the instructions.'"
+
+access_info: |
+  LinuxGSM has been successfully deployed!
+  
+  To manage your game servers:
+  1. SSH into your server as the gameserver user:
+     ssh gameserver@<VM_IP>
+  
+  2. Install a specific game server (example for Counter-Strike: Global Offensive):
+     ./linuxgsm.sh csgoserver
+     ./csgoserver install
+  
+  3. Common server commands:
+     ./[gameserver] start     - Start the server
+     ./[gameserver] stop      - Stop the server
+     ./[gameserver] restart   - Restart the server
+     ./[gameserver] monitor   - Monitor the server
+     ./[gameserver] update    - Update the server
+     ./[gameserver] backup    - Backup the server
+     ./[gameserver] console   - Access the server console
+
+notes: |
+  LinuxGSM is a command-line tool that provides:
+  - Easy installation and management of dedicated game servers
+  - Automatic updates for both the game server and LinuxGSM itself
+  - Server monitoring and automatic restart on crash
+  - Backup functionality for your game server data
+  - Detailed logs for troubleshooting
+  
+  Supported Game Servers:
+  - Counter-Strike (CS:GO, CS:Source)
+  - Minecraft (Java, Bedrock)
+  - ARK: Survival Evolved
+  - Team Fortress 2
+  - Rust
+  - Garry's Mod
+  - Valheim
+  - And many more (100+ games)
+  
+  Performance Tips:
+  - Allocate sufficient RAM and CPU cores for your game server
+  - Use SSD storage for better performance
+  - Make sure your network has sufficient bandwidth and low latency
+  - Consider using tmux to manage multiple game servers
+  
+  Security Considerations:
+  - Keep your game servers updated
+  - Configure proper firewall rules
+  - Use strong passwords for admin access
+  - Consider disabling direct root SSH access

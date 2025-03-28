@@ -1,0 +1,112 @@
+id: lancache
+name: LANCache
+description: Local caching proxy server for game downloads and updates that reduces internet bandwidth usage for multiple clients
+keywords:
+  - gaming
+  - cache
+  - proxy
+  - bandwidth
+  - steam
+  - epic
+  - battle.net
+  - lan party
+  - download cache
+vm_requirements:
+  memory: 4096
+  cores: 2
+  disk: 500
+  os_template: ubuntu-22.04
+user_goals:
+  - id: gaming
+    relevance: high
+    reason: "LANCache saves bandwidth by caching game downloads for multiple users"
+  - id: networking
+    relevance: high
+    reason: "Optimizes network usage by locally caching large game downloads"
+deployment:
+  method: docker
+  docker_compose: |
+    version: '3.8'
+    
+    services:
+      lancache-dns:
+        image: lancachenet/lancache-dns:latest
+        container_name: lancache-dns
+        environment:
+          - USE_GENERIC_CACHE=true
+          - LANCACHE_IP=${LANCACHE_IP:-10.0.0.2}
+          - UPSTREAM_DNS=${UPSTREAM_DNS:-1.1.1.1}
+        ports:
+          - 53:53/udp
+        restart: unless-stopped
+      
+      lancache:
+        image: lancachenet/monolithic:latest
+        container_name: lancache
+        volumes:
+          - /mnt/lancache-data:/data/cache
+          - /mnt/lancache-logs:/data/logs
+        ports:
+          - 80:80
+          - 443:443
+        environment:
+          - CACHE_MEM_SIZE=${CACHE_MEM_SIZE:-4096m}
+          - CACHE_DISK_SIZE=${CACHE_DISK_SIZE:-400000m}
+          - CACHE_MAX_AGE=${CACHE_MAX_AGE:-3650d}
+        restart: unless-stopped
+
+  post_install_steps:
+    - "echo 'Creating cache directories...'"
+    - "mkdir -p /mnt/lancache-data /mnt/lancache-logs"
+    - "chmod -R 777 /mnt/lancache-data /mnt/lancache-logs"
+    - "echo 'Setting up IP forwarding...'"
+    - "echo 'net.ipv4.ip_forward=1' >> /etc/sysctl.conf"
+    - "sysctl -p"
+
+access_info: |
+  LANCache has been successfully deployed!
+  
+  DNS Server IP: <VM_IP>
+  
+  Client Configuration:
+  1. Set your DNS server to <VM_IP> on all devices that should use the cache
+  2. Alternatively, configure your router's DHCP to use <VM_IP> as the primary DNS
+  
+  No further configuration is needed on the server side - the cache will start working automatically.
+  
+notes: |
+  LANCache proxies and caches downloads from:
+  - Steam
+  - Epic Games
+  - Blizzard Battle.net
+  - Origin
+  - Riot
+  - Uplay
+  - Windows Updates
+  - PlayStation Network
+  - Xbox Live
+  - Nintendo
+  - And more
+  
+  Benefits:
+  - Drastically reduces internet bandwidth usage for multiple downloads
+  - Improves download speeds for clients on the local network
+  - Especially useful for households with multiple gamers or LAN parties
+  - Can cache Windows updates as well as game content
+  
+  Performance Tips:
+  - Allocate as much disk space as possible for better caching
+  - Use SSD storage for better performance (but HDD is fine for larger cache sizes)
+  - For best results, ensure all clients use the LANCache DNS server
+  - Monitor cache hit rates through the included logs
+  
+  Network Considerations:
+  - Ensure your router allows the VM to act as a DNS server
+  - For proper operation, make sure the VM has a static IP address
+  - If using in a larger network, consider configuring DNS forwarding in your router
+
+requirements:
+  network:
+    - "Static IP address for the LANCache VM"
+    - "Router must allow the VM to act as a DNS server"
+    - "Opening ports 53 (UDP), 80 and 443 on the VM's firewall"

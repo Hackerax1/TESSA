@@ -1,0 +1,121 @@
+id: romm
+name: RomM
+description: ROM Manager that allows you to scan, enrich, and browse your game collection with a clean and responsive interface
+keywords:
+  - gaming
+  - rom manager
+  - game collection
+  - retro gaming
+  - game metadata
+  - game database
+  - emulation
+  - roms
+vm_requirements:
+  memory: 2048
+  cores: 2
+  disk: 50
+  os_template: ubuntu-22.04
+dependencies:
+  - id: mariadb
+    required: true
+    description: "Database for storing ROM metadata and user information"
+  - id: nginx
+    required: false
+    description: "Recommended for secure external access with SSL"
+user_goals:
+  - id: gaming
+    relevance: high
+    reason: "RomM helps you organize and manage your game ROM collection efficiently"
+  - id: media
+    relevance: medium
+    reason: "Provides a way to catalog and browse your gaming library"
+  - id: files
+    relevance: medium
+    reason: "Helps organize and categorize your ROM files"
+deployment:
+  method: docker
+  docker_compose: |
+    version: '3.8'
+    
+    services:
+      romm:
+        image: stefandreas/romm:latest
+        container_name: romm
+        environment:
+          - DB_HOST=db
+          - DB_PORT=3306
+          - DB_DATABASE=romm
+          - DB_USERNAME=romm
+          - DB_PASSWORD=${DB_PASSWORD:-romm}
+          - APP_URL=http://${HOST_DOMAIN:-localhost}
+        volumes:
+          - romm_data:/app/storage
+          - /mnt/roms:/roms:ro
+        ports:
+          - 8000:80
+        restart: unless-stopped
+        depends_on:
+          - db
+      
+      db:
+        image: mariadb:10.5
+        container_name: romm-db
+        environment:
+          - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-rootpassword}
+          - MYSQL_DATABASE=romm
+          - MYSQL_USER=romm
+          - MYSQL_PASSWORD=${DB_PASSWORD:-romm}
+        volumes:
+          - romm_db:/var/lib/mysql
+        restart: unless-stopped
+    
+    volumes:
+      romm_data:
+      romm_db:
+
+  post_install_steps:
+    - "echo 'Creating ROMs directory...'"
+    - "mkdir -p /mnt/roms"
+    - "chmod -R 755 /mnt/roms"
+    - "echo 'ROM directory created at /mnt/roms'"
+    - "echo 'Please place your ROM files in the appropriate system folders within /mnt/roms'"
+
+access_info: |
+  RomM has been successfully deployed!
+  
+  Access the web interface at: http://<VM_IP>:8000
+  
+  Initial Setup:
+  1. Create your admin account on first access
+  2. Organize your ROM files in the /mnt/roms directory with appropriate system folders:
+     - /mnt/roms/nes
+     - /mnt/roms/snes
+     - /mnt/roms/genesis
+     - etc.
+  3. Configure your ROM folders in the web interface settings
+  4. Run a scan to import your ROM collection
+  5. Set up scrapers to fetch metadata and images for your games
+
+notes: |
+  RomM provides a powerful ROM management solution:
+  - Clean, responsive interface for browsing your game collection
+  - Supports multiple platforms and naming schemes
+  - Custom tags and favorites for better organization
+  - Metadata scraping from various sources
+  - Image and video preview support
+  - Search functionality
+  
+  Tips for Organizing ROMs:
+  - Use consistent folder structure for each system
+  - For multi-disk games, place both disks in the same folder
+  - For PlayStation games, use the "ps" folder name rather than "psx"
+  - Common naming formats: "[game].[system].rom" or system-specific folders
+  
+  Compatible with EmulatorJS:
+  - RomM can work alongside EmulatorJS for a complete retro gaming solution
+  - Set up EmulatorJS to access the same ROM folders
+  - Use RomM to organize and discover games, then play them with EmulatorJS
+
+integration:
+  - id: emulatorjs
+    description: "Can share the same ROM directory with EmulatorJS for a complete retro gaming experience"

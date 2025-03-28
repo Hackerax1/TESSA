@@ -1,0 +1,115 @@
+id: amp-game-server
+name: AMP Game Server
+description: Web-based control panel for managing game servers with support for multiple instances and game types
+keywords:
+  - gaming
+  - game server
+  - control panel
+  - web ui
+  - dedicated server
+  - multiplayer
+  - server management
+  - hosting
+  - game hosting
+vm_requirements:
+  memory: 4096
+  cores: 4
+  disk: 50
+  os_template: ubuntu-22.04
+dependencies:
+  - id: nginx
+    required: false
+    description: "Recommended for secure external access with SSL"
+user_goals:
+  - id: gaming
+    relevance: high
+    reason: "AMP provides a comprehensive web-based solution for managing multiple game servers"
+deployment:
+  method: script
+  script: |
+    #!/bin/bash
+    # Install AMP dependencies
+    apt-get update
+    apt-get install -y curl wget unzip software-properties-common apt-transport-https ca-certificates gnupg
+    
+    # Install .NET runtime
+    wget https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
+    dpkg -i packages-microsoft-prod.deb
+    rm packages-microsoft-prod.deb
+    apt-get update
+    apt-get install -y dotnet-runtime-6.0
+    
+    # Create AMP user
+    useradd -m -s /bin/bash ampuser
+    
+    # Switch to AMP user and install
+    su - ampuser << EOF
+    # Download and install AMP
+    mkdir -p ~/amp
+    cd ~/amp
+    wget https://github.com/CubeCoders/AMP/releases/latest/download/ampinstaller.sh
+    chmod +x ampinstaller.sh
+    ./ampinstaller.sh --auto
+    
+    # Set initial admin password
+    echo "amp:${AMP_PASSWORD:-adminpassword}" > ~/.ampauth.txt
+    EOF
+    
+    # Configure firewall
+    ufw allow 8080/tcp
+    ufw allow 25565:25585/tcp  # Common Minecraft port range
+    ufw allow 7777:7787/tcp    # Common game server port range
+    ufw allow 27015:27025/tcp  # Common Source engine port range
+
+  post_install_steps:
+    - "echo 'AMP Game Server installed successfully'"
+    - "echo 'Access the web UI at http://<VM_IP>:8080'"
+    - "echo 'Default username: amp'"
+    - "echo 'Default password: adminpassword (or your specified password)'"
+
+access_info: |
+  AMP Game Server has been successfully deployed!
+  
+  Access Information:
+  - Web UI: http://<VM_IP>:8080
+  - Default Username: amp
+  - Default Password: adminpassword (or your custom password)
+  
+  Initial Setup:
+  1. Log in with the credentials above
+  2. Complete the setup wizard to configure your first game server instance
+  3. Generate an instance for each game server you want to host
+  4. Configure firewall rules for your specific game servers
+  5. Set up scheduled backups and updates
+
+notes: |
+  AMP Game Server features:
+  - Web-based management interface for multiple game servers
+  - User management with different permission levels
+  - Instance templates for quick deployment
+  - Scheduled tasks including backups, updates, and restarts
+  - Real-time console access and monitoring
+  - Plugin system for customization
+  
+  Supported Games:
+  - Minecraft (Java and Bedrock)
+  - ARK: Survival Evolved
+  - Valheim
+  - Terraria
+  - Counter-Strike
+  - 7 Days to Die
+  - Rust
+  - Factorio
+  - And many more
+  
+  Performance Tips:
+  - Allocate sufficient resources for each game server instance
+  - Use SSD storage for improved performance
+  - Configure automatic backups but be mindful of disk space
+  - Consider setting up multiple instances across different VMs for better resource isolation
+  
+  Security Considerations:
+  - Change the default password immediately
+  - Enable HTTPS using SSL certificates
+  - Set up proper firewall rules specific to your game servers
+  - Regularly update AMP and game servers

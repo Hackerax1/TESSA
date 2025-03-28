@@ -1,0 +1,94 @@
+id: emulatorjs
+name: EmulatorJS
+description: Web-based emulator for retro gaming with support for various game consoles and systems
+keywords:
+  - gaming
+  - emulation
+  - retro
+  - games
+  - console
+  - roms
+  - nostalgia
+  - arcade
+  - web emulator
+vm_requirements:
+  memory: 2048
+  cores: 2
+  disk: 20
+  os_template: ubuntu-22.04
+dependencies:
+  - id: nginx
+    required: false
+    description: "Recommended for secure external access with SSL"
+user_goals:
+  - id: gaming
+    relevance: high
+    reason: "EmulatorJS provides a complete web-based platform for playing retro games"
+  - id: media
+    relevance: medium
+    reason: "Allows you to enjoy your retro gaming collection through a web browser"
+deployment:
+  method: docker
+  docker_compose: |
+    version: '3.8'
+    
+    services:
+      emulatorjs:
+        image: lscr.io/linuxserver/emulatorjs:latest
+        container_name: emulatorjs
+        environment:
+          - PUID=1000
+          - PGID=1000
+          - TZ=${TIME_ZONE:-Etc/UTC}
+          - SUBFOLDER=/
+        volumes:
+          - emulatorjs_config:/config
+          - /mnt/roms:/roms
+          - /mnt/data:/data
+        ports:
+          - 3000:3000
+          - 80:80
+          - 4001:4001
+        restart: unless-stopped
+    
+    volumes:
+      emulatorjs_config:
+
+  post_install_steps:
+    - "echo 'Creating ROMs directory...'"
+    - "mkdir -p /mnt/roms"
+    - "mkdir -p /mnt/data"
+    - "chmod -R 777 /mnt/roms /mnt/data"
+    - "echo 'ROM directories created at /mnt/roms and /mnt/data'"
+
+access_info: |
+  EmulatorJS has been successfully deployed!
+  
+  Access the web interface at: http://<VM_IP>:80
+  
+  Initial Setup:
+  1. Place your ROMs in the appropriate system folders in /mnt/roms
+  2. The first time you access the web interface, EmulatorJS will help you set up your library
+  3. You can customize the frontend appearance and settings through the web interface
+  4. For systems requiring BIOSes, place them in the BIOS folder with the correct naming
+  
+  Features to Explore:
+  - Browser-based emulation for dozens of systems
+  - Save states for game progress
+  - Controller and keyboard support
+  - Mobile-friendly interface
+
+notes: |
+  EmulatorJS provides a full web-based emulation platform:
+  - Supports NES, SNES, Genesis, PlayStation, N64, and many other systems
+  - Easy to use web interface with responsive design
+  - Allows playing games directly in your browser
+  - Multi-player support for some systems
+  - Save states and memory card support
+  
+  Usage Tips:
+  - Organize ROMs in the correct system folders (automatically created)
+  - Some systems require BIOS files to work properly
+  - For multi-disk games, follow the naming convention for proper detection
+  - Use a wired controller for best gaming experience
+  - EmulatorJS doesn't provide ROMs - you must supply your own legal backups
