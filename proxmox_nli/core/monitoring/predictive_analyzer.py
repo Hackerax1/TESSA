@@ -203,11 +203,15 @@ class PredictiveAnalyzer:
         if len(predictions) < 2:
             return 'stable'
             
-        start_avg = sum(predictions[:6]) / 6  # Average of first 6 hours
-        end_avg = sum(predictions[-6:]) / 6   # Average of last 6 hours
+        start_avg = sum(predictions[:6]) / 6 if len(predictions) >= 6 else sum(predictions[:len(predictions)//2]) / (len(predictions)//2)
+        end_avg = sum(predictions[-6:]) / 6 if len(predictions) >= 6 else sum(predictions[len(predictions)//2:]) / (len(predictions) - len(predictions)//2)
         
         diff = end_avg - start_avg
-        if abs(diff) < 0.1 * start_avg:  # Less than 10% change
+        # Calculate percentage change relative to the average value
+        avg_value = (start_avg + end_avg) / 2
+        
+        # Use a smaller threshold for identifying stable trends
+        if abs(diff) < 0.05 * avg_value or abs(diff) < 1.0:  # Less than 5% change or absolute difference less than 1.0
             return 'stable'
         return 'increasing' if diff > 0 else 'decreasing'
         

@@ -52,6 +52,7 @@
   - [ ] Build service metrics dashboard with plain language explanations.
   - [ ] Implement cluster-wide commands for multi-node management.
   - [ ] Create migration assistant with guided workflows.
+  - [ ] Implement automated domain and reverse proxy management.
 
 - [ ] **User Experience:**
   - [ ] Add natural conversation transitions and topic memory between sessions.

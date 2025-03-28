@@ -62,25 +62,32 @@ class TestSystemInfoManager(unittest.TestCase):
         self.assertEqual(memory_info["percentage"], 50.0)
 
     @patch('platform.system')
-    @patch('subprocess.run')
-    def test_get_cpu_info_linux(self, mock_run, mock_system):
+    @patch('builtins.open', new_callable=MagicMock)
+    def test_get_cpu_info_linux(self, mock_open, mock_system):
         mock_system.return_value = "Linux"
-        mock_run.return_value = MagicMock(
-            stdout="""processor       : 0
+        
+        # Create a mock file object
+        mock_file = MagicMock()
+        mock_file.__enter__.return_value.read.return_value = """processor       : 0
 model name      : Intel(R) Core(TM) i7-10700K CPU @ 3.80GHz
-flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 vmx
-""",
-            stderr="",
-            returncode=0
-        )
+flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 vmx"""
+        mock_open.return_value = mock_file
 
-        with patch('builtins.open', create=True) as mock_open:
-            mock_open.return_value.__enter__.return_value.read.return_value = mock_run.return_value.stdout
-            cpu_info = self.system_info.get_cpu_info()
-            
-            self.assertEqual(cpu_info.get("model"), "Intel(R) Core(TM) i7-10700K CPU @ 3.80GHz")
-            self.assertTrue(cpu_info["virtualization_support"]["vmx"])
-            self.assertTrue(cpu_info["virtualization_support"]["available"])
+        # Mock psutil CPU-related functions
+        with patch('psutil.cpu_count', side_effect=[8, 16]) as mock_cpu_count:
+            with patch('psutil.cpu_percent', return_value=25.0) as mock_cpu_percent:
+                with patch('psutil.cpu_freq') as mock_cpu_freq:
+                    mock_cpu_freq.return_value = MagicMock(
+                        max=4500.0,
+                        min=800.0,
+                        current=3800.0
+                    )
+                    
+                    cpu_info = self.system_info.get_cpu_info()
+                    
+                    self.assertEqual(cpu_info.get("model"), "Intel(R) Core(TM) i7-10700K CPU @ 3.80GHz")
+                    self.assertTrue(cpu_info["virtualization_support"]["vmx"])
+                    self.assertTrue(cpu_info["virtualization_support"]["available"])
 
 class TestStorageInfoManager(unittest.TestCase):
     def setUp(self):
