@@ -63,13 +63,14 @@ class RequirementsChecker:
             # Instead of directly calling cl.exe, check for the existence of necessary files
             # or if any required packages can be built correctly
             try:
-                # First, try checking if Visual C++ compiler is available by building a simple extension
-                import distutils.ccompiler
-                compiler = distutils.ccompiler.new_compiler()
+                # Check if Visual C++ compiler is available by building a simple extension
+                from setuptools import _distutils
+                from setuptools._distutils import ccompiler
+                compiler = ccompiler.new_compiler()
                 compiler.initialize()
                 self.print_status("Build Tools", True, "Visual C++ Build Tools found")
                 return True
-            except (ImportError, distutils.errors.CompileError, AttributeError, Exception) as e:
+            except (ImportError, AttributeError, Exception) as e:
                 # Next, try checking for common Visual C++ Build Tools paths
                 vs_paths = [
                     os.path.expandvars("%ProgramFiles(x86)%\\Microsoft Visual Studio"),
