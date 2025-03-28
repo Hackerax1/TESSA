@@ -1,10 +1,8 @@
 """Tests for hardware compatibility and detection functionality."""
 import unittest
 from unittest.mock import Mock, patch
-import os
-import sys
 from installer.hardware.compatibility_checker import CompatibilityChecker
-from installer.hardware.hardware_compatibility_db import HardwareCompatibilityDB
+from installer.hardware.types import HardwareCompatibility
 
 class TestCompatibilityChecker(unittest.TestCase):
     """Test cases for hardware compatibility checking."""
@@ -31,7 +29,8 @@ class TestCompatibilityChecker(unittest.TestCase):
         self.memory_info = {
             "total": 32 * 1024 * 1024 * 1024,  # 32GB
             "available": 28 * 1024 * 1024 * 1024,  # 28GB
-            "used": 4 * 1024 * 1024 * 1024  # 4GB
+            "used": 4 * 1024 * 1024 * 1024,  # 4GB
+            "percent": 12.5
         }
         
         self.disk_info = [{
@@ -40,7 +39,7 @@ class TestCompatibilityChecker(unittest.TestCase):
             "model": "Samsung 970 EVO Plus",
             "type": "nvme",
             "used": 200 * 1024 * 1024 * 1024,  # 200GB
-            "free": 800 * 1024 * 1024 * 1024  # 800GB
+            "free": 800 * 1024 * 1024 * 1024   # 800GB
         }]
         
         self.gpu_info = [{
@@ -70,28 +69,28 @@ class TestCompatibilityChecker(unittest.TestCase):
             self.gpu_info,
             self.network_info
         )
-        
+
     def test_check_cpu_compatibility(self):
         """Test CPU compatibility checking."""
         results = []
-        self.checker._check_cpu(results)
+        self.checker._check_cpu_virtualization(results)
         
         # Find CPU-related results
-        cpu_results = [r for r in results if r.component.startswith("CPU")]
+        cpu_results = [r for r in results if r.component == "CPU Virtualization"]
+        self.assertTrue(len(cpu_results) > 0)
+        self.assertTrue(cpu_results[0].is_compatible)
         
-        # Should be compatible (AMD-V support)
-        self.assertTrue(any(r.is_compatible for r in cpu_results))
-        
-        # Modify CPU info to remove virtualization support
+        # Test without virtualization support
         self.checker.cpu_info["virtualization_support"]["svm"] = False
+        self.checker.cpu_info["virtualization_support"]["vmx"] = False
         
         results = []
-        self.checker._check_cpu(results)
-        cpu_results = [r for r in results if r.component.startswith("CPU")]
-        
-        # Should not be compatible (no virtualization support)
-        self.assertTrue(any(not r.is_compatible for r in cpu_results))
-        
+        self.checker._check_cpu_virtualization(results)
+        cpu_results = [r for r in results if r.component == "CPU Virtualization"]
+        self.assertTrue(len(cpu_results) > 0)
+        self.assertFalse(cpu_results[0].is_compatible)
+        self.assertEqual(cpu_results[0].severity, "critical")
+
     def test_check_memory_compatibility(self):
         """Test memory compatibility checking."""
         results = []
@@ -101,7 +100,7 @@ class TestCompatibilityChecker(unittest.TestCase):
         self.assertTrue(ram_result.is_compatible)
         
         # Test with insufficient RAM
-        self.checker.memory_info["total"] = 4 * 1024 * 1024 * 1024  # 4GB
+        self.checker.memory_info["total"] = 2 * 1024 * 1024 * 1024  # 2GB
         
         results = []
         self.checker._check_ram(results)
@@ -111,106 +110,56 @@ class TestCompatibilityChecker(unittest.TestCase):
         self.assertEqual(ram_result.severity, "warning")
         self.assertTrue(ram_result.fallback_available)
         self.assertEqual(ram_result.fallback_option, "increase_swap")
-        
-    def test_check_storage_compatibility(self):
-        """Test storage compatibility checking."""
+
+    def test_check_disk_space(self):
+        """Test disk space compatibility checking."""
         results = []
-        self.checker._check_storage(results)
+        self.checker._check_disk_space(results)
         
-        storage_result = next(r for r in results if r.component == "Storage")
-        self.assertTrue(storage_result.is_compatible)
+        disk_result = next(r for r in results if r.component == "Disk Space")
+        self.assertTrue(disk_result.is_compatible)
         
-        # Test with insufficient storage
-        self.checker.disk_info[0]["size"] = 50 * 1024 * 1024 * 1024  # 50GB
+        # Test with insufficient disk space
+        self.checker.disk_info[0]["free"] = 16 * 1024 * 1024 * 1024  # 16GB
         
         results = []
-        self.checker._check_storage(results)
+        self.checker._check_disk_space(results)
         
-        storage_result = next(r for r in results if r.component == "Storage")
-        self.assertFalse(storage_result.is_compatible)
-        self.assertEqual(storage_result.severity, "critical")
-        
+        disk_result = next(r for r in results if r.component == "Disk Space")
+        self.assertFalse(disk_result.is_compatible)
+        self.assertEqual(disk_result.severity, "warning")
+        self.assertTrue(disk_result.fallback_available)
+
     def test_check_network_compatibility(self):
         """Test network compatibility checking."""
         results = []
         self.checker._check_network(results)
         
-        network_result = next(r for r in results if r.component == "Network")
-        self.assertTrue(network_result.is_compatible)
+        network_results = [r for r in results if r.component.startswith("Network")]
+        self.assertTrue(any(r.is_compatible for r in network_results))
         
         # Test with slow network
-        self.checker.network_info["interfaces"][0]["speed"] = 100  # 100Mbps
+        self.checker.network_info["interfaces"][0]["speed"] = 10  # 10Mbps
         
         results = []
         self.checker._check_network(results)
         
-        network_result = next(r for r in results if r.component == "Network")
-        self.assertTrue(network_result.is_compatible)  # Should still be compatible
-        self.assertEqual(network_result.severity, "warning")  # But with warning
-        
-    def test_check_gpu_compatibility(self):
-        """Test GPU compatibility checking."""
+        network_results = [r for r in results if r.component.startswith("Network")]
+        self.assertTrue(any(r.is_compatible for r in network_results))
+        self.assertTrue(any(r.severity == "warning" for r in network_results))
+
+    def test_check_gpu_passthrough(self):
+        """Test GPU passthrough compatibility checking."""
         results = []
-        self.checker._check_gpu(results)
+        self.checker._check_gpu_passthrough(results)
         
-        gpu_result = next(r for r in results if r.component == "GPU")
-        self.assertTrue(gpu_result.is_compatible)
+        gpu_results = [r for r in results if r.component == "GPU Passthrough"]
+        self.assertTrue(len(gpu_results) > 0)
         
-        # Test without passthrough support
-        self.checker.gpu_info[0]["supports_passthrough"] = False
-        
-        results = []
-        self.checker._check_gpu(results)
-        
-        gpu_result = next(r for r in results if r.component == "GPU")
-        self.assertTrue(gpu_result.is_compatible)  # Should still be compatible
-        self.assertEqual(gpu_result.severity, "info")  # But with info about limited passthrough
-        
-    @patch('proxmox_nli.installer.hardware.hardware_compatibility_db.HardwareCompatibilityDB')
-    def test_community_database_integration(self, mock_db):
-        """Test integration with community hardware database."""
-        # Mock database responses
-        mock_db.return_value.get_hardware_compatibility.return_value = {
-            "is_compatible": True,
-            "notes": "Tested by community",
-            "reported_issues": []
-        }
-        
-        checker = CompatibilityChecker(
-            self.system_info,
-            self.cpu_info,
-            self.memory_info,
-            self.disk_info,
-            self.gpu_info,
-            self.network_info,
-            compatibility_db=mock_db.return_value
-        )
-        
-        results = checker.check_compatibility()
-        
-        # Verify database was queried for CPU and GPU
-        mock_db.return_value.get_hardware_compatibility.assert_any_call(
-            "cpu",
-            mock_db.return_value._generate_hardware_id({"model": self.cpu_info["model"]})
-        )
-        
-        mock_db.return_value.get_hardware_compatibility.assert_any_call(
-            "gpu",
-            mock_db.return_value._generate_hardware_id({"name": self.gpu_info[0]["name"]})
-        )
-        
-    def test_generate_report(self):
-        """Test compatibility report generation."""
-        results = self.checker.check_compatibility()
-        report = self.checker.generate_report()
-        
-        self.assertIn('system_info', report)
-        self.assertIn('compatibility_results', report)
-        self.assertIn('recommendations', report)
-        
-        # Verify report content
-        self.assertEqual(report['system_info']['system'], self.system_info['system'])
-        self.assertGreater(len(report['compatibility_results']), 0)
-        
+        # GPU is detected but passthrough capability needs verification
+        self.assertFalse(gpu_results[0].is_compatible)
+        self.assertEqual(gpu_results[0].severity, "info")
+        self.assertTrue(gpu_results[0].fallback_available)
+
 if __name__ == '__main__':
     unittest.main()

@@ -1,5 +1,8 @@
 wheel
 flask
+pytest
+pytest-mock
+psutil
 SpeechRecognition
 pyaudio
 gunicorn
@@ -16,12 +19,9 @@ loguru
 gTTS
 PyYAML
 jsonschema
-psutil
 qrcode
 Pillow
 docker
-pytest
-pytest-mock
 networkx
 matplotlib
 paramiko

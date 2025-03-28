@@ -22,8 +22,13 @@ class TestBackupScheduler(unittest.TestCase):
         self.api_mock = MagicMock()
         self.backup_manager_mock = MagicMock()
         
-        # Mock the config path to use a temporary file
-        with patch('os.path.join', return_value='test_backup_schedule.json'):
+        # Create a temporary test directory for config
+        self.test_dir = os.path.join(os.path.dirname(__file__), 'test_tmp')
+        os.makedirs(self.test_dir, exist_ok=True)
+        self.test_config_path = os.path.join(self.test_dir, 'test_backup_schedule.json')
+        
+        # Mock the config path to use our test file
+        with patch('os.path.join', return_value=self.test_config_path):
             self.scheduler = BackupScheduler(self.api_mock, self.backup_manager_mock)
         
         # Mock the _load_config method to return a test configuration
@@ -62,8 +67,12 @@ class TestBackupScheduler(unittest.TestCase):
     def tearDown(self):
         """Tear down test fixtures."""
         # Remove the test config file if it exists
-        if os.path.exists('test_backup_schedule.json'):
-            os.remove('test_backup_schedule.json')
+        if os.path.exists(self.test_config_path):
+            os.remove(self.test_config_path)
+        
+        # Remove the test directory
+        if os.path.exists(self.test_dir):
+            os.rmdir(self.test_dir)
     
     def test_init(self):
         """Test initialization of the BackupScheduler."""
