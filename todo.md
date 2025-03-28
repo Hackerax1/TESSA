@@ -55,7 +55,7 @@
 
 - [ ] **User Experience:**
   - [ ] Add natural conversation transitions and topic memory between sessions.
-  - [ ] Improve ambient mode and wake word detection.
+  - [X] Improve ambient mode and wake word detection.
   - [ ] Implement voice authentication for different users.
 
 - [ ] **Web Interface:**

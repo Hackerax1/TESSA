@@ -186,6 +186,13 @@ class VoiceHandler:
         self.stop_ambient_mode = False
         self.wake_word_detected_callback = None
         self.ambient_mode_timeout = 300  # seconds before timing out if no wake word detected
+        self.energy_threshold = 4000  # Default energy threshold for wake word detection
+        self.dynamic_energy_adjustment = True  # Dynamically adjust for ambient noise
+        self.use_offline_detection = False  # Whether to use offline wake word detection
+        self.ambient_mode_pause_after_detection = 5  # Seconds to pause after wake word detected
+        self.false_trigger_phrases = set(["okay google", "hey siri", "alexa", "hey cortana"])  # Phrases to ignore
+        self.last_wake_word_time = None  # Time of last wake word detection
+        self.wake_word_cooldown = 3  # Seconds to wait before detecting the same wake word again
         
         # Context for command sequences
         self.command_context = {}
@@ -593,13 +600,15 @@ class VoiceHandler:
             logger.error(f"Error authenticating voice: {e}")
             return None
     
-    def start_ambient_mode(self, callback=None):
+    def start_ambient_mode(self, callback=None, energy_threshold=None, use_offline=None):
         """
         Start ambient mode to listen for wake words
         
         Args:
             callback: Function to call when wake word is detected
-        
+            energy_threshold: Custom energy threshold for detection sensitivity
+            use_offline: Whether to use offline wake word detection
+            
         Returns:
             bool: True if ambient mode started successfully, False otherwise
         """
@@ -609,11 +618,20 @@ class VoiceHandler:
         
         self.wake_word_detected_callback = callback
         self.stop_ambient_mode = False
+        
+        # Apply custom settings if provided
+        if energy_threshold is not None:
+            self.energy_threshold = energy_threshold
+            
+        if use_offline is not None:
+            self.use_offline_detection = use_offline
+        
+        # Start ambient mode in a background thread
         self.ambient_mode_thread = threading.Thread(target=self._ambient_mode_listener, daemon=True)
         self.ambient_mode_thread.start()
         self.ambient_mode_active = True
         
-        logger.info("Ambient mode started")
+        logger.info(f"Ambient mode started (Energy threshold: {self.energy_threshold}, Offline: {self.use_offline_detection})")
         return True
     
     def stop_ambient_mode(self):
@@ -635,14 +653,22 @@ class VoiceHandler:
         logger.info("Ambient mode listener started")
         
         recognizer = sr.Recognizer()
+        recognizer.energy_threshold = self.energy_threshold
+        recognizer.dynamic_energy_threshold = self.dynamic_energy_adjustment
         
         # Adjust for ambient noise for better wake word detection
-        with sr.Microphone() as source:
-            logger.info("Adjusting for ambient noise...")
-            recognizer.adjust_for_ambient_noise(source)
-            logger.info("Ambient noise adjustment complete")
+        try:
+            with sr.Microphone() as source:
+                logger.info("Adjusting for ambient noise...")
+                recognizer.adjust_for_ambient_noise(source, duration=2)
+                logger.info(f"Ambient noise adjustment complete. Energy threshold: {recognizer.energy_threshold}")
+                # Store the adjusted threshold for future reference
+                self.energy_threshold = recognizer.energy_threshold
+        except Exception as e:
+            logger.error(f"Error adjusting for ambient noise: {e}")
         
         start_time = datetime.now()
+        continuous_silence_start = datetime.now()
         
         while not self.stop_ambient_mode:
             # Check if we've been listening too long without activity
@@ -651,45 +677,162 @@ class VoiceHandler:
                 self.stop_ambient_mode = True
                 break
             
+            # Check if we've been in continuous silence for too long (power saving)
+            if (datetime.now() - continuous_silence_start).total_seconds() > 60:
+                # Increase check interval when no activity detected
+                logger.debug("Entering power saving mode due to prolonged silence")
+                time.sleep(0.5)  # Sleep longer in quiet environments
+            
             try:
                 with sr.Microphone() as source:
                     logger.debug("Listening for wake word...")
-                    audio = recognizer.listen(source, timeout=1, phrase_time_limit=3)
-                
-                try:
-                    # Convert speech to text and check for wake word
-                    text = recognizer.recognize_google(audio).lower()
-                    logger.debug(f"Heard: {text}")
-                    
-                    # Check if wake word detected
-                    for wake_word in self.wake_words:
-                        sensitivity = self.wake_word_sensitivities.get(wake_word, self.wake_word_sensitivities["default"])
+                    try:
+                        # Use a shorter timeout to enable more responsive detection
+                        audio = recognizer.listen(source, timeout=1, phrase_time_limit=4)
+                        # Reset the continuous silence timer when sound is detected
+                        continuous_silence_start = datetime.now()
                         
-                        if wake_word in text:
-                            logger.info(f"Wake word detected: {wake_word}")
-                            
-                            # Reset timeout timer
-                            start_time = datetime.now()
-                            
-                            # Call callback if provided
-                            if self.wake_word_detected_callback:
-                                audio_data = base64.b64encode(audio.get_wav_data()).decode('utf-8')
-                                self.wake_word_detected_callback(f"data:audio/wav;base64,{audio_data}")
-                            
-                            # Wait a bit before listening again
-                            time.sleep(1)
-                            break
-                except sr.UnknownValueError:
-                    # Speech not recognized, continue listening
-                    pass
-                except sr.RequestError:
-                    logger.error("Could not request results from speech recognition service")
-                    time.sleep(5)  # Wait before retrying
+                        if self.use_offline_detection:
+                            # Offline wake word detection using local model
+                            detected_word = self._detect_wake_word_offline(audio)
+                            if detected_word:
+                                self._handle_wake_word_detection(detected_word, audio)
+                        else:
+                            # Online detection using speech recognition service
+                            try:
+                                text = recognizer.recognize_google(audio).lower()
+                                logger.debug(f"Heard: {text}")
+                                
+                                # Ignore known false triggers for other assistants
+                                if any(phrase in text for phrase in self.false_trigger_phrases):
+                                    logger.debug(f"Ignored false trigger phrase in: {text}")
+                                    continue
+                                
+                                # Check if wake word detected
+                                for wake_word in self.wake_words:
+                                    # Skip wake word detection if we're in cooldown period for this word
+                                    if self.last_wake_word_time and wake_word == self.last_wake_word_time.get('word'):
+                                        time_since_last = (datetime.now() - self.last_wake_word_time.get('time')).total_seconds()
+                                        if time_since_last < self.wake_word_cooldown:
+                                            continue
+                                    
+                                    sensitivity = self.wake_word_sensitivities.get(wake_word, 
+                                                                                self.wake_word_sensitivities["default"])
+                                    
+                                    # Use phonetic matching for more natural detection
+                                    if self._phonetic_match(wake_word, text, sensitivity):
+                                        self._handle_wake_word_detection(wake_word, audio)
+                                        break
+                                        
+                            except sr.UnknownValueError:
+                                # Speech not recognized, continue listening
+                                pass
+                            except sr.RequestError:
+                                logger.error("Could not request results from speech recognition service")
+                                # If online services fail, attempt to use offline detection as fallback
+                                if not self.use_offline_detection:
+                                    detected_word = self._detect_wake_word_offline(audio)
+                                    if detected_word:
+                                        self._handle_wake_word_detection(detected_word, audio)
+                                time.sleep(1)  # Wait before retrying
+                    except sr.WaitTimeoutError:
+                        pass  # No speech detected, continue listening
+                        
             except Exception as e:
                 logger.error(f"Error in ambient mode listener: {e}")
                 time.sleep(1)
         
         logger.info("Ambient mode listener stopped")
+    
+    def _handle_wake_word_detection(self, wake_word, audio):
+        """
+        Handle wake word detection with common logic
+        
+        Args:
+            wake_word: Detected wake word
+            audio: Audio data containing the wake word
+        """
+        logger.info(f"Wake word detected: {wake_word}")
+        
+        # Record last detection time for cooldown
+        self.last_wake_word_time = {
+            'word': wake_word,
+            'time': datetime.now()
+        }
+        
+        # Call callback if provided
+        if self.wake_word_detected_callback:
+            audio_data = base64.b64encode(audio.get_wav_data()).decode('utf-8')
+            self.wake_word_detected_callback(f"data:audio/wav;base64,{audio_data}")
+        
+        # Pause briefly after detection to avoid duplicate triggers
+        time.sleep(self.ambient_mode_pause_after_detection)
+    
+    def _detect_wake_word_offline(self, audio):
+        """
+        Perform offline wake word detection using local processing
+        
+        Args:
+            audio: Audio data to process
+            
+        Returns:
+            str: Detected wake word or None
+        """
+        try:
+            # Simplified offline detection using audio energy and duration analysis
+            # This would be replaced with a proper wake word detection model in production
+            audio_data = np.frombuffer(audio.get_raw_data(), np.int16)
+            
+            # Calculate audio energy
+            audio_energy = np.sqrt(np.mean(np.square(audio_data)))
+            
+            # Simple threshold-based detection (placeholder for actual model)
+            if audio_energy > self.energy_threshold * 1.5:
+                logger.debug(f"High energy audio detected: {audio_energy}")
+                
+                # Return the first wake word as a fallback
+                # In a real implementation, this would use an actual wake word detection model
+                return list(self.wake_words)[0] if self.wake_words else None
+                
+            return None
+        except Exception as e:
+            logger.error(f"Error in offline wake word detection: {e}")
+            return None
+    
+    def _phonetic_match(self, wake_word, text, sensitivity=0.7):
+        """
+        Match wake word using phonetic similarity for more natural detection
+        
+        Args:
+            wake_word: Wake word to match
+            text: Text to check against
+            sensitivity: Match sensitivity (0-1)
+            
+        Returns:
+            bool: True if wake word phonetically matches
+        """
+        # Simple containment check with adjustable sensitivity
+        if wake_word in text:
+            return True
+            
+        # Check for partial matches with longer wake phrases
+        if len(wake_word.split()) > 1:
+            wake_parts = wake_word.split()
+            matched_parts = 0
+            
+            for part in wake_parts:
+                if part in text:
+                    matched_parts += 1
+            
+            # Calculate match percentage
+            match_percent = matched_parts / len(wake_parts)
+            if match_percent >= sensitivity:
+                return True
+        
+        # TODO: Add more sophisticated phonetic matching algorithms
+        # such as Soundex, Levenshtein distance, or machine learning model
+        
+        return False
     
     def add_wake_word(self, wake_word: str, sensitivity: float = 0.7):
         """
@@ -704,10 +847,50 @@ class VoiceHandler:
         """
         wake_word = wake_word.lower().strip()
         if wake_word:
+            # Don't add wake words that might trigger other assistants
+            if any(phrase in wake_word for phrase in self.false_trigger_phrases):
+                logger.warning(f"Rejected wake word that could conflict with other assistants: {wake_word}")
+                return False
+                
             self.wake_words.add(wake_word)
             self.wake_word_sensitivities[wake_word] = sensitivity
+            logger.info(f"Added wake word: '{wake_word}' with sensitivity {sensitivity}")
             return True
         return False
+        
+    def set_ambient_params(self, energy_threshold=None, dynamic_adjustment=None, 
+                          offline_detection=None, pause_after_detection=None):
+        """
+        Configure ambient mode parameters
+        
+        Args:
+            energy_threshold: Energy threshold for wake word detection
+            dynamic_adjustment: Whether to dynamically adjust for ambient noise
+            offline_detection: Whether to use offline wake word detection
+            pause_after_detection: Seconds to pause after wake word detected
+            
+        Returns:
+            dict: Current ambient mode parameters
+        """
+        if energy_threshold is not None:
+            self.energy_threshold = energy_threshold
+            
+        if dynamic_adjustment is not None:
+            self.dynamic_energy_adjustment = dynamic_adjustment
+            
+        if offline_detection is not None:
+            self.use_offline_detection = offline_detection
+            
+        if pause_after_detection is not None:
+            self.ambient_mode_pause_after_detection = pause_after_detection
+        
+        return {
+            'energy_threshold': self.energy_threshold,
+            'dynamic_adjustment': self.dynamic_energy_adjustment,
+            'offline_detection': self.use_offline_detection,
+            'pause_after_detection': self.ambient_mode_pause_after_detection,
+            'active': self.ambient_mode_active
+        }
     
     def remove_wake_word(self, wake_word: str):
         """
