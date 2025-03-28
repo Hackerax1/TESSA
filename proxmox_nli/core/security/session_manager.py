@@ -4,27 +4,45 @@ Session manager for handling user sessions and access tracking.
 from typing import Dict, Optional
 from datetime import datetime, timedelta
 import threading
+import logging
+import uuid
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class SessionManager:
-    def __init__(self, session_timeout: int = 30):  # timeout in minutes
+    def __init__(self, base_nli=None, session_timeout: int = 30):  # timeout in minutes
         self.sessions: Dict[str, Dict] = {}
         self.session_timeout = timedelta(minutes=session_timeout)
         self.lock = threading.Lock()
+        self.base_nli = base_nli
 
-    def create_session(self, user_id: str, token: str) -> Dict:
+    def create_session(self, user_id: str, token: str = None) -> Dict:
         """Create a new session for a user"""
+        if not token:
+            token = str(uuid.uuid4())
+            
         session = {
             'user_id': user_id,
             'token': token,
             'created_at': datetime.utcnow(),
             'last_active': datetime.utcnow(),
             'ip_address': None,
-            'user_agent': None
+            'user_agent': None,
+            'conversation_id': None  # Will be populated when conversation starts
         }
         
         with self.lock:
             self.sessions[token] = session
             self._cleanup_expired_sessions()
+        
+        # If we have a base_nli instance, start a user session for conversation tracking
+        if self.base_nli:
+            self.base_nli.start_user_session(user_id)
+            # Store the conversation ID for later reference
+            if hasattr(self.base_nli, 'current_conversation_id'):
+                session['conversation_id'] = self.base_nli.current_conversation_id
         
         return session
 
@@ -58,6 +76,12 @@ class SessionManager:
         """End a user session"""
         with self.lock:
             if token in self.sessions:
+                # Before removing the session, make sure any conversation data is saved
+                session = self.sessions[token]
+                if self.base_nli and session.get('conversation_id') and hasattr(self.base_nli, 'topic_manager'):
+                    # The topic_manager will handle saving the conversation state
+                    logger.info(f"Saving conversation state for session {token}")
+                
                 del self.sessions[token]
                 return True
         return False
@@ -74,6 +98,36 @@ class SessionManager:
             active_sessions[token] = session
             
         return active_sessions
+
+    def resume_session(self, token: str) -> bool:
+        """
+        Resume a previously created session, including its conversation context
+        
+        Args:
+            token: The session token
+            
+        Returns:
+            Success status
+        """
+        session = self.get_session(token)
+        if not session:
+            return False
+            
+        # If we have a base_nli instance and the session has a conversation ID,
+        # restore the conversation context
+        if self.base_nli and session.get('conversation_id'):
+            user_id = session['user_id']
+            
+            # Set the current user ID and session ID
+            self.base_nli.current_user_id = user_id
+            self.base_nli.session_id = token
+            
+            # Start the session to restore conversation context
+            self.base_nli.start_user_session(user_id)
+            
+            return True
+            
+        return False
 
     def _is_session_expired(self, session: Dict) -> bool:
         """Check if a session has expired"""

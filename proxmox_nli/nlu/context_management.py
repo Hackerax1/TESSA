@@ -1,7 +1,7 @@
 import json
 import logging
 import re
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Set
 from datetime import datetime, timedelta
 
 # Configure logging
@@ -26,7 +26,12 @@ class ContextManager:
             'favorite_vms': [],
             'favorite_nodes': [],
             'quick_services': [],
-            'user_preferences': {}
+            'user_preferences': {},
+            # New fields for enhanced conversation context
+            'current_topic': None,
+            'previous_topic': None,
+            'topic_history': [],
+            'cross_session_memory': {}  # Store references to past conversations
         }
         
         # Define reference resolution patterns
@@ -59,7 +64,14 @@ class ContextManager:
         
         # Track context decay (seconds until context becomes less relevant)
         self.context_decay_time = 300  # 5 minutes
-
+        
+        # Reference to TopicManager (will be set later)
+        self.topic_manager = None
+    
+    def set_topic_manager(self, topic_manager):
+        """Set the topic manager reference"""
+        self.topic_manager = topic_manager
+        
     def update_context(self, intent, entities):
         """Update the conversation context
         
@@ -104,6 +116,13 @@ class ContextManager:
         # Ensure favorite VMs list contains unique entries
         if 'vm_name' in entities and entities['vm_name']:
             self._update_favorites('vm', entities['vm_name'])
+        
+        # Update the topic manager if available
+        if self.topic_manager:
+            # Topic manager will analyze the message and update topics
+            self.context['current_topic'] = self._get_topic()
+            
+        return self.context
 
     def set_context(self, context_data):
         """Set specific context values
@@ -172,8 +191,85 @@ class ContextManager:
         if self.context['last_intent'] and len(self.conversation_history) > 1:
             entities = self._infer_continuation_context(query_lower, entities)
             
+        # Check for cross-session references (references to previous conversations)
+        cross_session_entities = self._resolve_cross_session_references(query_lower, entities)
+        if cross_session_entities:
+            entities.update(cross_session_entities)
+            
         return entities
     
+    def add_cross_session_context(self, topic: str, entities: Dict[str, Any]):
+        """Add context from previous conversations about a topic
+        
+        Args:
+            topic: The topic of the conversation
+            entities: Dictionary of entities from a previous conversation
+        """
+        if not self.context['cross_session_memory'].get(topic):
+            self.context['cross_session_memory'][topic] = []
+        
+        # Add entities to the cross-session memory
+        self.context['cross_session_memory'][topic].append({
+            'entities': entities,
+            'timestamp': datetime.now()
+        })
+        
+        # Limit the number of stored contexts per topic
+        max_contexts_per_topic = 5
+        if len(self.context['cross_session_memory'][topic]) > max_contexts_per_topic:
+            self.context['cross_session_memory'][topic].pop(0)
+    
+    def _resolve_cross_session_references(self, query_lower: str, entities: Dict) -> Dict:
+        """Resolve references to entities from previous conversations
+        
+        Args:
+            query_lower: Lowercase user query
+            entities: Current entities dictionary
+            
+        Returns:
+            Additional entities from cross-session memory
+        """
+        # Words that suggest references to previous conversations
+        history_reference_words = [
+            "previous", "earlier", "before", "last time", "we discussed", 
+            "we talked about", "you told me", "you mentioned", "remember"
+        ]
+        
+        additional_entities = {}
+        
+        # Check if query mentions previous conversations
+        has_history_reference = any(word in query_lower for word in history_reference_words)
+        
+        if has_history_reference and self.topic_manager:
+            # Try to identify the topic being referenced
+            referenced_topic = None
+            
+            # Check for topic mentions in the query
+            for topic in self.context['topic_history']:
+                if topic.lower() in query_lower:
+                    referenced_topic = topic
+                    break
+            
+            # If we found a referenced topic that we've discussed before
+            if referenced_topic and referenced_topic in self.context['cross_session_memory']:
+                # Get the most recent context for this topic
+                topic_contexts = self.context['cross_session_memory'][referenced_topic]
+                if topic_contexts:
+                    latest_context = topic_contexts[-1]
+                    
+                    # Add entities from the previous conversation, but don't overwrite current ones
+                    for key, value in latest_context['entities'].items():
+                        if key not in entities:
+                            additional_entities[key] = value
+        
+        return additional_entities
+    
+    def _get_topic(self) -> Optional[str]:
+        """Get the current conversation topic from the topic manager"""
+        if self.topic_manager:
+            return self.topic_manager.current_topic
+        return None
+        
     def _get_current_context_snapshot(self):
         """Get a snapshot of the current context for history"""
         return {

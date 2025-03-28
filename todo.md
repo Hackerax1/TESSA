@@ -47,7 +47,7 @@
 
 ## 1.0 (Stable) Release Checklist
 - [ ] **Core Functionality:**
-  - [ ] Implement update management through the NLI.
+  - [X] Implement update management through the NLI.
   - [ ] Add custom service template creation and sharing.
   - [ ] Build service metrics dashboard with plain language explanations.
   - [ ] Implement cluster-wide commands for multi-node management.
