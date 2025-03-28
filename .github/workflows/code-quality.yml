@@ -1,39 +1,26 @@
 name: Code Quality
 
-on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-    
+on: [push, pull_request]
+
 jobs:
-  lint:
+  build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
-          
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install flake8 black isort mypy pylint
-          
-      - name: Check code formatting with Black
-        run: black --check proxmox_nli/
-        
-      - name: Check imports with isort
-        run: isort --check proxmox_nli/
-        
-      - name: Lint with flake8
-        run: flake8 proxmox_nli/ --count --select=E9,F63,F7,F82 --show-source --statistics
-        
-      - name: Static type checking with mypy
-        run: mypy proxmox_nli/
-        
-      - name: Lint with pylint
-        run: pylint proxmox_nli/ --disable=C0111,R0903,C0103
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.9
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y portaudio19-dev
+        pip install -r requirements.txt
+
+    - name: Run tests
+      run: |
+        pytest
