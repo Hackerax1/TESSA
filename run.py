@@ -10,6 +10,7 @@ import webbrowser
 import time
 import requests
 import socket
+import argparse
 
 def is_docker():
     """Check if running in a Docker container"""
@@ -26,12 +27,31 @@ def setup_docker():
         sys.exit(1)
     return True
 
-def setup_windows():
+def setup_windows(skip_build_check=False):
     """Setup for Windows environment"""
     print("Checking system requirements...")
     checker = RequirementsChecker()
-    if not checker.run_checks():
-        return False
+    
+    if skip_build_check:
+        # Manually run all checks except build tools check
+        print("Skipping build tools check as requested...")
+        python_ok = checker.check_python_version()
+        pip_ok = checker.check_pip()
+        venv_ok = checker.check_venv()
+        dev_ok = checker.check_python_dev()
+        ssl_ok = checker.check_ssl_dev()
+        # Force build_ok to True
+        build_ok = True
+        if checker.issues and not all([python_ok, pip_ok, venv_ok, dev_ok, ssl_ok]):
+            print("\n⚠️  Some requirements are missing!")
+            checker.print_installation_instructions()
+            return False
+        # Clear any issues related to build tools
+        checker.issues = [issue for issue in checker.issues if not issue.startswith("Build Tools")]
+    else:
+        # Run all checks normally
+        if not checker.run_checks():
+            return False
         
     # Create virtual environment if it doesn't exist
     if not os.path.exists('venv'):
@@ -99,9 +119,14 @@ def start_app():
         process.terminate()
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run Proxmox NLI application")
+    parser.add_argument("--skip-build-check", action="store_true", 
+                        help="Skip C++ build tools check (use if you know tools are installed but check fails)")
+    args = parser.parse_args()
+    
     if is_docker():
         if setup_docker():
             start_app()
     else:
-        if setup_windows():
+        if setup_windows(skip_build_check=args.skip_build_check):
             start_app()

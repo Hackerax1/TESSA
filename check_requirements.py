@@ -3,6 +3,7 @@ import sys
 import shutil
 import subprocess
 import platform
+import os
 
 class RequirementsChecker:
     def __init__(self):
@@ -59,11 +60,33 @@ class RequirementsChecker:
     def check_build_tools(self):
         if self.os_type == 'windows':
             # Check for Visual C++ Build Tools on Windows
+            # Instead of directly calling cl.exe, check for the existence of necessary files
+            # or if any required packages can be built correctly
             try:
-                subprocess.run(['cl'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                # First, try checking if Visual C++ compiler is available by building a simple extension
+                import distutils.ccompiler
+                compiler = distutils.ccompiler.new_compiler()
+                compiler.initialize()
                 self.print_status("Build Tools", True, "Visual C++ Build Tools found")
                 return True
-            except FileNotFoundError:
+            except (ImportError, distutils.errors.CompileError, AttributeError, Exception) as e:
+                # Next, try checking for common Visual C++ Build Tools paths
+                vs_paths = [
+                    os.path.expandvars("%ProgramFiles(x86)%\\Microsoft Visual Studio"),
+                    os.path.expandvars("%ProgramFiles%\\Microsoft Visual Studio"),
+                    os.path.expandvars("%ProgramFiles(x86)%\\Microsoft Visual C++ Build Tools"),
+                    os.path.expandvars("%ProgramFiles%\\Microsoft Visual C++ Build Tools"),
+                    # VS 2022 path
+                    os.path.expandvars("%ProgramFiles%\\Microsoft Visual Studio\\2022"),
+                    # VS 2019 path
+                    os.path.expandvars("%ProgramFiles%\\Microsoft Visual Studio\\2019"),
+                ]
+                
+                for path in vs_paths:
+                    if os.path.exists(path):
+                        self.print_status("Build Tools", True, f"Visual C++ Build Tools found at {path}")
+                        return True
+                
                 self.print_status("Build Tools", False, "Visual C++ Build Tools not found")
                 return False
         else:
