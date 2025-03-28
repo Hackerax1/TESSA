@@ -3,15 +3,19 @@
  * This file coordinates all the modules and initializes the application
  */
 import API from './modules/api.js';
-import Voice from './modules/voice.js';
 import UI from './modules/ui.js';
 import Data from './modules/data.js';
-import Wizard from './modules/wizard.js';
-import Notifications from './modules/notifications.js';
-import Commands from './modules/commands.js';
 import SocketHandler from './modules/socket.js';
-import Shortcuts from './modules/shortcuts.js';
-import Dashboards from './modules/dashboards.js';
+import ErrorHandler from './modules/error_handler.js';
+
+// Core modules loaded immediately
+const core = {
+    API,
+    UI,
+    Data,
+    SocketHandler,
+    ErrorHandler
+};
 
 class ProxmoxNLI {
     constructor() {
@@ -24,21 +28,40 @@ class ProxmoxNLI {
         this.clusterStatus = document.getElementById('cluster-status');
         this.auditLog = document.getElementById('audit-log');
         
-        // Initialize modules
-        this.voice = new Voice();
-        this.wizard = new Wizard();
-        this.notifications = new Notifications();
-        this.commands = new Commands();
-        this.shortcuts = new Shortcuts();
-        this.dashboards = new Dashboards();
-        this.networkDiagram = new NetworkDiagram('network-diagram-container');
+        // Initialize core modules
+        this.ui = new UI();
+        this.data = new Data();
+        
+        // Initialize error handler
+        ErrorHandler.initialize();
+        
+        // Add global error handler
+        ErrorHandler.addListener((error) => {
+            console.log('Global error handler:', error);
+            if (this.ui) {
+                this.ui.showError(error.userMessage);
+            }
+        });
+        
+        // Make error handler globally available
+        window.ErrorHandler = ErrorHandler;
+        
+        // Modules to be lazy-loaded
+        this.voice = null;
+        this.wizard = null;
+        this.notifications = null;
+        this.commands = null;
+        this.shortcuts = null;
+        this.dashboards = null;
+        this.qrcode = null;
+        this.networkDiagram = null;
         
         // Initialize socket with callbacks
         this.socket = new SocketHandler({
             onVMUpdate: (data) => this.handleVMUpdate(data),
             onClusterUpdate: (data) => this.handleClusterUpdate(data),
             onNetworkDiagramUpdate: (nodes, links) => this.handleNetworkDiagramUpdate(nodes, links),
-            onError: (error) => this.handleSocketError(error)
+            onError: (error) => ErrorHandler.handleError(error)
         });
         
         // Initialize UI
@@ -51,21 +74,11 @@ class ProxmoxNLI {
      */
     async initializeApplication() {
         try {
-            // Set up voice input
-            await this.voice.setupMediaRecorder();
-            this.voice.configureMediaRecorder(
-                (text) => {
-                    this.userInput.value = text;
-                    this.chatForm.dispatchEvent(new Event('submit'));
-                },
-                (error) => UI.addMessage(error, 'system', this.chatBody)
-            );
-            
             // Load initial data
             await Data.loadInitialData(
                 (vmData) => this.handleVMUpdate(vmData),
                 (clusterData) => this.handleClusterUpdate(clusterData),
-                (error) => UI.showError(error)
+                (error) => ErrorHandler.handleError(error)
             );
             
             // Load audit logs
@@ -74,22 +87,152 @@ class ProxmoxNLI {
             // Set up periodic audit log updates
             setInterval(() => Data.loadAuditLogs(this.auditLog), 30000);
             
-            // Load voice profiles
-            await this.loadVoiceProfiles();
-            
-            // Initialize modules
+            // Initialize core modules
             await this.ui.initialize();
-            await this.wizard.initialize();
-            await this.notifications.initialize();
-            await this.commands.initialize();
-            await this.shortcuts.initialize();
-            await this.dashboards.initialize();
             
-            // Set up wizard
-            this.setupWizard();
+            // Lazy load additional modules as needed
+            this.lazyLoadModules();
+            
+            // Register service worker for offline support and caching
+            this.registerServiceWorker();
         } catch (error) {
-            console.error('Error initializing application:', error);
-            UI.showError('Failed to initialize application. Please refresh the page or contact support.');
+            ErrorHandler.handleError(error);
+        }
+    }
+    
+    /**
+     * Lazy load non-critical modules
+     */
+    async lazyLoadModules() {
+        // Start loading modules in the background
+        this.loadVoiceModule();
+        this.loadWizardModule();
+        this.loadNotificationsModule();
+        
+        // Load other modules when user is idle or on demand
+        if ('requestIdleCallback' in window) {
+            requestIdleCallback(() => {
+                this.loadRemainingModules();
+            });
+        } else {
+            // Fallback for browsers without requestIdleCallback
+            setTimeout(() => {
+                this.loadRemainingModules();
+            }, 1000);
+        }
+    }
+    
+    /**
+     * Load voice module when needed
+     */
+    async loadVoiceModule() {
+        if (this.micButton) {
+            try {
+                const { default: Voice } = await import('./modules/voice.js');
+                this.voice = new Voice();
+                
+                // Set up voice input
+                await this.voice.setupMediaRecorder();
+                this.voice.configureMediaRecorder(
+                    (text) => {
+                        this.userInput.value = text;
+                        this.chatForm.dispatchEvent(new Event('submit'));
+                    },
+                    (error) => ErrorHandler.handleError(error)
+                );
+                
+                // Load voice profiles
+                await this.loadVoiceProfiles();
+                
+                // Enable mic button
+                this.micButton.disabled = false;
+            } catch (error) {
+                ErrorHandler.handleError(error);
+            }
+        }
+    }
+    
+    /**
+     * Load wizard module when needed
+     */
+    async loadWizardModule() {
+        if (document.querySelector('.wizard-container')) {
+            try {
+                const { default: Wizard } = await import('./modules/wizard.js');
+                this.wizard = new Wizard();
+                await this.wizard.initialize();
+                this.setupWizard();
+            } catch (error) {
+                ErrorHandler.handleError(error);
+            }
+        }
+    }
+    
+    /**
+     * Load notifications module when needed
+     */
+    async loadNotificationsModule() {
+        try {
+            const { default: Notifications } = await import('./modules/notifications.js');
+            this.notifications = new Notifications();
+            await this.notifications.initialize();
+        } catch (error) {
+            ErrorHandler.handleError(error);
+        }
+    }
+    
+    /**
+     * Load remaining non-critical modules
+     */
+    async loadRemainingModules() {
+        try {
+            // Load commands module
+            const { default: Commands } = await import('./modules/commands.js');
+            this.commands = new Commands();
+            await this.commands.initialize();
+            
+            // Load shortcuts module
+            const { default: Shortcuts } = await import('./modules/shortcuts.js');
+            this.shortcuts = new Shortcuts();
+            await this.shortcuts.initialize();
+            
+            // Load dashboards module if dashboard container exists
+            if (document.getElementById('dashboard-container')) {
+                const { default: Dashboards } = await import('./modules/dashboards.js');
+                this.dashboards = new Dashboards();
+                await this.dashboards.initialize();
+            }
+            
+            // Load QR code module if QR container exists
+            if (document.querySelector('.qr-code-container')) {
+                const { default: QRCode } = await import('./modules/qrcode.js');
+                this.qrcode = new QRCode();
+            }
+            
+            // Load network diagram if container exists
+            if (document.getElementById('network-diagram-container')) {
+                const { default: NetworkDiagram } = await import('./network_diagram.js');
+                this.networkDiagram = new NetworkDiagram('network-diagram-container');
+            }
+        } catch (error) {
+            ErrorHandler.handleError(error);
+        }
+    }
+
+    /**
+     * Register service worker for offline support and caching
+     */
+    registerServiceWorker() {
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/js/service-worker.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                    })
+                    .catch(error => {
+                        ErrorHandler.handleError(error);
+                    });
+            });
         }
     }
 
@@ -126,8 +269,7 @@ class ProxmoxNLI {
                     await this.voice.playTextToSpeech(responseText);
                 }
             } catch (error) {
-                console.error('Error:', error);
-                UI.addMessage('Sorry, there was an error processing your request.', 'system', this.chatBody);
+                ErrorHandler.handleError(error);
             }
         });
 
@@ -433,8 +575,7 @@ class ProxmoxNLI {
                 alert('Error saving voice settings: ' + result.error);
             }
         } catch (error) {
-            console.error('Error saving voice settings:', error);
-            alert('Error saving voice settings: ' + error.message);
+            ErrorHandler.handleError(error);
         }
     }
 
@@ -484,7 +625,7 @@ class ProxmoxNLI {
                 }
             }
         } catch (error) {
-            console.error('Error adapting voice:', error);
+            ErrorHandler.handleError(error);
         }
     }
 
@@ -518,8 +659,7 @@ class ProxmoxNLI {
      * @param {string} error - Error message
      */
     handleSocketError(error) {
-        console.error('Socket error:', error);
-        UI.showError('Connection error: ' + error);
+        ErrorHandler.handleError(error);
     }
 }
 

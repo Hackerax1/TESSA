@@ -86,3 +86,166 @@
         </div>
     </div>
 </div>
+
+<!-- QR Code Modal -->
+<div class="modal fade" id="qrCodeModal" tabindex="-1" aria-labelledby="qrCodeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="qrCodeModalLabel">Mobile Access QR Code</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <p>Scan this QR code with your mobile device to access this resource:</p>
+                <div id="qrcode-container" class="d-flex justify-content-center">
+                    <img id="qrcode-image" src="" alt="QR Code" class="img-fluid border p-2" style="max-width: 250px;">
+                </div>
+                <p class="mt-3 small text-muted">
+                    The QR code provides direct access to this resource from your mobile device.
+                    <br>You may need to authenticate if you're not already logged in.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Function to update the VM list with QR code buttons
+function updateVMList(vms) {
+    const vmList = document.getElementById('vm-list');
+    vmList.innerHTML = '';
+    
+    if (!vms || vms.length === 0) {
+        vmList.innerHTML = '<div class="text-center text-muted">No VMs found</div>';
+        return;
+    }
+    
+    let runningCount = 0;
+    let stoppedCount = 0;
+    
+    vms.forEach(vm => {
+        const isRunning = vm.status === 'running';
+        if (isRunning) runningCount++;
+        else stoppedCount++;
+        
+        const vmItem = document.createElement('div');
+        vmItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+        vmItem.innerHTML = `
+            <div>
+                <span class="status-indicator ${isRunning ? 'status-running' : 'status-stopped'}"></span>
+                <strong>${vm.name || 'VM ' + vm.vmid}</strong>
+                <span class="badge bg-secondary ms-2">${vm.vmid}</span>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-sm btn-outline-primary vm-action" data-action="view" data-vmid="${vm.vmid}">
+                    <i class="bi bi-eye"></i>
+                </button>
+                <button class="btn btn-sm ${isRunning ? 'btn-outline-danger' : 'btn-outline-success'} vm-action" 
+                        data-action="${isRunning ? 'stop' : 'start'}" data-vmid="${vm.vmid}">
+                    <i class="bi ${isRunning ? 'bi-stop-fill' : 'bi-play-fill'}"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-info vm-action qr-code-btn" data-action="qrcode" data-vmid="${vm.vmid}" data-type="vm">
+                    <i class="bi bi-qr-code"></i>
+                </button>
+            </div>
+        `;
+        vmList.appendChild(vmItem);
+    });
+    
+    // Update counters
+    document.getElementById('running-vms').textContent = `${runningCount} Running`;
+    document.getElementById('stopped-vms').textContent = `${stoppedCount} Stopped`;
+    
+    // Add event listeners to the QR code buttons
+    document.querySelectorAll('.qr-code-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const resourceId = this.getAttribute('data-vmid');
+            const resourceType = this.getAttribute('data-type');
+            showQRCode(resourceType, resourceId);
+        });
+    });
+}
+
+// Function to show the QR code modal
+function showQRCode(resourceType, resourceId) {
+    const modal = new bootstrap.Modal(document.getElementById('qrCodeModal'));
+    const qrCodeImage = document.getElementById('qrcode-image');
+    const modalTitle = document.getElementById('qrCodeModalLabel');
+    
+    // Set the modal title based on resource type
+    modalTitle.textContent = resourceType === 'vm' ? 'VM Access QR Code' : 'Service Access QR Code';
+    
+    // Set the QR code image source
+    qrCodeImage.src = `/qr-code/${resourceType}/${resourceId}`;
+    
+    // Show the modal
+    modal.show();
+}
+
+// Initialize event listeners when the document is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // Event delegation for VM actions
+    document.getElementById('vm-list').addEventListener('click', function(e) {
+        const target = e.target.closest('.vm-action');
+        if (!target) return;
+        
+        const action = target.getAttribute('data-action');
+        const vmid = target.getAttribute('data-vmid');
+        
+        if (action === 'view') {
+            // Handle view action
+            window.location.href = `/vm-details/${vmid}`;
+        } else if (action === 'start') {
+            // Handle start action
+            if (confirm(`Are you sure you want to start VM ${vmid}?`)) {
+                // Send start command to server
+                console.log(`Starting VM ${vmid}`);
+            }
+        } else if (action === 'stop') {
+            // Handle stop action
+            if (confirm(`Are you sure you want to stop VM ${vmid}?`)) {
+                // Send stop command to server
+                console.log(`Stopping VM ${vmid}`);
+            }
+        } else if (action === 'qrcode') {
+            // Handle QR code action - already handled by the qr-code-btn event listener
+        }
+    });
+});
+</script>
+
+<style>
+.status-indicator {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 5px;
+}
+
+.status-running {
+    background-color: #28a745;
+}
+
+.status-stopped {
+    background-color: #dc3545;
+}
+
+.vm-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.cluster-diagram, .network-diagram {
+    height: 200px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    margin-bottom: 15px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+</style>

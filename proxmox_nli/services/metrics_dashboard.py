@@ -62,6 +62,80 @@ class ServiceMetricsDashboard:
             'reliability': ['uptime', 'error_rate', 'availability']
         }
         
+        # Plain language explanations for metrics
+        self.metric_explanations = {
+            'cpu': {
+                'name': 'CPU Usage',
+                'description': 'The amount of CPU resources the service is using.',
+                'low': 'Very little CPU is being used. The service is idle or not processing much data.',
+                'normal': 'The service is using a healthy amount of CPU resources.',
+                'high': 'The service is using a lot of CPU resources. It might be under heavy load.',
+                'critical': 'The service is using almost all available CPU resources. This could cause slowdowns.',
+                'unit': '%',
+                'good_range': '10-70%'
+            },
+            'memory': {
+                'name': 'Memory Usage',
+                'description': 'The amount of RAM the service is using.',
+                'low': 'The service is using very little memory. It might not be caching data efficiently.',
+                'normal': 'The service is using a healthy amount of memory.',
+                'high': 'The service is using a lot of memory. It might be handling large datasets.',
+                'critical': 'The service is using almost all available memory. This could lead to crashes or slowdowns.',
+                'unit': '%',
+                'good_range': '20-70%'
+            },
+            'disk_space': {
+                'name': 'Disk Space',
+                'description': 'The amount of storage space the service is using.',
+                'low': 'The service is using very little disk space.',
+                'normal': 'The service is using a reasonable amount of disk space.',
+                'high': 'The service is using a lot of disk space. Consider adding more storage soon.',
+                'critical': 'The service is using almost all available disk space. This could cause failures.',
+                'unit': '%',
+                'good_range': '10-70%'
+            },
+            'response_time': {
+                'name': 'Response Time',
+                'description': 'How quickly the service responds to requests.',
+                'low': 'The service is responding very quickly. This is excellent performance.',
+                'normal': 'The service is responding in a reasonable time.',
+                'high': 'The service is responding slowly. Users might notice delays.',
+                'critical': 'The service is responding very slowly. Users will experience significant delays.',
+                'unit': 'seconds',
+                'good_range': '< 1 second'
+            },
+            'throughput': {
+                'name': 'Throughput',
+                'description': 'The amount of data or requests the service can handle per second.',
+                'low': 'The service is handling very few requests or little data per second.',
+                'normal': 'The service is handling a healthy amount of traffic.',
+                'high': 'The service is handling a lot of traffic. It\'s working hard but keeping up.',
+                'critical': 'The service is handling an extremely high volume of traffic. It might struggle to keep up.',
+                'unit': 'requests/s',
+                'good_range': 'Depends on service type'
+            },
+            'uptime': {
+                'name': 'Uptime',
+                'description': 'The percentage of time the service has been available and running.',
+                'low': 'The service has significant downtime. This indicates reliability issues.',
+                'normal': 'The service has good uptime with minimal interruptions.',
+                'high': 'The service has excellent uptime with very rare interruptions.',
+                'critical': 'N/A - High uptime is always good',
+                'unit': '%',
+                'good_range': '> 99.9%'
+            },
+            'error_rate': {
+                'name': 'Error Rate',
+                'description': 'The percentage of requests or operations that result in errors.',
+                'low': 'The service has very few errors. This is excellent reliability.',
+                'normal': 'The service has an acceptable number of errors.',
+                'high': 'The service has many errors. This indicates potential issues.',
+                'critical': 'The service has an extremely high error rate. This indicates serious problems.',
+                'unit': '%',
+                'good_range': '< 1%'
+            }
+        }
+        
     def load_metrics_history(self):
         """Load metrics history from disk."""
         try:
@@ -681,3 +755,218 @@ class ServiceMetricsDashboard:
             "report": full_report,
             "dashboard": system_dashboard
         }
+        
+    def generate_plain_language_dashboard(self, service_id: str) -> Dict:
+        """Generate a dashboard with plain language explanations for a service.
+        
+        Args:
+            service_id: ID of the service to generate dashboard for
+            
+        Returns:
+            Dictionary with dashboard data and explanations
+        """
+        # Get service information
+        service_info = self.service_manager.get_service_info(service_id)
+        if not service_info.get('success', False):
+            return {
+                'success': False,
+                'message': f'Failed to get service info: {service_info.get("message")}'
+            }
+            
+        service = service_info.get('service', {})
+        service_name = service.get('name', 'Unknown Service')
+        
+        # Get latest metrics for the service
+        metrics = self.get_service_metrics(service_id)
+        if not metrics.get('success', False):
+            return {
+                'success': False,
+                'message': f'Failed to get service metrics: {metrics.get("message")}'
+            }
+            
+        metric_data = metrics.get('metrics', {})
+        
+        # Generate dashboard with explanations
+        dashboard = {
+            'service_id': service_id,
+            'service_name': service_name,
+            'timestamp': datetime.now().isoformat(),
+            'metrics': {},
+            'summary': self._generate_service_summary(service_id, metric_data),
+            'recommendations': self._generate_recommendations(service_id, metric_data)
+        }
+        
+        # Process each metric with plain language explanation
+        for metric_name, value in metric_data.items():
+            if metric_name in self.metric_explanations:
+                explanation = self.metric_explanations[metric_name]
+                
+                # Determine the status level
+                status = self._determine_metric_status(metric_name, value)
+                
+                # Get the appropriate explanation for this status
+                status_explanation = explanation.get(status, '')
+                
+                dashboard['metrics'][metric_name] = {
+                    'name': explanation['name'],
+                    'value': value,
+                    'unit': explanation['unit'],
+                    'status': status,
+                    'description': explanation['description'],
+                    'explanation': status_explanation,
+                    'good_range': explanation['good_range']
+                }
+        
+        return {
+            'success': True,
+            'message': f'Dashboard generated for {service_name}',
+            'dashboard': dashboard
+        }
+    
+    def _determine_metric_status(self, metric_name: str, value: float) -> str:
+        """Determine the status level of a metric.
+        
+        Args:
+            metric_name: Name of the metric
+            value: Current value of the metric
+            
+        Returns:
+            Status level (low, normal, high, critical)
+        """
+        if metric_name not in self.default_thresholds:
+            return 'normal'
+            
+        thresholds = self.default_thresholds[metric_name]
+        
+        # For metrics where lower is better (like error_rate, response_time)
+        if metric_name in ['error_rate', 'response_time']:
+            if value < thresholds.get('low', 1):
+                return 'low'
+            elif value < thresholds.get('high', 2):
+                return 'normal'
+            elif value < thresholds.get('critical', 5):
+                return 'high'
+            else:
+                return 'critical'
+        # For metrics where higher can be better (like uptime)
+        elif metric_name in ['uptime']:
+            if value > 99.9:
+                return 'high'
+            elif value > 99:
+                return 'normal'
+            else:
+                return 'low'
+        # For standard metrics (cpu, memory, disk_space)
+        else:
+            if value < 10:
+                return 'low'
+            elif value < thresholds.get('high', 80):
+                return 'normal'
+            elif value < thresholds.get('critical', 90):
+                return 'high'
+            else:
+                return 'critical'
+    
+    def _generate_service_summary(self, service_id: str, metrics: Dict) -> str:
+        """Generate a plain language summary of service health.
+        
+        Args:
+            service_id: ID of the service
+            metrics: Dictionary of current metrics
+            
+        Returns:
+            Plain language summary
+        """
+        service_info = self.service_manager.get_service_info(service_id)
+        service_name = service_info.get('service', {}).get('name', 'The service')
+        
+        # Count metrics by status
+        status_counts = {
+            'critical': 0,
+            'high': 0,
+            'normal': 0,
+            'low': 0
+        }
+        
+        for metric_name, value in metrics.items():
+            if metric_name in self.metric_explanations:
+                status = self._determine_metric_status(metric_name, value)
+                status_counts[status] += 1
+        
+        # Generate summary based on status counts
+        if status_counts['critical'] > 0:
+            return f"{service_name} is experiencing critical issues. Immediate attention is required to prevent service disruption."
+        elif status_counts['high'] > 1:
+            return f"{service_name} is under heavy load. While still functioning, it's approaching resource limits in multiple areas."
+        elif status_counts['high'] == 1:
+            # Find which metric is high
+            high_metric = next((name for name, value in metrics.items() 
+                              if name in self.metric_explanations and 
+                              self._determine_metric_status(name, value) == 'high'), None)
+            
+            if high_metric:
+                return f"{service_name} is generally healthy, but {self.metric_explanations[high_metric]['name'].lower()} is higher than normal."
+            else:
+                return f"{service_name} is generally healthy, but one metric is higher than normal."
+        elif status_counts['low'] > status_counts['normal']:
+            return f"{service_name} is underutilized. It's using fewer resources than expected, which might indicate it's not being fully used."
+        else:
+            return f"{service_name} is healthy and operating normally. All metrics are within expected ranges."
+    
+    def _generate_recommendations(self, service_id: str, metrics: Dict) -> List[str]:
+        """Generate recommendations based on service metrics.
+        
+        Args:
+            service_id: ID of the service
+            metrics: Dictionary of current metrics
+            
+        Returns:
+            List of recommendations
+        """
+        recommendations = []
+        
+        # Check CPU usage
+        if 'cpu' in metrics:
+            cpu_value = metrics['cpu']
+            if cpu_value > self.default_thresholds['cpu']['critical']:
+                recommendations.append("Consider allocating more CPU resources to this service or optimizing its code to reduce CPU usage.")
+            elif cpu_value > self.default_thresholds['cpu']['high']:
+                recommendations.append("Monitor CPU usage closely. If it remains high, consider allocating more CPU resources.")
+            elif cpu_value < 10:
+                recommendations.append("This service is using very little CPU. Consider reducing allocated CPU resources to save energy.")
+        
+        # Check memory usage
+        if 'memory' in metrics:
+            memory_value = metrics['memory']
+            if memory_value > self.default_thresholds['memory']['critical']:
+                recommendations.append("Increase memory allocation to prevent potential crashes or performance issues.")
+            elif memory_value > self.default_thresholds['memory']['high']:
+                recommendations.append("Monitor memory usage closely. If it remains high, consider increasing memory allocation.")
+            elif memory_value < 20:
+                recommendations.append("This service is using very little memory. Consider reducing allocated memory if this pattern continues.")
+        
+        # Check disk space
+        if 'disk_space' in metrics:
+            disk_value = metrics['disk_space']
+            if disk_value > self.default_thresholds['disk_space']['critical']:
+                recommendations.append("Urgent: Add more storage space or clean up unnecessary data to prevent service failure.")
+            elif disk_value > self.default_thresholds['disk_space']['high']:
+                recommendations.append("Plan to add more storage space soon or implement data cleanup procedures.")
+        
+        # Check response time
+        if 'response_time' in metrics:
+            response_value = metrics['response_time']
+            if response_value > self.default_thresholds['response_time']['critical']:
+                recommendations.append("Investigate the cause of slow response times. This could be due to resource constraints or code inefficiencies.")
+            elif response_value > self.default_thresholds['response_time']['high']:
+                recommendations.append("Monitor response times closely. If they remain high, investigate potential bottlenecks.")
+        
+        # Check error rate
+        if 'error_rate' in metrics and metrics['error_rate'] > 1:
+            recommendations.append("Investigate the cause of errors. Review logs to identify and fix the most common error types.")
+        
+        # If no specific recommendations, provide a general one
+        if not recommendations:
+            recommendations.append("All metrics look good. Continue monitoring to maintain optimal performance.")
+        
+        return recommendations

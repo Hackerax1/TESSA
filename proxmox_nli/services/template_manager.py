@@ -36,10 +36,35 @@ class TemplateManager:
         self.shared_dir = os.path.join(self.templates_dir, 'shared')
         os.makedirs(self.shared_dir, exist_ok=True)
         
+        # Create community templates directory
+        self.community_dir = os.path.join(self.templates_dir, 'community')
+        os.makedirs(self.community_dir, exist_ok=True)
+        
         # Dictionary to track created templates
         self.templates = {}
         self._load_templates()
-
+        
+        # Community repository URL (could be configurable)
+        self.community_repo_url = "https://api.github.com/repos/proxmox-nli/community-templates/contents"
+        
+        # Template validation schema
+        self.template_schema = {
+            "required": ["template_id", "template_name", "description", "version"],
+            "properties": {
+                "template_id": {"type": "string"},
+                "template_name": {"type": "string"},
+                "description": {"type": "string"},
+                "version": {"type": "string"},
+                "author": {"type": "string"},
+                "created_at": {"type": "string"},
+                "updated_at": {"type": "string"},
+                "tags": {"type": "array", "items": {"type": "string"}},
+                "services": {"type": "array", "items": {"type": "object"}},
+                "configuration": {"type": "object"},
+                "dependencies": {"type": "array", "items": {"type": "string"}}
+            }
+        }
+        
     def _load_templates(self):
         """Load custom templates from the templates directory."""
         try:
@@ -324,134 +349,412 @@ class TemplateManager:
                 "message": f"Failed to delete template: {str(e)}"
             }
             
-    def share_template(self, template_id: str) -> Dict:
-        """Share a template by copying it to the shared directory.
+    def share_template(self, template_id: str, share_type: str = 'local') -> Dict:
+        """Share a template with others.
         
         Args:
             template_id: ID of the template to share
+            share_type: Type of sharing ('local', 'community')
             
         Returns:
             Template sharing result dictionary
         """
         if template_id not in self.templates:
             return {
-                "success": False,
-                "message": f"Template with ID '{template_id}' not found"
+                'success': False,
+                'message': f'Template with ID {template_id} not found'
             }
             
-        template_info = self.templates[template_id]
+        template_data = self.templates[template_id]
+        template = template_data['template']
         
-        # Already shared
-        if template_info['type'] == 'shared':
-            return {
-                "success": True,
-                "message": f"Template '{template_id}' is already shared",
-                "template_id": template_id
-            }
-            
-        template = template_info['template']
-        template_name = template.get('template_name', template_id)
-        
-        # Add sharing metadata
+        # Update sharing metadata
         template['shared'] = True
+        template['share_type'] = share_type
         template['shared_at'] = datetime.now().isoformat()
         
-        # Save to shared directory
-        shared_filename = f"{template_id}.yml"
-        shared_path = os.path.join(self.shared_dir, shared_filename)
-        
-        try:
-            with open(shared_path, 'w') as f:
-                yaml.dump(template, f, default_flow_style=False)
+        if share_type == 'local':
+            # Copy to shared directory
+            shared_filename = f"{template_id}.yml"
+            shared_path = os.path.join(self.shared_dir, shared_filename)
+            
+            try:
+                with open(shared_path, 'w') as f:
+                    yaml.dump(template, f, default_flow_style=False)
+                    
+                # Update template record
+                self.templates[template_id] = {
+                    'template': template,
+                    'path': shared_path,
+                    'type': 'shared'
+                }
                 
-            # Update templates dictionary
-            self.templates[template_id] = {
-                'template': template,
-                'path': shared_path,
-                'type': 'shared'
-            }
+                return {
+                    'success': True,
+                    'message': f'Template {template["template_name"]} shared locally',
+                    'template_id': template_id,
+                    'share_url': f'file://{shared_path}'
+                }
+            except Exception as e:
+                logger.error(f"Error sharing template locally: {str(e)}")
+                return {
+                    'success': False,
+                    'message': f'Failed to share template locally: {str(e)}'
+                }
+        elif share_type == 'community':
+            # This would typically involve uploading to a community repository
+            # For now, we'll just copy to the community directory
+            community_filename = f"{template_id}.yml"
+            community_path = os.path.join(self.community_dir, community_filename)
             
-            # Remove the original file
-            if os.path.exists(template_info['path']):
-                os.remove(template_info['path'])
-            
+            try:
+                with open(community_path, 'w') as f:
+                    yaml.dump(template, f, default_flow_style=False)
+                    
+                return {
+                    'success': True,
+                    'message': f'Template {template["template_name"]} shared with community',
+                    'template_id': template_id,
+                    'share_url': f'community://{template_id}'
+                }
+            except Exception as e:
+                logger.error(f"Error sharing template with community: {str(e)}")
+                return {
+                    'success': False,
+                    'message': f'Failed to share template with community: {str(e)}'
+                }
+        else:
             return {
-                "success": True,
-                "message": f"Successfully shared template '{template_name}'",
-                "template_id": template_id,
-                "template": template
+                'success': False,
+                'message': f'Unknown share type: {share_type}'
             }
-        except Exception as e:
-            logger.error(f"Error sharing template: {str(e)}")
-            return {
-                "success": False,
-                "message": f"Failed to share template: {str(e)}"
-            }
-            
-    def unshare_template(self, template_id: str) -> Dict:
-        """Unshare a template by moving it back to the local templates directory.
+    
+    def import_template(self, source: str, source_type: str = 'file') -> Dict:
+        """Import a template from an external source.
         
         Args:
-            template_id: ID of the template to unshare
+            source: Source of the template (file path, URL, or ID)
+            source_type: Type of source ('file', 'url', 'community')
             
         Returns:
-            Template unsharing result dictionary
+            Template import result dictionary
         """
-        if template_id not in self.templates:
-            return {
-                "success": False,
-                "message": f"Template with ID '{template_id}' not found"
-            }
-            
-        template_info = self.templates[template_id]
-        
-        # Not shared
-        if template_info['type'] != 'shared':
-            return {
-                "success": True,
-                "message": f"Template '{template_id}' is not shared",
-                "template_id": template_id
-            }
-            
-        template = template_info['template']
-        template_name = template.get('template_name', template_id)
-        
-        # Remove sharing metadata
-        if 'shared' in template:
-            del template['shared']
-        if 'shared_at' in template:
-            del template['shared_at']
-        
-        # Save to local directory
-        local_filename = f"{template_id}.yml"
-        local_path = os.path.join(self.templates_dir, local_filename)
-        
         try:
-            with open(local_path, 'w') as f:
+            if source_type == 'file':
+                # Import from a local file
+                if not os.path.exists(source):
+                    return {
+                        'success': False,
+                        'message': f'File not found: {source}'
+                    }
+                    
+                with open(source, 'r') as f:
+                    template = yaml.safe_load(f)
+            elif source_type == 'url':
+                # Import from a URL
+                response = requests.get(source)
+                if response.status_code != 200:
+                    return {
+                        'success': False,
+                        'message': f'Failed to download template: HTTP {response.status_code}'
+                    }
+                    
+                template = yaml.safe_load(response.text)
+            elif source_type == 'community':
+                # Import from community repository
+                community_url = f"{self.community_repo_url}/{source}.yml"
+                response = requests.get(community_url)
+                if response.status_code != 200:
+                    return {
+                        'success': False,
+                        'message': f'Failed to download community template: HTTP {response.status_code}'
+                    }
+                    
+                content = response.json().get('content', '')
+                if content:
+                    import base64
+                    decoded_content = base64.b64decode(content).decode('utf-8')
+                    template = yaml.safe_load(decoded_content)
+                else:
+                    return {
+                        'success': False,
+                        'message': 'Failed to get template content from community repository'
+                    }
+            else:
+                return {
+                    'success': False,
+                    'message': f'Unknown source type: {source_type}'
+                }
+                
+            # Validate template
+            if not self._validate_template(template):
+                return {
+                    'success': False,
+                    'message': 'Invalid template format'
+                }
+                
+            # Check if template already exists
+            template_id = template.get('template_id')
+            if template_id in self.templates:
+                # Update existing template
+                existing_template = self.templates[template_id]['template']
+                existing_version = existing_template.get('version', '0.0.0')
+                new_version = template.get('version', '0.0.0')
+                
+                # Compare versions (simple string comparison for now)
+                if new_version <= existing_version:
+                    return {
+                        'success': False,
+                        'message': f'Template {template_id} already exists with same or newer version'
+                    }
+                    
+            # Save the template
+            template_filename = f"{template_id}.yml"
+            template_path = os.path.join(self.templates_dir, template_filename)
+            
+            with open(template_path, 'w') as f:
                 yaml.dump(template, f, default_flow_style=False)
                 
-            # Update templates dictionary
+            # Add to templates dictionary
             self.templates[template_id] = {
                 'template': template,
-                'path': local_path,
+                'path': template_path,
+                'type': 'imported'
+            }
+            
+            return {
+                'success': True,
+                'message': f'Successfully imported template {template.get("template_name")}',
+                'template_id': template_id,
+                'template': template
+            }
+        except Exception as e:
+            logger.error(f"Error importing template: {str(e)}")
+            return {
+                'success': False,
+                'message': f'Failed to import template: {str(e)}'
+            }
+    
+    def create_template_from_scratch(self, template_data: Dict) -> Dict:
+        """Create a completely new template from scratch.
+        
+        Args:
+            template_data: Template data including name, description, and configuration
+            
+        Returns:
+            Template creation result dictionary
+        """
+        # Validate required fields
+        required_fields = ['template_name', 'description']
+        for field in required_fields:
+            if field not in template_data:
+                return {
+                    'success': False,
+                    'message': f'Missing required field: {field}'
+                }
+                
+        # Create a template ID if not provided
+        if 'template_id' not in template_data:
+            template_data['template_id'] = f"template_{str(uuid.uuid4())[:8]}"
+            
+        template_id = template_data['template_id']
+        
+        # Add metadata
+        if 'created_at' not in template_data:
+            template_data['created_at'] = datetime.now().isoformat()
+        if 'updated_at' not in template_data:
+            template_data['updated_at'] = datetime.now().isoformat()
+        if 'version' not in template_data:
+            template_data['version'] = '1.0.0'
+        if 'tags' not in template_data:
+            template_data['tags'] = []
+        if 'services' not in template_data:
+            template_data['services'] = []
+        if 'configuration' not in template_data:
+            template_data['configuration'] = {}
+            
+        # Save the template to disk
+        template_filename = f"{template_id}.yml"
+        template_path = os.path.join(self.templates_dir, template_filename)
+        
+        try:
+            with open(template_path, 'w') as f:
+                yaml.dump(template_data, f, default_flow_style=False)
+                
+            # Add to templates dictionary
+            self.templates[template_id] = {
+                'template': template_data,
+                'path': template_path,
                 'type': 'local'
             }
             
-            # Remove the shared file
-            if os.path.exists(template_info['path']):
-                os.remove(template_info['path'])
-            
             return {
-                "success": True,
-                "message": f"Successfully unshared template '{template_name}'",
-                "template_id": template_id,
-                "template": template
+                'success': True,
+                'message': f'Successfully created template {template_data["template_name"]}',
+                'template_id': template_id,
+                'template': template_data
             }
         except Exception as e:
-            logger.error(f"Error unsharing template: {str(e)}")
+            logger.error(f"Error creating template: {str(e)}")
             return {
-                "success": False,
-                "message": f"Failed to unshare template: {str(e)}"
+                'success': False,
+                'message': f'Failed to create template: {str(e)}'
+            }
+    
+    def search_community_templates(self, query: str = None, tags: List[str] = None) -> Dict:
+        """Search for templates in the community repository.
+        
+        Args:
+            query: Optional search query
+            tags: Optional list of tags to filter by
+            
+        Returns:
+            Dictionary with search results
+        """
+        try:
+            # In a real implementation, this would query a community API
+            # For now, we'll just list templates in the community directory
+            templates = []
+            
+            for filename in os.listdir(self.community_dir):
+                if filename.endswith('.yml') or filename.endswith('.yaml'):
+                    template_path = os.path.join(self.community_dir, filename)
+                    try:
+                        with open(template_path, 'r') as f:
+                            template = yaml.safe_load(f)
+                            
+                            # Apply query filter if provided
+                            if query:
+                                query_lower = query.lower()
+                                name = template.get('template_name', '').lower()
+                                description = template.get('description', '').lower()
+                                
+                                if query_lower not in name and query_lower not in description:
+                                    continue
+                                    
+                            # Apply tag filter if provided
+                            if tags:
+                                template_tags = template.get('tags', [])
+                                if not any(tag in template_tags for tag in tags):
+                                    continue
+                                    
+                            templates.append(template)
+                    except Exception as e:
+                        logger.error(f"Error loading community template {filename}: {str(e)}")
+            
+            return {
+                'success': True,
+                'message': f'Found {len(templates)} community templates',
+                'templates': templates
+            }
+        except Exception as e:
+            logger.error(f"Error searching community templates: {str(e)}")
+            return {
+                'success': False,
+                'message': f'Failed to search community templates: {str(e)}'
+            }
+    
+    def _validate_template(self, template: Dict) -> bool:
+        """Validate a template against the schema.
+        
+        Args:
+            template: Template to validate
+            
+        Returns:
+            True if template is valid, False otherwise
+        """
+        # Check required fields
+        for field in self.template_schema['required']:
+            if field not in template:
+                logger.error(f"Template missing required field: {field}")
+                return False
+                
+        # Basic validation passed
+        return True
+    
+    def get_template_categories(self) -> Dict:
+        """Get categories of available templates.
+        
+        Returns:
+            Dictionary with template categories
+        """
+        categories = {}
+        
+        for template_id, template_data in self.templates.items():
+            template = template_data['template']
+            tags = template.get('tags', [])
+            
+            for tag in tags:
+                if tag not in categories:
+                    categories[tag] = []
+                    
+                categories[tag].append(template_id)
+                
+        return {
+            'success': True,
+            'message': f'Found {len(categories)} template categories',
+            'categories': categories
+        }
+    
+    def clone_template(self, template_id: str, new_name: str = None) -> Dict:
+        """Clone an existing template.
+        
+        Args:
+            template_id: ID of the template to clone
+            new_name: Optional new name for the cloned template
+            
+        Returns:
+            Template cloning result dictionary
+        """
+        if template_id not in self.templates:
+            return {
+                'success': False,
+                'message': f'Template with ID {template_id} not found'
+            }
+            
+        template_data = self.templates[template_id]
+        template = template_data['template'].copy()
+        
+        # Create a new template ID
+        new_template_id = f"template_{str(uuid.uuid4())[:8]}"
+        
+        # Update template metadata
+        template['template_id'] = new_template_id
+        if new_name:
+            template['template_name'] = new_name
+        else:
+            template['template_name'] = f"Clone of {template['template_name']}"
+            
+        template['cloned_from'] = template_id
+        template['created_at'] = datetime.now().isoformat()
+        template['updated_at'] = datetime.now().isoformat()
+        
+        # Save the template to disk
+        template_filename = f"{new_template_id}.yml"
+        template_path = os.path.join(self.templates_dir, template_filename)
+        
+        try:
+            with open(template_path, 'w') as f:
+                yaml.dump(template, f, default_flow_style=False)
+                
+            # Add to templates dictionary
+            self.templates[new_template_id] = {
+                'template': template,
+                'path': template_path,
+                'type': 'local'
+            }
+            
+            return {
+                'success': True,
+                'message': f'Successfully cloned template to {template["template_name"]}',
+                'template_id': new_template_id,
+                'template': template
+            }
+        except Exception as e:
+            logger.error(f"Error cloning template: {str(e)}")
+            return {
+                'success': False,
+                'message': f'Failed to clone template: {str(e)}'
             }
             
     def export_template(self, template_id: str, output_path: str = None) -> Dict:

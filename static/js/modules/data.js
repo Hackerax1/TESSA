@@ -96,15 +96,30 @@ export default class Data {
             const data = await response.json();
             
             if (data.success) {
-                // Update VM list and cluster status with initial data
-                onVMUpdate(data.vm_status);
-                onClusterUpdate(data.cluster_status.nodes);
+                // Update VM list with the new updateVMList function
+                if (typeof window.updateVMList === 'function') {
+                    window.updateVMList(data.vm_status.vms);
+                }
+                
+                // Also call the original callback for backward compatibility
+                if (onVMUpdate) {
+                    onVMUpdate(data.vm_status);
+                }
+                
+                // Update cluster status
+                if (onClusterUpdate) {
+                    onClusterUpdate(data.cluster_status.nodes);
+                }
             } else {
-                throw new Error(data.error || 'Failed to load initial status');
+                if (onError) {
+                    onError(data.message || 'Failed to load initial data');
+                }
             }
         } catch (error) {
             console.error('Error loading initial data:', error);
-            onError('Failed to load system status. Please refresh the page or contact support.');
+            if (onError) {
+                onError(error.message || 'Network error');
+            }
         }
     }
 }

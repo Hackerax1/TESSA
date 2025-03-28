@@ -36,6 +36,44 @@ class TopicManager:
         self.topic_history = []  # List of recently discussed topics
         self.max_topic_history = 10
         
+        # Enhanced topic detection
+        self.proxmox_topic_keywords = {
+            'virtual machine': ['vm', 'virtual machine', 'guest', 'instance'],
+            'container': ['container', 'lxc', 'ct', 'docker'],
+            'storage': ['storage', 'disk', 'volume', 'datastore', 'zfs', 'ceph'],
+            'network': ['network', 'vlan', 'bridge', 'interface', 'ip', 'firewall'],
+            'backup': ['backup', 'restore', 'snapshot', 'archive'],
+            'cluster': ['cluster', 'node', 'quorum', 'ha', 'high availability'],
+            'performance': ['performance', 'cpu', 'memory', 'ram', 'usage', 'load'],
+            'security': ['security', 'permission', 'acl', 'user', 'role', 'authentication'],
+            'update': ['update', 'upgrade', 'patch', 'version'],
+            'configuration': ['config', 'configuration', 'setting', 'option', 'parameter']
+        }
+        
+        # Transition templates for different scenarios
+        self.transition_templates = {
+            'continuation': [
+                "Continuing with {topic}...",
+                "Let's continue discussing {topic}.",
+                "Getting back to {topic}..."
+            ],
+            'new_topic': [
+                "Moving on to {topic}...",
+                "Let's talk about {topic} now.",
+                "Switching to {topic}..."
+            ],
+            'related_topic': [
+                "Speaking of {topic}, which relates to our previous discussion...",
+                "{topic} is connected to what we were just discussing.",
+                "This brings us to {topic}, which is related."
+            ],
+            'return_to_topic': [
+                "Coming back to {topic} that we discussed earlier...",
+                "Returning to our previous conversation about {topic}...",
+                "Let's revisit {topic} from our earlier discussion."
+            ]
+        }
+        
     def start_session(self, user_id: str, session_id: str) -> int:
         """
         Start a new conversation session.
@@ -139,10 +177,93 @@ class TopicManager:
         """
         if not self.previous_topic or not self.current_topic or self.previous_topic == self.current_topic:
             return None
-            
-        return self.conversation_persistence.get_conversation_transition(
+        
+        # First try to get a transition from the conversation persistence
+        transition = self.conversation_persistence.get_conversation_transition(
             self.current_user_id, self.previous_topic, self.current_topic
         )
+        
+        if transition:
+            return transition
+            
+        # If no transition found, generate one based on the relationship
+        import random
+        
+        # Determine relationship type
+        relationship_type = self._determine_topic_relationship(self.previous_topic, self.current_topic)
+        
+        # Get appropriate templates
+        templates = self.transition_templates.get(relationship_type, self.transition_templates['new_topic'])
+        
+        # Generate transition
+        return random.choice(templates).format(topic=self.current_topic)
+    
+    def _determine_topic_relationship(self, topic1: str, topic2: str) -> str:
+        """
+        Determine the relationship between two topics.
+        
+        Args:
+            topic1: First topic
+            topic2: Second topic
+            
+        Returns:
+            Relationship type (continuation, new_topic, related_topic, return_to_topic)
+        """
+        # Check if topics are in the same category
+        topic1_category = self._get_topic_category(topic1)
+        topic2_category = self._get_topic_category(topic2)
+        
+        if topic1_category == topic2_category:
+            return 'continuation'
+            
+        # Check if topic2 is in topic history (but not the immediate previous topic)
+        if topic2 in self.topic_history[1:]:
+            return 'return_to_topic'
+            
+        # Check if topics are related based on keyword similarity
+        if self._are_topics_related(topic1, topic2):
+            return 'related_topic'
+            
+        # Default to new topic
+        return 'new_topic'
+    
+    def _get_topic_category(self, topic: str) -> Optional[str]:
+        """
+        Get the category of a topic based on keywords.
+        
+        Args:
+            topic: The topic to categorize
+            
+        Returns:
+            Category name or None
+        """
+        topic_lower = topic.lower()
+        
+        for category, keywords in self.proxmox_topic_keywords.items():
+            for keyword in keywords:
+                if keyword in topic_lower:
+                    return category
+                    
+        return None
+    
+    def _are_topics_related(self, topic1: str, topic2: str) -> bool:
+        """
+        Check if two topics are related based on keyword similarity.
+        
+        Args:
+            topic1: First topic
+            topic2: Second topic
+            
+        Returns:
+            True if related, False otherwise
+        """
+        # Simple implementation - check if they share words
+        words1 = set(re.findall(r'\b\w+\b', topic1.lower()))
+        words2 = set(re.findall(r'\b\w+\b', topic2.lower()))
+        
+        # If they share any significant words, consider them related
+        common_words = words1.intersection(words2)
+        return len(common_words) > 0
     
     def get_related_past_discussions(self) -> List[Dict[str, Any]]:
         """
@@ -229,7 +350,7 @@ class TopicManager:
             
         # Otherwise, check if we can add a reference to past discussion
         topic_summary = self.get_topic_summary()
-        if topic_summary:
+        if topic_summary and not topic_summary in response:
             # Add memory reference at the end of the response
             enhanced_response = f"{response}\n\n{topic_summary}"
             return enhanced_response
@@ -266,10 +387,17 @@ class TopicManager:
                 if entity_type in entities and entities[entity_type]:
                     return f"{entity_type.replace('_', ' ')} {entities[entity_type]}"
         
-        # Fall back to keyword extraction
+        # Enhanced keyword extraction
         keywords = self._extract_keywords(message)
         if keywords:
-            return keywords[0]  # Use the highest-scored keyword as the topic
+            # Try to categorize keywords into Proxmox topics
+            for keyword in keywords:
+                category = self._get_topic_category(keyword)
+                if category:
+                    return f"{category}: {keyword}"
+            
+            # If no categorization, use the highest-scored keyword
+            return keywords[0]
             
         return None
     
@@ -283,8 +411,7 @@ class TopicManager:
         Returns:
             List of keywords in order of importance
         """
-        # Simple keyword extraction based on common patterns in proxmox/homelab context
-        # In a real implementation, you might want to use NLP techniques
+        # Enhanced keyword extraction based on common patterns in proxmox/homelab context
         
         # Look for common patterns
         patterns = [
@@ -294,7 +421,10 @@ class TopicManager:
             r'(?:containers?|lxc)\s+(\w+[-\w]*)',  # Container names
             r'(?:backups?|restores?)\s+(\w+[-\w]*)',  # Backup operations
             r'(?:updates?|upgrades?)\s+(\w+[-\w]*)',  # Update operations
-            r'(?:storages?|disks?|volumes?)\s+(\w+[-\w]*)'  # Storage operations
+            r'(?:storages?|disks?|volumes?)\s+(\w+[-\w]*)',  # Storage operations
+            r'(?:networks?|interfaces?|bridges?)\s+(\w+[-\w]*)',  # Network operations
+            r'(?:clusters?|quorums?|ha)\s+(\w+[-\w]*)',  # Cluster operations
+            r'(?:users?|permissions?|roles?)\s+(\w+[-\w]*)'  # User/permission operations
         ]
         
         keywords = []
@@ -306,11 +436,39 @@ class TopicManager:
         important_words = [
             "backup", "restore", "update", "upgrade", "start", "stop",
             "create", "delete", "monitor", "performance", "network",
-            "security", "storage", "cluster", "configuration", "setup"
+            "security", "storage", "cluster", "configuration", "setup",
+            "migrate", "clone", "snapshot", "template", "iso", "console",
+            "firewall", "bandwidth", "memory", "cpu", "disk", "power",
+            "status", "log", "error", "warning", "success", "failure"
         ]
         
+        # Score keywords based on proximity to important words
+        scored_keywords = []
+        text_lower = text.lower()
+        
         for word in important_words:
-            if word in text.lower():
-                keywords.append(word)
+            if word in text_lower:
+                # Find the context around the important word
+                context_pattern = r'(\w+\s+){0,3}' + word + r'(\s+\w+){0,3}'
+                contexts = re.findall(context_pattern, text_lower)
                 
-        return list(dict.fromkeys(keywords))  # Remove duplicates while preserving order
+                if contexts:
+                    # Extract words from contexts
+                    for context in contexts:
+                        context_words = re.findall(r'\b\w+\b', ' '.join(context))
+                        for context_word in context_words:
+                            if len(context_word) > 3 and context_word != word:  # Skip short words and the important word itself
+                                scored_keywords.append((context_word, 0.8))  # Words near important words get high score
+                
+                # Add the important word itself
+                scored_keywords.append((word, 1.0))
+        
+        # Add any remaining words from the text
+        other_words = [w for w in re.findall(r'\b\w{4,}\b', text_lower) if w not in [kw[0] for kw in scored_keywords]]
+        scored_keywords.extend([(w, 0.5) for w in other_words])  # Other words get lower score
+        
+        # Sort by score
+        scored_keywords.sort(key=lambda x: x[1], reverse=True)
+        
+        # Return just the keywords
+        return [kw[0] for kw in scored_keywords]

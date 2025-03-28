@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">VM Access - {{ vm_id }}</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Connection Details</h6>
+                    <div class="alert alert-info">
+                        <p><strong>VM ID:</strong> {{ vm_id }}</p>
+                        <p><strong>Status:</strong> <span id="vm-status">Checking...</span></p>
+                        <p><strong>IP Address:</strong> <span id="vm-ip">Loading...</span></p>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-primary" id="console-btn">
+                            <i class="bi bi-display"></i> Open Console
+                        </button>
+                        <button class="btn btn-secondary" id="vnc-btn">
+                            <i class="bi bi-laptop"></i> Connect via VNC
+                        </button>
+                        <button class="btn btn-success" id="start-btn">
+                            <i class="bi bi-play-fill"></i> Start VM
+                        </button>
+                        <button class="btn btn-danger" id="stop-btn">
+                            <i class="bi bi-stop-fill"></i> Stop VM
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <h6>VM Information</h6>
+                    <div id="vm-details" class="mb-3">
+                        <div class="d-flex justify-content-center align-items-center h-100">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <h6>Recent Activity</h6>
+                    <div id="vm-activity" class="activity-log">
+                        <div class="d-flex justify-content-center align-items-center h-100">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card-footer">
+            <a href="/" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Load VM details
+    fetch(`/api/vms/${vm_id}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('vm-status').textContent = data.status;
+                document.getElementById('vm-ip').textContent = data.ip_address || 'Not available';
+                
+                // Render VM details
+                const vmDetails = document.getElementById('vm-details');
+                vmDetails.innerHTML = `
+                    <div class="vm-info">
+                        <p><strong>Name:</strong> ${data.name}</p>
+                        <p><strong>CPU:</strong> ${data.cpu} cores</p>
+                        <p><strong>Memory:</strong> ${data.memory} MB</p>
+                        <p><strong>Disk:</strong> ${data.disk} GB</p>
+                        <p><strong>OS:</strong> ${data.os || 'Unknown'}</p>
+                    </div>
+                `;
+                
+                // Update button states based on VM status
+                updateButtonStates(data.status);
+            } else {
+                document.getElementById('vm-details').innerHTML = `
+                    <div class="alert alert-danger">
+                        Failed to load VM details: ${data.message || 'Unknown error'}
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching VM details:', error);
+            document.getElementById('vm-details').innerHTML = `
+                <div class="alert alert-danger">
+                    Error loading VM details. Please try again later.
+                </div>
+            `;
+        });
+    
+    // Load VM activity
+    fetch(`/api/vms/${vm_id}/activity`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.activity.length > 0) {
+                const activityLog = document.getElementById('vm-activity');
+                activityLog.innerHTML = '';
+                
+                data.activity.forEach(entry => {
+                    const activityItem = document.createElement('div');
+                    activityItem.className = 'activity-item';
+                    activityItem.innerHTML = `
+                        <div class="activity-time">${new Date(entry.timestamp).toLocaleString()}</div>
+                        <div class="activity-description">${entry.description}</div>
+                    `;
+                    activityLog.appendChild(activityItem);
+                });
+            } else {
+                document.getElementById('vm-activity').innerHTML = `
+                    <div class="text-muted">No recent activity found.</div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching VM activity:', error);
+            document.getElementById('vm-activity').innerHTML = `
+                <div class="alert alert-danger">
+                    Error loading activity log. Please try again later.
+                </div>
+            `;
+        });
+    
+    // Button event handlers
+    document.getElementById('console-btn').addEventListener('click', function() {
+        window.open(`/api/vms/${vm_id}/console`, '_blank');
+    });
+    
+    document.getElementById('vnc-btn').addEventListener('click', function() {
+        fetch(`/api/vms/${vm_id}/vnc-info`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show VNC connection info in a modal
+                    alert(`VNC Connection Info:\nHost: ${data.host}\nPort: ${data.port}\nPassword: ${data.password}`);
+                } else {
+                    alert(`Failed to get VNC info: ${data.message}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching VNC info:', error);
+                alert('Error getting VNC connection info. Please try again later.');
+            });
+    });
+    
+    document.getElementById('start-btn').addEventListener('click', function() {
+        if (confirm('Are you sure you want to start this VM?')) {
+            fetch(`/api/vms/${vm_id}/start`, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('VM start command sent successfully');
+                        // Refresh the page after a short delay
+                        setTimeout(() => location.reload(), 2000);
+                    } else {
+                        alert(`Failed to start VM: ${data.message}`);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error starting VM:', error);
+                    alert('Error sending start command. Please try again later.');
+                });
+        }
+    });
+    
+    document.getElementById('stop-btn').addEventListener('click', function() {
+        if (confirm('Are you sure you want to stop this VM?')) {
+            fetch(`/api/vms/${vm_id}/stop`, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('VM stop command sent successfully');
+                        // Refresh the page after a short delay
+                        setTimeout(() => location.reload(), 2000);
+                    } else {
+                        alert(`Failed to stop VM: ${data.message}`);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error stopping VM:', error);
+                    alert('Error sending stop command. Please try again later.');
+                });
+        }
+    });
+    
+    function updateButtonStates(status) {
+        const startBtn = document.getElementById('start-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const consoleBtn = document.getElementById('console-btn');
+        const vncBtn = document.getElementById('vnc-btn');
+        
+        if (status === 'running') {
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            consoleBtn.disabled = false;
+            vncBtn.disabled = false;
+        } else if (status === 'stopped') {
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            consoleBtn.disabled = true;
+            vncBtn.disabled = true;
+        } else {
+            // Other states like 'suspended', 'paused', etc.
+            startBtn.disabled = false;
+            stopBtn.disabled = false;
+            consoleBtn.disabled = true;
+            vncBtn.disabled = true;
+        }
+    }
+});
+</script>
+
+<style>
+.activity-log {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    padding: 0.5rem;
+}
+
+.activity-item {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.activity-item:last-child {
+    border-bottom: none;
+}
+
+.activity-time {
+    font-size: 0.8rem;
+    color: #6c757d;
+}
+
+.activity-description {
+    font-size: 0.9rem;
+}
+
+.vm-info p {
+    margin-bottom: 0.5rem;
+}
+</style>
+{% endblock %}

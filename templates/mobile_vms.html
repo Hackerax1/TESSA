@@ -1,0 +1,511 @@
+{% extends "mobile_base.html" %}
+
+{% block title %}VMs{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0">Virtual Machines</h4>
+        <div>
+            <span class="badge bg-success me-1" id="running-vms">0 Running</span>
+            <span class="badge bg-danger" id="stopped-vms">0 Stopped</span>
+        </div>
+    </div>
+    
+    <!-- Search and filter -->
+    <div class="input-group mb-3">
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input type="text" class="form-control" id="vm-search" placeholder="Search VMs...">
+        <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+            <i class="bi bi-filter"></i>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="#" data-filter="all">All VMs</a></li>
+            <li><a class="dropdown-item" href="#" data-filter="running">Running</a></li>
+            <li><a class="dropdown-item" href="#" data-filter="stopped">Stopped</a></li>
+        </ul>
+    </div>
+    
+    <!-- VM List -->
+    <div id="mobile-vm-list" class="mb-5">
+        <div class="d-flex justify-content-center my-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Floating Action Button -->
+    <div class="position-fixed bottom-0 end-0 p-3 mb-5">
+        <button class="btn btn-primary rounded-circle shadow" style="width: 60px; height: 60px;" id="create-vm-btn">
+            <i class="bi bi-plus-lg" style="font-size: 1.5rem;"></i>
+        </button>
+    </div>
+</div>
+
+<!-- VM Action Modal -->
+<div class="modal fade" id="vmActionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="vmActionModalTitle">VM Actions</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="vm-info mb-3">
+                    <h5 id="modal-vm-name">VM Name</h5>
+                    <div class="d-flex align-items-center">
+                        <span class="status-indicator" id="modal-vm-status-indicator"></span>
+                        <span id="modal-vm-status">Status</span>
+                        <span class="badge bg-secondary ms-2" id="modal-vm-id">ID</span>
+                    </div>
+                </div>
+                
+                <div class="vm-stats mb-3">
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <div class="p-2 border rounded">
+                                <div class="small text-muted">CPU</div>
+                                <div id="modal-vm-cpu">0%</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="p-2 border rounded">
+                                <div class="small text-muted">Memory</div>
+                                <div id="modal-vm-memory">0%</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="p-2 border rounded">
+                                <div class="small text-muted">Disk</div>
+                                <div id="modal-vm-disk">0 GB</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="p-2 border rounded">
+                                <div class="small text-muted">Network</div>
+                                <div id="modal-vm-network">0 Mbps</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="vm-actions">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-primary" id="modal-view-btn">
+                            <i class="bi bi-eye"></i> View Details
+                        </button>
+                        <button class="btn btn-success" id="modal-start-btn">
+                            <i class="bi bi-play-fill"></i> Start VM
+                        </button>
+                        <button class="btn btn-danger" id="modal-stop-btn">
+                            <i class="bi bi-stop-fill"></i> Stop VM
+                        </button>
+                        <button class="btn btn-warning" id="modal-restart-btn">
+                            <i class="bi bi-arrow-clockwise"></i> Restart VM
+                        </button>
+                        <button class="btn btn-info" id="modal-qrcode-btn">
+                            <i class="bi bi-qr-code"></i> QR Code Access
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Load VM list
+        loadVMs();
+        
+        // Set up search functionality
+        const searchInput = document.getElementById('vm-search');
+        searchInput.addEventListener('input', function() {
+            filterVMs(this.value);
+        });
+        
+        // Set up filter functionality
+        document.querySelectorAll('[data-filter]').forEach(filter => {
+            filter.addEventListener('click', function(e) {
+                e.preventDefault();
+                const filterValue = this.getAttribute('data-filter');
+                applyFilter(filterValue);
+            });
+        });
+        
+        // Set up create VM button
+        document.getElementById('create-vm-btn').addEventListener('click', function() {
+            window.location.href = '/create-vm';
+        });
+    });
+    
+    // Load VM list from API
+    function loadVMs() {
+        const vmList = document.getElementById('mobile-vm-list');
+        
+        fetch('/api/vms')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.vms && data.vms.length > 0) {
+                    // Count running and stopped VMs
+                    let runningCount = 0;
+                    let stoppedCount = 0;
+                    
+                    // Clear container
+                    vmList.innerHTML = '';
+                    
+                    // Add VM items
+                    data.vms.forEach(vm => {
+                        const isRunning = vm.status === 'running';
+                        if (isRunning) runningCount++;
+                        else stoppedCount++;
+                        
+                        // Create swipeable VM item
+                        const vmItem = document.createElement('div');
+                        vmItem.className = 'card mb-3 swipeable';
+                        vmItem.setAttribute('data-vm-id', vm.vmid);
+                        vmItem.setAttribute('data-vm-status', vm.status);
+                        vmItem.setAttribute('data-vm-name', vm.name || 'VM ' + vm.vmid);
+                        
+                        vmItem.innerHTML = `
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <span class="status-indicator ${isRunning ? 'status-running' : 'status-stopped'}"></span>
+                                        <strong>${vm.name || 'VM ' + vm.vmid}</strong>
+                                        <span class="badge bg-secondary ms-1">${vm.vmid}</span>
+                                    </div>
+                                    <button class="btn btn-sm btn-outline-secondary vm-action-btn">
+                                        <i class="bi bi-three-dots-vertical"></i>
+                                    </button>
+                                </div>
+                                <div class="mt-2 small">
+                                    <div class="row g-2">
+                                        <div class="col-6">
+                                            <div class="d-flex align-items-center">
+                                                <i class="bi bi-cpu me-1"></i>
+                                                <span>${vm.cpu || '1'} CPU</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="d-flex align-items-center">
+                                                <i class="bi bi-memory me-1"></i>
+                                                <span>${vm.memory || '1024'} MB</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        
+                        vmList.appendChild(vmItem);
+                        
+                        // Add click event to open action modal
+                        vmItem.querySelector('.vm-action-btn').addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            openVMActionModal(vm);
+                        });
+                        
+                        // Add click event to the whole card
+                        vmItem.addEventListener('click', function() {
+                            openVMActionModal(vm);
+                        });
+                    });
+                    
+                    // Update counters
+                    document.getElementById('running-vms').textContent = `${runningCount} Running`;
+                    document.getElementById('stopped-vms').textContent = `${stoppedCount} Stopped`;
+                    
+                    // Initialize swipe gestures
+                    initSwipeGestures();
+                } else {
+                    vmList.innerHTML = '<div class="alert alert-info">No VMs found</div>';
+                    document.getElementById('running-vms').textContent = '0 Running';
+                    document.getElementById('stopped-vms').textContent = '0 Stopped';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading VMs:', error);
+                vmList.innerHTML = `<div class="alert alert-danger">Error loading VMs: ${error.message}</div>`;
+            });
+    }
+    
+    // Filter VMs by search term
+    function filterVMs(searchTerm) {
+        const vmItems = document.querySelectorAll('#mobile-vm-list .card');
+        searchTerm = searchTerm.toLowerCase();
+        
+        vmItems.forEach(item => {
+            const vmName = item.getAttribute('data-vm-name').toLowerCase();
+            const vmId = item.getAttribute('data-vm-id');
+            
+            if (vmName.includes(searchTerm) || vmId.includes(searchTerm)) {
+                item.style.display = '';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    }
+    
+    // Apply filter (all, running, stopped)
+    function applyFilter(filter) {
+        const vmItems = document.querySelectorAll('#mobile-vm-list .card');
+        
+        vmItems.forEach(item => {
+            const vmStatus = item.getAttribute('data-vm-status');
+            
+            if (filter === 'all' || 
+                (filter === 'running' && vmStatus === 'running') || 
+                (filter === 'stopped' && vmStatus === 'stopped')) {
+                item.style.display = '';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    }
+    
+    // Open VM action modal
+    function openVMActionModal(vm) {
+        const modal = new bootstrap.Modal(document.getElementById('vmActionModal'));
+        
+        // Set VM info
+        document.getElementById('vmActionModalTitle').textContent = vm.name || 'VM ' + vm.vmid;
+        document.getElementById('modal-vm-name').textContent = vm.name || 'VM ' + vm.vmid;
+        document.getElementById('modal-vm-id').textContent = vm.vmid;
+        
+        const statusIndicator = document.getElementById('modal-vm-status-indicator');
+        const statusText = document.getElementById('modal-vm-status');
+        
+        if (vm.status === 'running') {
+            statusIndicator.className = 'status-indicator status-running';
+            statusText.textContent = 'Running';
+            statusText.className = 'text-success';
+        } else {
+            statusIndicator.className = 'status-indicator status-stopped';
+            statusText.textContent = 'Stopped';
+            statusText.className = 'text-danger';
+        }
+        
+        // Set VM stats
+        document.getElementById('modal-vm-cpu').textContent = vm.cpu_usage ? `${vm.cpu_usage}%` : 'N/A';
+        document.getElementById('modal-vm-memory').textContent = vm.memory_usage ? `${vm.memory_usage}%` : 'N/A';
+        document.getElementById('modal-vm-disk').textContent = vm.disk ? `${vm.disk} GB` : 'N/A';
+        document.getElementById('modal-vm-network').textContent = vm.network ? `${vm.network} Mbps` : 'N/A';
+        
+        // Configure buttons based on VM status
+        const startBtn = document.getElementById('modal-start-btn');
+        const stopBtn = document.getElementById('modal-stop-btn');
+        const restartBtn = document.getElementById('modal-restart-btn');
+        
+        if (vm.status === 'running') {
+            startBtn.style.display = 'none';
+            stopBtn.style.display = '';
+            restartBtn.style.display = '';
+        } else {
+            startBtn.style.display = '';
+            stopBtn.style.display = 'none';
+            restartBtn.style.display = 'none';
+        }
+        
+        // Set up button actions
+        document.getElementById('modal-view-btn').onclick = function() {
+            window.location.href = `/vm-details/${vm.vmid}`;
+        };
+        
+        document.getElementById('modal-start-btn').onclick = function() {
+            if (confirm(`Are you sure you want to start VM ${vm.vmid}?`)) {
+                startVM(vm.vmid);
+                modal.hide();
+            }
+        };
+        
+        document.getElementById('modal-stop-btn').onclick = function() {
+            if (confirm(`Are you sure you want to stop VM ${vm.vmid}?`)) {
+                stopVM(vm.vmid);
+                modal.hide();
+            }
+        };
+        
+        document.getElementById('modal-restart-btn').onclick = function() {
+            if (confirm(`Are you sure you want to restart VM ${vm.vmid}?`)) {
+                restartVM(vm.vmid);
+                modal.hide();
+            }
+        };
+        
+        document.getElementById('modal-qrcode-btn').onclick = function() {
+            if (typeof window.showQRCode === 'function') {
+                window.showQRCode('vm', vm.vmid);
+            } else {
+                window.open(`/qr-code/vm/${vm.vmid}`, '_blank');
+            }
+            modal.hide();
+        };
+        
+        // Show the modal
+        modal.show();
+    }
+    
+    // Initialize swipe gestures for VM items
+    function initSwipeGestures() {
+        const swipeItems = document.querySelectorAll('.swipeable');
+        
+        swipeItems.forEach(item => {
+            let startX = 0;
+            let currentX = 0;
+            
+            item.addEventListener('touchstart', function(e) {
+                startX = e.touches[0].clientX;
+            });
+            
+            item.addEventListener('touchmove', function(e) {
+                currentX = e.touches[0].clientX;
+                const diffX = currentX - startX;
+                
+                // Limit swipe distance
+                if (Math.abs(diffX) < 100) {
+                    item.style.transform = `translateX(${diffX}px)`;
+                }
+            });
+            
+            item.addEventListener('touchend', function() {
+                const diffX = currentX - startX;
+                
+                // Reset position
+                item.style.transform = '';
+                
+                // If swiped far enough, trigger action
+                if (diffX > 50) {
+                    // Swiped right - start VM
+                    const vmId = item.getAttribute('data-vm-id');
+                    const vmStatus = item.getAttribute('data-vm-status');
+                    
+                    if (vmStatus !== 'running') {
+                        if (confirm(`Start VM ${vmId}?`)) {
+                            startVM(vmId);
+                        }
+                    }
+                } else if (diffX < -50) {
+                    // Swiped left - stop VM
+                    const vmId = item.getAttribute('data-vm-id');
+                    const vmStatus = item.getAttribute('data-vm-status');
+                    
+                    if (vmStatus === 'running') {
+                        if (confirm(`Stop VM ${vmId}?`)) {
+                            stopVM(vmId);
+                        }
+                    }
+                }
+            });
+        });
+    }
+    
+    // VM action functions
+    function startVM(vmId) {
+        fetch(`/api/vms/${vmId}/start`, { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('VM Start', `Started VM ${vmId} successfully`);
+                    setTimeout(() => loadVMs(), 1000);
+                } else {
+                    showNotification('Error', `Failed to start VM ${vmId}: ${data.message}`, 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error starting VM:', error);
+                showNotification('Error', `Failed to start VM ${vmId}`, 'danger');
+            });
+    }
+    
+    function stopVM(vmId) {
+        fetch(`/api/vms/${vmId}/stop`, { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('VM Stop', `Stopped VM ${vmId} successfully`);
+                    setTimeout(() => loadVMs(), 1000);
+                } else {
+                    showNotification('Error', `Failed to stop VM ${vmId}: ${data.message}`, 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error stopping VM:', error);
+                showNotification('Error', `Failed to stop VM ${vmId}`, 'danger');
+            });
+    }
+    
+    function restartVM(vmId) {
+        fetch(`/api/vms/${vmId}/restart`, { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('VM Restart', `Restarting VM ${vmId}`);
+                    setTimeout(() => loadVMs(), 1000);
+                } else {
+                    showNotification('Error', `Failed to restart VM ${vmId}: ${data.message}`, 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error restarting VM:', error);
+                showNotification('Error', `Failed to restart VM ${vmId}`, 'danger');
+            });
+    }
+    
+    // Show notification toast
+    function showNotification(title, message, type = 'success') {
+        const container = document.getElementById('notificationContainer');
+        const toastId = 'toast-' + Date.now();
+        
+        const toastHTML = `
+            <div class="toast" role="alert" aria-live="assertive" aria-atomic="true" id="${toastId}">
+                <div class="toast-header bg-${type} text-white">
+                    <strong class="me-auto">${title}</strong>
+                    <small>${new Date().toLocaleTimeString()}</small>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+                <div class="toast-body">
+                    ${message}
+                </div>
+            </div>
+        `;
+        
+        container.insertAdjacentHTML('beforeend', toastHTML);
+        
+        const toastElement = document.getElementById(toastId);
+        const toast = new bootstrap.Toast(toastElement, { autohide: true, delay: 5000 });
+        toast.show();
+        
+        // Remove toast from DOM after it's hidden
+        toastElement.addEventListener('hidden.bs.toast', function() {
+            toastElement.remove();
+        });
+    }
+</script>
+
+<style>
+    .status-indicator {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 5px;
+    }
+    
+    .status-running {
+        background-color: #28a745;
+    }
+    
+    .status-stopped {
+        background-color: #dc3545;
+    }
+    
+    .swipeable {
+        transition: transform 0.2s ease;
+    }
+</style>
+{% endblock %}

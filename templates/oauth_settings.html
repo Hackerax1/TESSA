@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TESSA - OAuth Settings</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.3/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    {% include 'navbar.html' %}
+
+    <div class="container py-4">
+        <div class="row">
+            <div class="col-md-3">
+                {% include 'settings_sidebar.html' %}
+            </div>
+            <div class="col-md-9">
+                <h2>OAuth Provider Settings</h2>
+                <p class="text-muted">Configure external identity providers for federated authentication</p>
+                
+                <div id="alert-container"></div>
+                
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5>Available Providers</h5>
+                    </div>
+                    <div class="card-body">
+                        <ul class="nav nav-tabs" id="providersTab" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="google-tab" data-bs-toggle="tab" data-bs-target="#google" type="button" role="tab" aria-controls="google" aria-selected="true">Google</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="github-tab" data-bs-toggle="tab" data-bs-target="#github" type="button" role="tab" aria-controls="github" aria-selected="false">GitHub</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="microsoft-tab" data-bs-toggle="tab" data-bs-target="#microsoft" type="button" role="tab" aria-controls="microsoft" aria-selected="false">Microsoft</button>
+                            </li>
+                        </ul>
+                        <div class="tab-content pt-3" id="providersTabContent">
+                            <!-- Google Provider -->
+                            <div class="tab-pane fade show active" id="google" role="tabpanel" aria-labelledby="google-tab">
+                                <form id="google-form" class="oauth-provider-form" data-provider="google">
+                                    <div class="mb-3 form-check">
+                                        <input type="checkbox" class="form-check-input" id="google-enabled" name="enabled" {% if providers.google and providers.google.enabled %}checked{% endif %}>
+                                        <label class="form-check-label" for="google-enabled">Enable Google Authentication</label>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="google-client-id" class="form-label">Client ID</label>
+                                        <input type="text" class="form-control" id="google-client-id" name="client_id" value="{{ providers.google.client_id if providers.google else '' }}">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="google-client-secret" class="form-label">Client Secret</label>
+                                        <input type="password" class="form-control" id="google-client-secret" name="client_secret" value="{{ providers.google.client_secret if providers.google else '' }}">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="google-scope" class="form-label">Scope</label>
+                                        <input type="text" class="form-control" id="google-scope" name="scope" value="{{ providers.google.scope if providers.google else 'openid email profile' }}">
+                                        <div class="form-text">Space-separated list of scopes</div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Redirect URI</label>
+                                        <input type="text" class="form-control" readonly value="{{ url_for('oauth_callback', provider_id='google', _external=True) }}">
+                                        <div class="form-text">Use this URI in your Google OAuth application settings</div>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Save Google Settings</button>
+                                </form>
+                            </div>
+                            
+                            <!-- GitHub Provider -->
+                            <div class="tab-pane fade" id="github" role="tabpanel" aria-labelledby="github-tab">
+                                <form id="github-form" class="oauth-provider-form" data-provider="github">
+                                    <div class="mb-3 form-check">
+                                        <input type="checkbox" class="form-check-input" id="github-enabled" name="enabled" {% if providers.github and providers.github.enabled %}checked{% endif %}>
+                                        <label class="form-check-label" for="github-enabled">Enable GitHub Authentication</label>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="github-client-id" class="form-label">Client ID</label>
+                                        <input type="text" class="form-control" id="github-client-id" name="client_id" value="{{ providers.github.client_id if providers.github else '' }}">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="github-client-secret" class="form-label">Client Secret</label>
+                                        <input type="password" class="form-control" id="github-client-secret" name="client_secret" value="{{ providers.github.client_secret if providers.github else '' }}">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="github-scope" class="form-label">Scope</label>
+                                        <input type="text" class="form-control" id="github-scope" name="scope" value="{{ providers.github.scope if providers.github else 'user:email read:user' }}">
+                                        <div class="form-text">Space-separated list of scopes</div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Redirect URI</label>
+                                        <input type="text" class="form-control" readonly value="{{ url_for('oauth_callback', provider_id='github', _external=True) }}">
+                                        <div class="form-text">Use this URI in your GitHub OAuth application settings</div>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Save GitHub Settings</button>
+                                </form>
+                            </div>
+                            
+                            <!-- Microsoft Provider -->
+                            <div class="tab-pane fade" id="microsoft" role="tabpanel" aria-labelledby="microsoft-tab">
+                                <form id="microsoft-form" class="oauth-provider-form" data-provider="microsoft">
+                                    <div class="mb-3 form-check">
+                                        <input type="checkbox" class="form-check-input" id="microsoft-enabled" name="enabled" {% if providers.microsoft and providers.microsoft.enabled %}checked{% endif %}>
+                                        <label class="form-check-label" for="microsoft-enabled">Enable Microsoft Authentication</label>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="microsoft-client-id" class="form-label">Client ID</label>
+                                        <input type="text" class="form-control" id="microsoft-client-id" name="client_id" value="{{ providers.microsoft.client_id if providers.microsoft else '' }}">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="microsoft-client-secret" class="form-label">Client Secret</label>
+                                        <input type="password" class="form-control" id="microsoft-client-secret" name="client_secret" value="{{ providers.microsoft.client_secret if providers.microsoft else '' }}">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="microsoft-tenant" class="form-label">Tenant</label>
+                                        <input type="text" class="form-control" id="microsoft-tenant" name="tenant" value="{{ providers.microsoft.tenant if providers.microsoft else 'common' }}">
+                                        <div class="form-text">Use 'common' for any Microsoft account, or your tenant ID for organization-specific authentication</div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="microsoft-scope" class="form-label">Scope</label>
+                                        <input type="text" class="form-control" id="microsoft-scope" name="scope" value="{{ providers.microsoft.scope if providers.microsoft else 'openid email profile User.Read' }}">
+                                        <div class="form-text">Space-separated list of scopes</div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Redirect URI</label>
+                                        <input type="text" class="form-control" readonly value="{{ url_for('oauth_callback', provider_id='microsoft', _external=True) }}">
+                                        <div class="form-text">Use this URI in your Microsoft OAuth application settings</div>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Save Microsoft Settings</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h5>User Account Mapping</h5>
+                    </div>
+                    <div class="card-body">
+                        <p>Configure how external identities are mapped to internal users:</p>
+                        <form id="mapping-form">
+                            <div class="mb-3">
+                                <label for="auto-create-users" class="form-label">User Creation</label>
+                                <select class="form-select" id="auto-create-users" name="auto_create_users">
+                                    <option value="disabled" {% if not providers.auto_create_users %}selected{% endif %}>Disabled - Only allow existing users to log in</option>
+                                    <option value="enabled" {% if providers.auto_create_users %}selected{% endif %}>Enabled - Automatically create new users on first login</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="default-role" class="form-label">Default Role for New Users</label>
+                                <select class="form-select" id="default-role" name="default_role">
+                                    <option value="user" {% if providers.default_role == 'user' %}selected{% endif %}>User - Basic access</option>
+                                    <option value="admin" {% if providers.default_role == 'admin' %}selected{% endif %}>Admin - Full access</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Save Mapping Settings</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Function to show alert
+        function showAlert(message, type = 'success') {
+            const alertContainer = document.getElementById('alert-container');
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+            alertDiv.role = 'alert';
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            alertContainer.appendChild(alertDiv);
+            
+            // Auto-dismiss after 5 seconds
+            setTimeout(() => {
+                const alert = bootstrap.Alert.getOrCreateInstance(alertDiv);
+                alert.close();
+            }, 5000);
+        }
+        
+        // Handle OAuth provider form submissions
+        document.querySelectorAll('.oauth-provider-form').forEach(form => {
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const providerId = this.dataset.provider;
+                const formData = new FormData(this);
+                const config = {
+                    enabled: formData.get('enabled') === 'on',
+                    client_id: formData.get('client_id'),
+                    client_secret: formData.get('client_secret'),
+                    scope: formData.get('scope')
+                };
+                
+                // Add tenant for Microsoft
+                if (providerId === 'microsoft') {
+                    config.tenant = formData.get('tenant');
+                }
+                
+                // Get token from localStorage
+                const token = localStorage.getItem('token');
+                
+                fetch(`/auth/oauth/configure/${providerId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(config)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showAlert(`${providerId.charAt(0).toUpperCase() + providerId.slice(1)} provider settings saved successfully.`);
+                    } else {
+                        showAlert(data.message || 'Failed to save provider settings.', 'danger');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showAlert('Could not connect to server. Please try again.', 'danger');
+                });
+            });
+        });
+        
+        // Handle mapping form submission
+        document.getElementById('mapping-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const config = {
+                auto_create_users: formData.get('auto_create_users') === 'enabled',
+                default_role: formData.get('default_role')
+            };
+            
+            // Get token from localStorage
+            const token = localStorage.getItem('token');
+            
+            fetch('/auth/oauth/configure/mapping', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(config)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert('User mapping settings saved successfully.');
+                } else {
+                    showAlert(data.message || 'Failed to save mapping settings.', 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('Could not connect to server. Please try again.', 'danger');
+            });
+        });
+    </script>
+</body>
+</html>

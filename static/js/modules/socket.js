@@ -10,7 +10,7 @@ export default class SocketHandler {
      * @param {Function} callbacks.onNetworkDiagramUpdate - Callback for network diagram updates
      * @param {Function} callbacks.onError - Callback for connection errors
      */
-    constructor(callbacks) {
+    constructor(callbacks = {}) {
         this.socket = io();
         this.callbacks = callbacks;
         this.pollingInterval = null;
@@ -37,18 +37,28 @@ export default class SocketHandler {
         });
 
         this.socket.on('vm_status_update', (data) => {
+            console.log('Received VM status update:', data);
+            
+            // Use the updateVMList function if available
+            if (typeof window.updateVMList === 'function' && data.vms) {
+                window.updateVMList(data.vms);
+            }
+            
+            // Also call the original callback for backward compatibility
             if (this.callbacks.onVMUpdate) {
                 this.callbacks.onVMUpdate(data);
             }
         });
 
         this.socket.on('cluster_status_update', (data) => {
+            console.log('Received cluster status update:', data);
             if (this.callbacks.onClusterUpdate) {
                 this.callbacks.onClusterUpdate(data.status);
             }
         });
 
         this.socket.on('network_diagram_update', (data) => {
+            console.log('Received network diagram update:', data);
             if (this.callbacks.onNetworkDiagramUpdate) {
                 this.callbacks.onNetworkDiagramUpdate(data.nodes, data.links);
             }

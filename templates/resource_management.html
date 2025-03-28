@@ -1,0 +1,1012 @@
+{% extends "base.html" %}
+
+{% block title %}Resource Management{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-md-3">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Resource Management</h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    <a href="#resource-groups" class="list-group-item list-group-item-action active" data-bs-toggle="tab">Resource Groups</a>
+                    <a href="#resource-allocation" class="list-group-item list-group-item-action" data-bs-toggle="tab">Resource Allocation</a>
+                    <a href="#user-quotas" class="list-group-item list-group-item-action" data-bs-toggle="tab">User Quotas</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-9">
+            <div id="alert-container"></div>
+            
+            <div class="tab-content">
+                <!-- Resource Groups Tab -->
+                <div class="tab-pane fade show active" id="resource-groups">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Resource Groups</h5>
+                            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addGroupModal">
+                                <i class="bi bi-folder-plus"></i> Add Group
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div class="row" id="groups-container">
+                                <!-- Loading placeholder -->
+                                <div class="col-12 text-center">
+                                    <p>Loading resource groups...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Resource Allocation Tab -->
+                <div class="tab-pane fade" id="resource-allocation">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Resource Allocation</h5>
+                            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#allocateResourceModal">
+                                <i class="bi bi-box-arrow-right"></i> Allocate Resource
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div id="allocation-container">
+                                <!-- Loading placeholder -->
+                                <p class="text-center">Loading resource allocations...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- User Quotas Tab -->
+                <div class="tab-pane fade" id="user-quotas">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">User Quotas</h5>
+                            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#setQuotaModal">
+                                <i class="bi bi-sliders"></i> Set Quota
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div id="quotas-container">
+                                <!-- Loading placeholder -->
+                                <p class="text-center">Loading user quotas...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Resource Group Modal -->
+<div class="modal fade" id="addGroupModal" tabindex="-1" aria-labelledby="addGroupModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addGroupModalLabel">Add Resource Group</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="add-group-form">
+                    <div class="mb-3">
+                        <label for="group-name" class="form-label">Group Name</label>
+                        <input type="text" class="form-control" id="group-name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="group-description" class="form-label">Description</label>
+                        <textarea class="form-control" id="group-description" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="save-group-btn">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Resource to Group Modal -->
+<div class="modal fade" id="addResourceToGroupModal" tabindex="-1" aria-labelledby="addResourceToGroupModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addResourceToGroupModalLabel">Add Resource to Group</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="add-resource-to-group-form">
+                    <input type="hidden" id="resource-group-id">
+                    <div class="mb-3">
+                        <label for="resource-type" class="form-label">Resource Type</label>
+                        <select class="form-select" id="resource-type" required>
+                            <option value="">Select resource type</option>
+                            <option value="vm">Virtual Machine</option>
+                            <option value="container">Container</option>
+                            <option value="storage">Storage</option>
+                            <option value="network">Network</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="resource-id" class="form-label">Resource ID</label>
+                        <input type="text" class="form-control" id="resource-id" required>
+                        <div class="form-text">Enter the ID of the resource (e.g., VM ID, Container ID)</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="add-resource-to-group-btn">Add</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add User to Group Modal -->
+<div class="modal fade" id="addUserToGroupModal" tabindex="-1" aria-labelledby="addUserToGroupModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addUserToGroupModalLabel">Add User to Group</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="add-user-to-group-form">
+                    <input type="hidden" id="user-group-id">
+                    <div class="mb-3">
+                        <label for="user-id" class="form-label">User ID</label>
+                        <input type="text" class="form-control" id="user-id" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="user-role" class="form-label">Role</label>
+                        <select class="form-select" id="user-role">
+                            <option value="user">User</option>
+                            <option value="admin">Admin</option>
+                            <option value="viewer">Viewer</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="add-user-to-group-btn">Add</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Allocate Resource Modal -->
+<div class="modal fade" id="allocateResourceModal" tabindex="-1" aria-labelledby="allocateResourceModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="allocateResourceModalLabel">Allocate Resource to User</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="allocate-resource-form">
+                    <div class="mb-3">
+                        <label for="allocation-user-id" class="form-label">User ID</label>
+                        <input type="text" class="form-control" id="allocation-user-id" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="allocation-resource-type" class="form-label">Resource Type</label>
+                        <select class="form-select" id="allocation-resource-type" required>
+                            <option value="">Select resource type</option>
+                            <option value="vm">Virtual Machine</option>
+                            <option value="container">Container</option>
+                            <option value="storage">Storage</option>
+                            <option value="network">Network</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="allocation-resource-id" class="form-label">Resource ID</label>
+                        <input type="text" class="form-control" id="allocation-resource-id" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Permissions</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="read" id="perm-read" checked>
+                            <label class="form-check-label" for="perm-read">
+                                Read
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="write" id="perm-write">
+                            <label class="form-check-label" for="perm-write">
+                                Write
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="execute" id="perm-execute">
+                            <label class="form-check-label" for="perm-execute">
+                                Execute
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="admin" id="perm-admin">
+                            <label class="form-check-label" for="perm-admin">
+                                Admin
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="allocate-resource-btn">Allocate</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Set User Quota Modal -->
+<div class="modal fade" id="setQuotaModal" tabindex="-1" aria-labelledby="setQuotaModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="setQuotaModalLabel">Set User Quota</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="set-quota-form">
+                    <div class="mb-3">
+                        <label for="quota-user-id" class="form-label">User ID</label>
+                        <input type="text" class="form-control" id="quota-user-id" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="quota-resource-type" class="form-label">Resource Type</label>
+                        <select class="form-select" id="quota-resource-type" required>
+                            <option value="">Select resource type</option>
+                            <option value="memory">Memory</option>
+                            <option value="cpu">CPU</option>
+                            <option value="disk">Disk Space</option>
+                            <option value="vm_count">VM Count</option>
+                            <option value="container_count">Container Count</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="quota-limit-value" class="form-label">Limit Value</label>
+                        <input type="number" class="form-control" id="quota-limit-value" required min="0">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="set-quota-btn">Set Quota</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize the page
+        loadResourceGroups();
+        loadResourceAllocations();
+        loadUserQuotas();
+        
+        // Add group form submission
+        document.getElementById('save-group-btn').addEventListener('click', function() {
+            const name = document.getElementById('group-name').value;
+            const description = document.getElementById('group-description').value;
+            
+            if (!name) {
+                showAlert('Group name is required', 'danger');
+                return;
+            }
+            
+            const data = {
+                name: name,
+                description: description || null
+            };
+            
+            // Get token from localStorage
+            const token = localStorage.getItem('token');
+            
+            fetch('/api/resources/groups', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    showAlert('Resource group created successfully', 'success');
+                    
+                    // Close modal and reload groups
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('addGroupModal'));
+                    modal.hide();
+                    
+                    // Reset form
+                    document.getElementById('add-group-form').reset();
+                    
+                    // Reload groups
+                    loadResourceGroups();
+                } else {
+                    showAlert(result.message, 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('An error occurred while creating the resource group', 'danger');
+            });
+        });
+        
+        // Add resource to group button click event
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('add-resource-btn') || 
+                e.target.parentElement.classList.contains('add-resource-btn')) {
+                
+                const button = e.target.classList.contains('add-resource-btn') ? 
+                    e.target : e.target.parentElement;
+                
+                const groupId = button.getAttribute('data-group-id');
+                document.getElementById('resource-group-id').value = groupId;
+            }
+        });
+        
+        // Add user to group button click event
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('add-user-btn') || 
+                e.target.parentElement.classList.contains('add-user-btn')) {
+                
+                const button = e.target.classList.contains('add-user-btn') ? 
+                    e.target : e.target.parentElement;
+                
+                const groupId = button.getAttribute('data-group-id');
+                document.getElementById('user-group-id').value = groupId;
+            }
+        });
+        
+        // Add resource to group form submission
+        document.getElementById('add-resource-to-group-btn').addEventListener('click', function() {
+            const groupId = document.getElementById('resource-group-id').value;
+            const resourceType = document.getElementById('resource-type').value;
+            const resourceId = document.getElementById('resource-id').value;
+            
+            if (!groupId || !resourceType || !resourceId) {
+                showAlert('All fields are required', 'danger');
+                return;
+            }
+            
+            const data = {
+                resource_type: resourceType,
+                resource_id: resourceId
+            };
+            
+            // Get token from localStorage
+            const token = localStorage.getItem('token');
+            
+            fetch(`/api/resources/groups/${groupId}/resources`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    showAlert('Resource added to group successfully', 'success');
+                    
+                    // Close modal and reload groups
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('addResourceToGroupModal'));
+                    modal.hide();
+                    
+                    // Reset form
+                    document.getElementById('add-resource-to-group-form').reset();
+                    
+                    // Reload group resources
+                    loadGroupResources(groupId);
+                } else {
+                    showAlert(result.message, 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('An error occurred while adding the resource to the group', 'danger');
+            });
+        });
+        
+        // Add user to group form submission
+        document.getElementById('add-user-to-group-btn').addEventListener('click', function() {
+            const groupId = document.getElementById('user-group-id').value;
+            const userId = document.getElementById('user-id').value;
+            const role = document.getElementById('user-role').value;
+            
+            if (!groupId || !userId) {
+                showAlert('User ID is required', 'danger');
+                return;
+            }
+            
+            const data = {
+                user_id: userId,
+                role: role
+            };
+            
+            // Get token from localStorage
+            const token = localStorage.getItem('token');
+            
+            fetch(`/api/resources/groups/${groupId}/users`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    showAlert('User added to group successfully', 'success');
+                    
+                    // Close modal and reload groups
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('addUserToGroupModal'));
+                    modal.hide();
+                    
+                    // Reset form
+                    document.getElementById('add-user-to-group-form').reset();
+                    
+                    // Reload group members
+                    loadGroupMembers(groupId);
+                } else {
+                    showAlert(result.message, 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('An error occurred while adding the user to the group', 'danger');
+            });
+        });
+        
+        // Allocate resource form submission
+        document.getElementById('allocate-resource-btn').addEventListener('click', function() {
+            const userId = document.getElementById('allocation-user-id').value;
+            const resourceType = document.getElementById('allocation-resource-type').value;
+            const resourceId = document.getElementById('allocation-resource-id').value;
+            
+            if (!userId || !resourceType || !resourceId) {
+                showAlert('All fields are required', 'danger');
+                return;
+            }
+            
+            // Get selected permissions
+            const permissions = [];
+            if (document.getElementById('perm-read').checked) permissions.push('read');
+            if (document.getElementById('perm-write').checked) permissions.push('write');
+            if (document.getElementById('perm-execute').checked) permissions.push('execute');
+            if (document.getElementById('perm-admin').checked) permissions.push('admin');
+            
+            const data = {
+                user_id: userId,
+                permissions: permissions
+            };
+            
+            // Get token from localStorage
+            const token = localStorage.getItem('token');
+            
+            fetch(`/api/resources/${resourceType}/${resourceId}/allocate`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    showAlert('Resource allocated successfully', 'success');
+                    
+                    // Close modal and reload allocations
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('allocateResourceModal'));
+                    modal.hide();
+                    
+                    // Reset form
+                    document.getElementById('allocate-resource-form').reset();
+                    document.getElementById('perm-read').checked = true;
+                    
+                    // Reload allocations
+                    loadResourceAllocations();
+                } else {
+                    showAlert(result.message, 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('An error occurred while allocating the resource', 'danger');
+            });
+        });
+        
+        // Set quota form submission
+        document.getElementById('set-quota-btn').addEventListener('click', function() {
+            const userId = document.getElementById('quota-user-id').value;
+            const resourceType = document.getElementById('quota-resource-type').value;
+            const limitValue = document.getElementById('quota-limit-value').value;
+            
+            if (!userId || !resourceType || limitValue === '') {
+                showAlert('All fields are required', 'danger');
+                return;
+            }
+            
+            const data = {
+                resource_type: resourceType,
+                limit_value: parseInt(limitValue)
+            };
+            
+            // Get token from localStorage
+            const token = localStorage.getItem('token');
+            
+            fetch(`/api/users/${userId}/quotas`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    showAlert('Quota set successfully', 'success');
+                    
+                    // Close modal and reload quotas
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('setQuotaModal'));
+                    modal.hide();
+                    
+                    // Reset form
+                    document.getElementById('set-quota-form').reset();
+                    
+                    // Reload quotas
+                    loadUserQuotas();
+                } else {
+                    showAlert(result.message, 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('An error occurred while setting the quota', 'danger');
+            });
+        });
+    });
+    
+    // Load resource groups
+    function loadResourceGroups() {
+        const token = localStorage.getItem('token');
+        
+        fetch('/api/resources/groups', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            const container = document.getElementById('groups-container');
+            
+            if (result.success) {
+                if (result.groups.length === 0) {
+                    container.innerHTML = '<div class="col-12 text-center"><p>No resource groups found</p></div>';
+                    return;
+                }
+                
+                container.innerHTML = '';
+                
+                result.groups.forEach(group => {
+                    const col = document.createElement('div');
+                    col.className = 'col-md-6 mb-3';
+                    
+                    col.innerHTML = `
+                        <div class="card h-100">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="mb-0">${group.name}</h5>
+                            </div>
+                            <div class="card-body">
+                                <p class="card-text">${group.description || 'No description'}</p>
+                                <h6>Resources:</h6>
+                                <div id="group-resources-${group.id}" class="mb-3">
+                                    <p class="text-center"><small>Loading resources...</small></p>
+                                </div>
+                                <h6>Members:</h6>
+                                <div id="group-members-${group.id}">
+                                    <p class="text-center"><small>Loading members...</small></p>
+                                </div>
+                            </div>
+                            <div class="card-footer">
+                                <button class="btn btn-sm btn-outline-primary add-resource-btn" data-group-id="${group.id}" data-bs-toggle="modal" data-bs-target="#addResourceToGroupModal">
+                                    <i class="bi bi-plus-circle"></i> Add Resource
+                                </button>
+                                <button class="btn btn-sm btn-outline-primary add-user-btn" data-group-id="${group.id}" data-bs-toggle="modal" data-bs-target="#addUserToGroupModal">
+                                    <i class="bi bi-person-plus"></i> Add User
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger delete-group-btn" data-group-id="${group.id}">
+                                    <i class="bi bi-trash"></i> Delete
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    container.appendChild(col);
+                    
+                    // Load resources for this group
+                    loadGroupResources(group.id);
+                    
+                    // Load members for this group
+                    loadGroupMembers(group.id);
+                });
+            } else {
+                container.innerHTML = `<div class="col-12 text-center"><p class="text-danger">${result.message}</p></div>`;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('groups-container').innerHTML = '<div class="col-12 text-center"><p class="text-danger">Error loading resource groups</p></div>';
+        });
+    }
+    
+    // Load group resources
+    function loadGroupResources(groupId) {
+        const token = localStorage.getItem('token');
+        
+        fetch(`/api/resources/groups/${groupId}/resources`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            const container = document.getElementById(`group-resources-${groupId}`);
+            
+            if (result.success) {
+                if (result.resources.length === 0) {
+                    container.innerHTML = '<p class="text-center"><small>No resources in this group</small></p>';
+                    return;
+                }
+                
+                const list = document.createElement('ul');
+                list.className = 'list-group list-group-flush';
+                
+                result.resources.forEach(resource => {
+                    const item = document.createElement('li');
+                    item.className = 'list-group-item d-flex justify-content-between align-items-center py-2';
+                    
+                    const resourceName = document.createElement('span');
+                    resourceName.textContent = `${resource.name} (${resource.resource_type})`;
+                    
+                    const badge = document.createElement('span');
+                    badge.className = 'badge bg-info';
+                    badge.textContent = resource.resource_id;
+                    
+                    item.appendChild(resourceName);
+                    item.appendChild(badge);
+                    list.appendChild(item);
+                });
+                
+                container.innerHTML = '';
+                container.appendChild(list);
+            } else {
+                container.innerHTML = `<p class="text-center text-danger"><small>${result.message}</small></p>`;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById(`group-resources-${groupId}`).innerHTML = '<p class="text-center text-danger"><small>Error loading resources</small></p>';
+        });
+    }
+    
+    // Load group members
+    function loadGroupMembers(groupId) {
+        const token = localStorage.getItem('token');
+        
+        fetch(`/api/resources/groups/${groupId}/users`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            const container = document.getElementById(`group-members-${groupId}`);
+            
+            if (result.success) {
+                if (result.users.length === 0) {
+                    container.innerHTML = '<p class="text-center"><small>No users in this group</small></p>';
+                    return;
+                }
+                
+                const list = document.createElement('ul');
+                list.className = 'list-group list-group-flush';
+                
+                result.users.forEach(user => {
+                    const item = document.createElement('li');
+                    item.className = 'list-group-item d-flex justify-content-between align-items-center py-2';
+                    
+                    const userName = document.createElement('span');
+                    userName.textContent = user.name || user.user_id;
+                    
+                    const badge = document.createElement('span');
+                    badge.className = 'badge bg-primary';
+                    badge.textContent = user.role || 'Member';
+                    
+                    item.appendChild(userName);
+                    item.appendChild(badge);
+                    list.appendChild(item);
+                });
+                
+                container.innerHTML = '';
+                container.appendChild(list);
+            } else {
+                container.innerHTML = `<p class="text-center text-danger"><small>${result.message}</small></p>`;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById(`group-members-${groupId}`).innerHTML = '<p class="text-center text-danger"><small>Error loading members</small></p>';
+        });
+    }
+    
+    // Load resource allocations
+    function loadResourceAllocations() {
+        const token = localStorage.getItem('token');
+        
+        fetch('/api/resources/allocations', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            const container = document.getElementById('allocation-container');
+            
+            if (result.success) {
+                if (result.allocations.length === 0) {
+                    container.innerHTML = '<p class="text-center">No resource allocations found</p>';
+                    return;
+                }
+                
+                const table = document.createElement('table');
+                table.className = 'table table-hover';
+                
+                const thead = document.createElement('thead');
+                const headerRow = document.createElement('tr');
+                
+                ['User', 'Resource Type', 'Resource ID', 'Permissions', 'Actions'].forEach(header => {
+                    const th = document.createElement('th');
+                    th.textContent = header;
+                    headerRow.appendChild(th);
+                });
+                
+                thead.appendChild(headerRow);
+                table.appendChild(thead);
+                
+                const tbody = document.createElement('tbody');
+                
+                result.allocations.forEach(allocation => {
+                    const row = document.createElement('tr');
+                    
+                    // User column
+                    const userCell = document.createElement('td');
+                    userCell.textContent = allocation.user_id;
+                    row.appendChild(userCell);
+                    
+                    // Resource Type column
+                    const typeCell = document.createElement('td');
+                    typeCell.textContent = allocation.resource_type;
+                    row.appendChild(typeCell);
+                    
+                    // Resource ID column
+                    const idCell = document.createElement('td');
+                    idCell.textContent = allocation.resource_id;
+                    row.appendChild(idCell);
+                    
+                    // Permissions column
+                    const permissionsCell = document.createElement('td');
+                    
+                    if (allocation.permissions && allocation.permissions.length > 0) {
+                        allocation.permissions.forEach(permission => {
+                            const badge = document.createElement('span');
+                            badge.className = 'badge bg-info me-1';
+                            badge.textContent = permission;
+                            permissionsCell.appendChild(badge);
+                        });
+                    } else {
+                        permissionsCell.textContent = '-';
+                    }
+                    
+                    row.appendChild(permissionsCell);
+                    
+                    // Actions column
+                    const actionsCell = document.createElement('td');
+                    
+                    const editButton = document.createElement('button');
+                    editButton.className = 'btn btn-sm btn-outline-primary me-1 edit-allocation-btn';
+                    editButton.setAttribute('data-allocation-id', allocation.id);
+                    editButton.innerHTML = '<i class="bi bi-pencil"></i>';
+                    
+                    const deleteButton = document.createElement('button');
+                    deleteButton.className = 'btn btn-sm btn-outline-danger delete-allocation-btn';
+                    deleteButton.setAttribute('data-allocation-id', allocation.id);
+                    deleteButton.innerHTML = '<i class="bi bi-trash"></i>';
+                    
+                    actionsCell.appendChild(editButton);
+                    actionsCell.appendChild(deleteButton);
+                    
+                    row.appendChild(actionsCell);
+                    
+                    tbody.appendChild(row);
+                });
+                
+                table.appendChild(tbody);
+                
+                container.innerHTML = '';
+                container.appendChild(table);
+            } else {
+                container.innerHTML = `<p class="text-center text-danger">${result.message}</p>`;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('allocation-container').innerHTML = '<p class="text-center text-danger">Error loading resource allocations</p>';
+        });
+    }
+    
+    // Load user quotas
+    function loadUserQuotas() {
+        const token = localStorage.getItem('token');
+        
+        fetch('/api/users/quotas', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            const container = document.getElementById('quotas-container');
+            
+            if (result.success) {
+                if (result.quotas.length === 0) {
+                    container.innerHTML = '<p class="text-center">No user quotas found</p>';
+                    return;
+                }
+                
+                const table = document.createElement('table');
+                table.className = 'table table-hover';
+                
+                const thead = document.createElement('thead');
+                const headerRow = document.createElement('tr');
+                
+                ['User', 'Resource Type', 'Limit', 'Current Usage', 'Actions'].forEach(header => {
+                    const th = document.createElement('th');
+                    th.textContent = header;
+                    headerRow.appendChild(th);
+                });
+                
+                thead.appendChild(headerRow);
+                table.appendChild(thead);
+                
+                const tbody = document.createElement('tbody');
+                
+                result.quotas.forEach(quota => {
+                    const row = document.createElement('tr');
+                    
+                    // User column
+                    const userCell = document.createElement('td');
+                    userCell.textContent = quota.user_id;
+                    row.appendChild(userCell);
+                    
+                    // Resource Type column
+                    const typeCell = document.createElement('td');
+                    typeCell.textContent = formatResourceType(quota.resource_type);
+                    row.appendChild(typeCell);
+                    
+                    // Limit column
+                    const limitCell = document.createElement('td');
+                    limitCell.textContent = quota.limit_value + (quota.unit ? ' ' + quota.unit : '');
+                    row.appendChild(limitCell);
+                    
+                    // Current Usage column
+                    const usageCell = document.createElement('td');
+                    
+                    const usagePercentage = quota.limit_value > 0 ? 
+                        Math.min(100, Math.round((quota.current_usage / quota.limit_value) * 100)) : 0;
+                    
+                    let progressClass = 'bg-success';
+                    if (usagePercentage > 70) {
+                        progressClass = 'bg-warning';
+                    }
+                    if (usagePercentage > 90) {
+                        progressClass = 'bg-danger';
+                    }
+                    
+                    usageCell.innerHTML = `
+                        <div class="d-flex align-items-center">
+                            <span class="me-2">${quota.current_usage}${quota.unit ? ' ' + quota.unit : ''}</span>
+                            <div class="progress flex-grow-1" style="height: 5px;">
+                                <div class="progress-bar ${progressClass}" role="progressbar" 
+                                     style="width: ${usagePercentage}%" 
+                                     aria-valuenow="${usagePercentage}" 
+                                     aria-valuemin="0" 
+                                     aria-valuemax="100">
+                                </div>
+                            </div>
+                            <span class="ms-2">${usagePercentage}%</span>
+                        </div>
+                    `;
+                    
+                    row.appendChild(usageCell);
+                    
+                    // Actions column
+                    const actionsCell = document.createElement('td');
+                    
+                    const editButton = document.createElement('button');
+                    editButton.className = 'btn btn-sm btn-outline-primary me-1 edit-quota-btn';
+                    editButton.setAttribute('data-quota-id', quota.id);
+                    editButton.innerHTML = '<i class="bi bi-pencil"></i>';
+                    
+                    const deleteButton = document.createElement('button');
+                    deleteButton.className = 'btn btn-sm btn-outline-danger delete-quota-btn';
+                    deleteButton.setAttribute('data-quota-id', quota.id);
+                    deleteButton.innerHTML = '<i class="bi bi-trash"></i>';
+                    
+                    actionsCell.appendChild(editButton);
+                    actionsCell.appendChild(deleteButton);
+                    
+                    row.appendChild(actionsCell);
+                    
+                    tbody.appendChild(row);
+                });
+                
+                table.appendChild(tbody);
+                
+                container.innerHTML = '';
+                container.appendChild(table);
+            } else {
+                container.innerHTML = `<p class="text-center text-danger">${result.message}</p>`;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('quotas-container').innerHTML = '<p class="text-center text-danger">Error loading user quotas</p>';
+        });
+    }
+    
+    // Format resource type
+    function formatResourceType(type) {
+        if (!type) return 'Unknown';
+        
+        // Convert snake_case or kebab-case to Title Case
+        return type
+            .replace(/_/g, ' ')
+            .replace(/-/g, ' ')
+            .split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+    }
+    
+    // Show alert
+    function showAlert(message, type = 'success') {
+        const alertContainer = document.getElementById('alert-container');
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.role = 'alert';
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        alertContainer.appendChild(alertDiv);
+        
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => {
+            const alert = bootstrap.Alert.getOrCreateInstance(alertDiv);
+            alert.close();
+        }, 5000);
+    }
+</script>
+{% endblock %}

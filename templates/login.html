@@ -56,6 +56,22 @@
                 </div>
             </form>
             
+            <!-- OAuth Login Options -->
+            {% if providers and providers|length > 0 %}
+            <div class="mt-4">
+                <div class="text-center mb-3">
+                    <span class="text-muted">Or sign in with</span>
+                </div>
+                <div class="d-grid gap-2">
+                    {% for provider_id, provider in providers.items() %}
+                    <a href="{{ url_for('oauth_login', provider_id=provider_id) }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-{{ provider_id.lower() }}"></i> {{ provider.name }}
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            
             <div class="text-center mt-3">
                 <small class="text-muted">Please log in with your admin credentials</small>
             </div>

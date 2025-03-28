@@ -48,25 +48,25 @@
 ## 1.0 (Stable) Release Checklist
 - [ ] **Core Functionality:**
   - [X] Implement update management through the NLI.
-  - [ ] Add custom service template creation and sharing.
-  - [ ] Build service metrics dashboard with plain language explanations.
-  - [ ] Implement cluster-wide commands for multi-node management.
-  - [ ] Create migration assistant with guided workflows.
-  - [ ] Implement automated domain and reverse proxy management.
+  - [X] Add custom service template creation and sharing.
+  - [X] Build service metrics dashboard with plain language explanations.
+  - [X] Implement cluster-wide commands for multi-node management.
+  - [X] Create migration assistant with guided workflows.
+  - [X] Implement automated domain and reverse proxy management.
 
 - [ ] **User Experience:**
-  - [ ] Add natural conversation transitions and topic memory between sessions.
+  - [X] Add natural conversation transitions and topic memory between sessions.
   - [X] Improve ambient mode and wake word detection.
   - [ ] Implement voice authentication for different users.
 
 - [ ] **Web Interface:**
   - [ ] Develop a dedicated mobile UI optimized for touch.
   - [ ] Add push notifications for important events.
-  - [ ] Implement QR code access to VMs and services.
+  - [X] Implement QR code access to VMs and services.
 
 - [ ] **Backup and Recovery:**
-  - [ ] Implement buddy backup system for users to back up each other's data securely.
-  - [ ] Add encryption for buddy backups.
+  - [X] Implement buddy backup system for users to back up each other's data securely.
+  - [X] Add encryption for buddy backups.
   - [ ] Create a user-friendly interface for managing buddy backups.
 
 - [ ] **AI-Driven Features:**
@@ -88,10 +88,10 @@
   - [ ] Develop plugin marketplace for community extensions.
 
 - [ ] **Performance Optimization:**
-  - [ ] Optimize JavaScript bundle size.
-  - [ ] Implement lazy loading for non-critical components.
-  - [ ] Improve API response times.
-  - [ ] Add comprehensive error handling.
+  - [X] Optimize JavaScript bundle size.
+  - [X] Implement lazy loading for non-critical components.
+  - [X] Improve API response times.
+  - [X] Add comprehensive error handling.
 
 - [ ] **Testing and Finalization:**
   - [ ] Conduct extensive testing for stability and performance.
@@ -103,12 +103,12 @@
 
 # Future Considerations (Post-1.0)
 - [ ] **Multi-tenancy Support:**
-  - [ ] Allow multiple users to manage their own resources.
-  - [ ] Implement role-based access control for family members.
+  - [X] Allow multiple users to manage their own resources.
+  - [X] Implement role-based access control for family members.
 
 - [ ] **Federated Identity Management:**
-  - [ ] Integrate with external identity providers (e.g., LDAP, OAuth).
-  - [ ] Add single sign-on across services.
+  - [X] Integrate with external identity providers (e.g., LDAP, OAuth).
+  - [X] Add single sign-on across services.
 
 - [ ] **Advanced Features:**
   - [ ] Implement predictive scaling based on workload patterns.
@@ -137,29 +137,33 @@
     - [ ] Add Terraform configuration export
     - [ ] Add Ansible playbook generation
     - [ ] Implement version control integration
-  - [ ] Build cross-platform migration tools
-    - [ ] Add Unraid migration assistant
-    - [ ] Add TrueNAS migration assistant
-    - [ ] Add ESXi migration assistant
-  - [ ] Enhance service discovery
-    - [ ] Implement automated local DNS configuration
-    - [ ] Add mDNS/Avahi integration
-    - [ ] Create unified service directory
+
+- [ ] **Build cross-platform migration tools**
+  - [ ] Add Unraid migration assistant
+  - [ ] Add TrueNAS migration assistant
+  - [ ] Add ESXi migration assistant
+
+- [ ] **Enhance service discovery**
+  - [ ] Implement automated local DNS configuration
+  - [ ] Add mDNS/Avahi integration
+  - [ ] Create unified service directory
 
 - [ ] **User Experience Improvements:**
   - [ ] Create personalized setup journeys based on expertise
   - [ ] Implement knowledge-building system
   - [ ] Add configuration validation and rollback
-  - [ ] Develop resource planning tools
-    - [ ] Add pre-setup resource calculator
-    - [ ] Implement disk space forecasting
-    - [ ] Create hardware recommendations engine
+
+- [ ] **Develop resource planning tools**
+  - [ ] Add pre-setup resource calculator
+  - [ ] Implement disk space forecasting
+  - [ ] Create hardware recommendations engine
 
 - [ ] **Community Features:**
   - [ ] Build platform for sharing homelab configurations
   - [ ] Implement community template import system
   - [ ] Create setup showcase feature
-  - [ ] Add collaborative setup assistance
-    - [ ] Implement remote setup help capability
-    - [ ] Add screen sharing functionality
-    - [ ] Create mentor-mentee matching system
+
+- [ ] **Add collaborative setup assistance**
+  - [ ] Implement remote setup help capability
+  - [ ] Add screen sharing functionality
+  - [ ] Create mentor-mentee matching system

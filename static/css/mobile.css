@@ -1,0 +1,288 @@
+/**
+ * Mobile-specific styles for Proxmox NLI
+ * These styles optimize the UI for touch devices and smaller screens
+ */
+
+/* Base mobile adjustments */
+.mobile-device {
+    /* Increase base font size for better readability */
+    font-size: 16px;
+}
+
+/* Larger touch targets */
+.mobile-device .btn,
+.mobile-device .nav-link,
+.mobile-device .list-group-item,
+.mobile-device .touch-target {
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.5rem;
+}
+
+/* Adjust form controls for touch */
+.mobile-device input,
+.mobile-device select,
+.mobile-device textarea {
+    font-size: 16px; /* Prevents iOS zoom on focus */
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+/* Mobile navigation */
+.mobile-device .navbar {
+    padding: 0.75rem 1rem;
+}
+
+.mobile-device .navbar-brand {
+    font-size: 1.5rem;
+}
+
+.mobile-device .mobile-nav .navbar-collapse {
+    background-color: var(--bs-dark);
+    position: fixed;
+    top: 56px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1030;
+    padding: 1rem;
+    overflow-y: auto;
+}
+
+.mobile-device .mobile-nav .navbar-nav {
+    flex-direction: column;
+}
+
+.mobile-device .mobile-nav .nav-item {
+    margin-bottom: 0.5rem;
+}
+
+/* Mobile dashboard */
+.mobile-device .mobile-dashboard .grid-stack {
+    display: flex;
+    flex-direction: column;
+}
+
+.mobile-device .mobile-dashboard .grid-stack-item {
+    width: 100% !important;
+    position: relative !important;
+    left: 0 !important;
+    top: 0 !important;
+    margin-bottom: 1rem;
+}
+
+.mobile-device .mobile-dashboard .grid-stack-item-content {
+    position: relative !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 200px;
+}
+
+/* Mobile cards and panels */
+.mobile-device .card,
+.mobile-device .panel {
+    margin-bottom: 1rem;
+}
+
+.mobile-device .card-header,
+.mobile-device .panel-header {
+    padding: 0.75rem 1rem;
+}
+
+.mobile-device .card-body,
+.mobile-device .panel-body {
+    padding: 1rem;
+}
+
+/* Mobile stack for responsive layouts */
+.mobile-device .mobile-stack {
+    display: flex;
+    flex-direction: column;
+}
+
+.mobile-device .mobile-stack > [class*="col-"] {
+    width: 100%;
+    max-width: 100%;
+    flex: 0 0 100%;
+    padding-right: 0;
+    padding-left: 0;
+}
+
+/* VM and service lists */
+.mobile-device .vm-item,
+.mobile-device .service-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.mobile-device .vm-item .vm-actions,
+.mobile-device .service-item .service-actions {
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+    margin-top: 0.5rem;
+}
+
+.mobile-device .vm-actions .btn,
+.mobile-device .service-actions .btn {
+    flex: 1;
+    margin: 0 0.25rem;
+}
+
+/* Chat interface optimizations */
+.mobile-device .chat-container {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 56px);
+}
+
+.mobile-device .chat-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+}
+
+.mobile-device .chat-form {
+    padding: 0.75rem;
+    background-color: var(--bs-light);
+    border-top: 1px solid var(--bs-border-color);
+}
+
+.mobile-device .chat-input {
+    font-size: 16px;
+    padding: 0.75rem;
+}
+
+.mobile-device .chat-message {
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+    max-width: 85%;
+}
+
+/* Status monitoring tabs */
+.mobile-device .status-card .nav-tabs .nav-link {
+    padding: 0.75rem 0.5rem;
+    font-size: 0.9rem;
+}
+
+/* Mobile orientation specific styles */
+.mobile-device.landscape {
+    --bottom-nav-height: 60px;
+}
+
+.mobile-device.portrait {
+    --bottom-nav-height: 70px;
+}
+
+/* Mobile-specific modals */
+.mobile-device .modal-dialog {
+    margin: 0.5rem;
+    max-width: none;
+}
+
+.mobile-device .modal-content {
+    border-radius: 0.5rem;
+}
+
+.mobile-device .modal-header {
+    padding: 0.75rem 1rem;
+}
+
+.mobile-device .modal-body {
+    padding: 1rem;
+}
+
+.mobile-device .modal-footer {
+    padding: 0.75rem 1rem;
+}
+
+/* Mobile-specific QR code display */
+.mobile-device #qrcode-container {
+    padding: 0.5rem;
+}
+
+.mobile-device #qrcode-image {
+    max-width: 200px;
+}
+
+/* Bottom navigation bar for mobile */
+.mobile-device .bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: var(--bs-dark);
+    padding: 0.5rem;
+    z-index: 1030;
+    justify-content: space-around;
+    border-top: 1px solid var(--bs-border-color);
+    height: var(--bottom-nav-height);
+}
+
+.mobile-device .bottom-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: var(--bs-light);
+    text-decoration: none;
+    padding: 0.5rem;
+}
+
+.mobile-device .bottom-nav-item i {
+    font-size: 1.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.mobile-device .bottom-nav-item span {
+    font-size: 0.75rem;
+}
+
+.mobile-device .bottom-nav-item.active {
+    color: var(--bs-primary);
+}
+
+/* Adjust content padding for bottom nav */
+.mobile-device .main-content {
+    padding-bottom: 4rem;
+}
+
+/* Mobile swipe gestures */
+.mobile-device .swipeable {
+    position: relative;
+    overflow: hidden;
+}
+
+.mobile-device .swipe-action {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 80px;
+    color: white;
+    font-weight: bold;
+}
+
+.mobile-device .swipe-action.swipe-left {
+    right: 0;
+    background-color: var(--bs-danger);
+}
+
+.mobile-device .swipe-action.swipe-right {
+    left: 0;
+    background-color: var(--bs-success);
+}
+
+/* Mobile-specific animations */
+@keyframes mobile-fade-in {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.mobile-device .mobile-animate {
+    animation: mobile-fade-in 0.3s ease-out;
+}

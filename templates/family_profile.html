@@ -1,0 +1,566 @@
+{% extends "base.html" %}
+
+{% block title %}Family Profile{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Profile Information</h5>
+                </div>
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <img src="" alt="Profile Image" class="rounded-circle img-fluid" style="width: 150px; height: 150px;" id="profile-image">
+                    </div>
+                    <h5 class="mb-1" id="user-name">Loading...</h5>
+                    <p class="text-muted mb-1" id="user-relationship">Loading...</p>
+                    <div id="alert-container"></div>
+                </div>
+            </div>
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Groups</h5>
+                </div>
+                <div class="card-body">
+                    <div id="groups-container">
+                        <p class="text-center">Loading groups...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Access Policies</h5>
+                </div>
+                <div class="card-body">
+                    <div id="policies-container">
+                        <p class="text-center">Loading policies...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Resource Access</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="nav nav-tabs" id="resourceTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="vms-tab" data-bs-toggle="tab" data-bs-target="#vms" type="button" role="tab" aria-controls="vms" aria-selected="true">Virtual Machines</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="containers-tab" data-bs-toggle="tab" data-bs-target="#containers" type="button" role="tab" aria-controls="containers" aria-selected="false">Containers</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="storage-tab" data-bs-toggle="tab" data-bs-target="#storage" type="button" role="tab" aria-controls="storage" aria-selected="false">Storage</button>
+                        </li>
+                    </ul>
+                    <div class="tab-content p-3" id="resourceTabsContent">
+                        <div class="tab-pane fade show active" id="vms" role="tabpanel" aria-labelledby="vms-tab">
+                            <div id="vms-container">
+                                <p class="text-center">Loading virtual machines...</p>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="containers" role="tabpanel" aria-labelledby="containers-tab">
+                            <div id="containers-container">
+                                <p class="text-center">Loading containers...</p>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="storage" role="tabpanel" aria-labelledby="storage-tab">
+                            <div id="storage-container">
+                                <p class="text-center">Loading storage resources...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Resource Quotas</h5>
+                </div>
+                <div class="card-body">
+                    <div id="quotas-container">
+                        <p class="text-center">Loading quotas...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Get current user ID from token
+        const token = localStorage.getItem('token');
+        let userId = '';
+        
+        try {
+            const tokenParts = token.split('.');
+            const payload = JSON.parse(atob(tokenParts[1]));
+            userId = payload.user_id;
+        } catch (error) {
+            console.error('Error parsing token:', error);
+            showAlert('Error loading user profile. Please log in again.', 'danger');
+            return;
+        }
+        
+        // Load user profile
+        loadUserProfile(userId);
+        
+        // Load user groups
+        loadUserGroups(userId);
+        
+        // Load user policies
+        loadUserPolicies(userId);
+        
+        // Load user resources
+        loadUserResources(userId, 'vm');
+        loadUserResources(userId, 'container');
+        loadUserResources(userId, 'storage');
+        
+        // Load user quotas
+        loadUserQuotas(userId);
+    });
+    
+    // Load user profile
+    function loadUserProfile(userId) {
+        const token = localStorage.getItem('token');
+        
+        fetch(`/api/family/members/${userId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                const member = result.member;
+                
+                document.getElementById('user-name').textContent = member.name;
+                document.getElementById('user-relationship').textContent = member.relationship || 'No relationship specified';
+                
+                // Set profile image if available
+                if (member.profile_image) {
+                    document.getElementById('profile-image').src = member.profile_image;
+                } else {
+                    document.getElementById('profile-image').src = '/static/img/default-profile.png';
+                }
+            } else {
+                showAlert(result.message, 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('An error occurred while loading profile information', 'danger');
+        });
+    }
+    
+    // Load user groups
+    function loadUserGroups(userId) {
+        const token = localStorage.getItem('token');
+        
+        fetch(`/api/family/members/${userId}/groups`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            const container = document.getElementById('groups-container');
+            
+            if (result.success) {
+                if (result.groups.length === 0) {
+                    container.innerHTML = '<p class="text-center">You are not a member of any groups</p>';
+                    return;
+                }
+                
+                const groupsList = document.createElement('ul');
+                groupsList.className = 'list-group';
+                
+                result.groups.forEach(group => {
+                    const item = document.createElement('li');
+                    item.className = 'list-group-item d-flex justify-content-between align-items-center';
+                    
+                    const groupName = document.createElement('span');
+                    groupName.textContent = group.name;
+                    
+                    const badge = document.createElement('span');
+                    badge.className = 'badge bg-primary rounded-pill';
+                    badge.textContent = group.role || 'Member';
+                    
+                    item.appendChild(groupName);
+                    item.appendChild(badge);
+                    groupsList.appendChild(item);
+                });
+                
+                container.innerHTML = '';
+                container.appendChild(groupsList);
+            } else {
+                container.innerHTML = `<p class="text-center text-danger">${result.message}</p>`;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('groups-container').innerHTML = '<p class="text-center text-danger">Error loading groups</p>';
+        });
+    }
+    
+    // Load user policies
+    function loadUserPolicies(userId) {
+        const token = localStorage.getItem('token');
+        
+        fetch(`/api/family/members/${userId}/policies`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            const container = document.getElementById('policies-container');
+            
+            if (result.success) {
+                if (result.policies.length === 0) {
+                    container.innerHTML = '<p class="text-center">No access policies applied</p>';
+                    return;
+                }
+                
+                const row = document.createElement('div');
+                row.className = 'row';
+                
+                result.policies.forEach(policy => {
+                    const col = document.createElement('div');
+                    col.className = 'col-md-6 mb-3';
+                    
+                    let headerClass = 'bg-primary';
+                    if (policy.name.toLowerCase().includes('child')) {
+                        headerClass = 'bg-info';
+                    } else if (policy.name.toLowerCase().includes('teen')) {
+                        headerClass = 'bg-warning';
+                    } else if (policy.name.toLowerCase().includes('guest')) {
+                        headerClass = 'bg-secondary';
+                    }
+                    
+                    col.innerHTML = `
+                        <div class="card h-100">
+                            <div class="card-header ${headerClass} text-white">
+                                <h5 class="mb-0">${policy.name}</h5>
+                            </div>
+                            <div class="card-body">
+                                <p class="card-text">${policy.description || 'No description available'}</p>
+                                <ul class="list-group list-group-flush mb-3">
+                                    ${renderPolicyDetails(policy)}
+                                </ul>
+                            </div>
+                        </div>
+                    `;
+                    
+                    row.appendChild(col);
+                });
+                
+                container.innerHTML = '';
+                container.appendChild(row);
+            } else {
+                container.innerHTML = `<p class="text-center text-danger">${result.message}</p>`;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('policies-container').innerHTML = '<p class="text-center text-danger">Error loading policies</p>';
+        });
+    }
+    
+    // Render policy details
+    function renderPolicyDetails(policy) {
+        let html = '';
+        
+        if (policy.permissions) {
+            const permissions = policy.permissions;
+            
+            if (permissions.content_restrictions !== undefined) {
+                const badge = permissions.content_restrictions ? 
+                    `<span class="badge bg-warning">Restricted</span>` : 
+                    `<span class="badge bg-success">None</span>`;
+                
+                html += `
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Content Restrictions
+                        ${badge}
+                    </li>
+                `;
+            }
+            
+            if (permissions.time_restrictions !== undefined) {
+                const badge = permissions.time_restrictions ? 
+                    `<span class="badge bg-warning">${permissions.time_restrictions}</span>` : 
+                    `<span class="badge bg-success">None</span>`;
+                
+                html += `
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Time Restrictions
+                        ${badge}
+                    </li>
+                `;
+            }
+            
+            if (permissions.resource_creation !== undefined) {
+                const badge = permissions.resource_creation ? 
+                    `<span class="badge bg-success">Allowed</span>` : 
+                    `<span class="badge bg-danger">Not Allowed</span>`;
+                
+                html += `
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Resource Creation
+                        ${badge}
+                    </li>
+                `;
+            }
+        }
+        
+        return html || '<li class="list-group-item">No detailed permissions available</li>';
+    }
+    
+    // Load user resources
+    function loadUserResources(userId, resourceType) {
+        const token = localStorage.getItem('token');
+        
+        fetch(`/api/resources?type=${resourceType}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            let containerId;
+            
+            switch (resourceType) {
+                case 'vm':
+                    containerId = 'vms-container';
+                    break;
+                case 'container':
+                    containerId = 'containers-container';
+                    break;
+                case 'storage':
+                    containerId = 'storage-container';
+                    break;
+                default:
+                    return;
+            }
+            
+            const container = document.getElementById(containerId);
+            
+            if (result.success) {
+                if (result.resources.length === 0) {
+                    container.innerHTML = `<p class="text-center">No ${resourceType} resources allocated</p>`;
+                    return;
+                }
+                
+                const table = document.createElement('table');
+                table.className = 'table table-hover';
+                
+                let headers;
+                
+                switch (resourceType) {
+                    case 'vm':
+                        headers = ['Name', 'ID', 'Status', 'Permissions'];
+                        break;
+                    case 'container':
+                        headers = ['Name', 'ID', 'Status', 'Permissions'];
+                        break;
+                    case 'storage':
+                        headers = ['Name', 'ID', 'Type', 'Permissions'];
+                        break;
+                    default:
+                        headers = ['Name', 'ID', 'Type', 'Permissions'];
+                }
+                
+                const thead = document.createElement('thead');
+                const headerRow = document.createElement('tr');
+                
+                headers.forEach(header => {
+                    const th = document.createElement('th');
+                    th.textContent = header;
+                    headerRow.appendChild(th);
+                });
+                
+                thead.appendChild(headerRow);
+                table.appendChild(thead);
+                
+                const tbody = document.createElement('tbody');
+                
+                result.resources.forEach(resource => {
+                    const row = document.createElement('tr');
+                    
+                    // Name column
+                    const nameCell = document.createElement('td');
+                    nameCell.textContent = resource.name;
+                    row.appendChild(nameCell);
+                    
+                    // ID column
+                    const idCell = document.createElement('td');
+                    idCell.textContent = resource.resource_id;
+                    row.appendChild(idCell);
+                    
+                    // Status/Type column
+                    const statusCell = document.createElement('td');
+                    
+                    if (resourceType === 'vm' || resourceType === 'container') {
+                        const statusBadge = document.createElement('span');
+                        statusBadge.className = `badge ${resource.status === 'running' ? 'bg-success' : 'bg-secondary'}`;
+                        statusBadge.textContent = resource.status || 'unknown';
+                        statusCell.appendChild(statusBadge);
+                    } else {
+                        statusCell.textContent = resource.type || '-';
+                    }
+                    
+                    row.appendChild(statusCell);
+                    
+                    // Permissions column
+                    const permissionsCell = document.createElement('td');
+                    
+                    if (resource.permissions && resource.permissions.length > 0) {
+                        resource.permissions.forEach(permission => {
+                            const badge = document.createElement('span');
+                            badge.className = 'badge bg-info me-1';
+                            badge.textContent = permission;
+                            permissionsCell.appendChild(badge);
+                        });
+                    } else {
+                        permissionsCell.textContent = '-';
+                    }
+                    
+                    row.appendChild(permissionsCell);
+                    
+                    tbody.appendChild(row);
+                });
+                
+                table.appendChild(tbody);
+                
+                container.innerHTML = '';
+                container.appendChild(table);
+            } else {
+                container.innerHTML = `<p class="text-center text-danger">${result.message}</p>`;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            const containerId = resourceType === 'vm' ? 'vms-container' : 
+                               (resourceType === 'container' ? 'containers-container' : 'storage-container');
+            document.getElementById(containerId).innerHTML = '<p class="text-center text-danger">Error loading resources</p>';
+        });
+    }
+    
+    // Load user quotas
+    function loadUserQuotas(userId) {
+        const token = localStorage.getItem('token');
+        
+        fetch(`/api/users/${userId}/quotas`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            const container = document.getElementById('quotas-container');
+            
+            if (result.success) {
+                if (result.quotas.length === 0) {
+                    container.innerHTML = '<p class="text-center">No resource quotas defined</p>';
+                    return;
+                }
+                
+                const row = document.createElement('div');
+                row.className = 'row';
+                
+                result.quotas.forEach(quota => {
+                    const col = document.createElement('div');
+                    col.className = 'col-md-4 mb-3';
+                    
+                    let usagePercentage = 0;
+                    if (quota.limit_value > 0) {
+                        usagePercentage = Math.min(100, Math.round((quota.current_usage / quota.limit_value) * 100));
+                    }
+                    
+                    let progressClass = 'bg-success';
+                    if (usagePercentage > 70) {
+                        progressClass = 'bg-warning';
+                    }
+                    if (usagePercentage > 90) {
+                        progressClass = 'bg-danger';
+                    }
+                    
+                    col.innerHTML = `
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">${formatResourceType(quota.resource_type)}</h5>
+                                <p class="card-text">
+                                    <small class="text-muted">
+                                        ${quota.current_usage} / ${quota.limit_value} ${quota.unit || ''}
+                                    </small>
+                                </p>
+                                <div class="progress">
+                                    <div class="progress-bar ${progressClass}" role="progressbar" 
+                                         style="width: ${usagePercentage}%" 
+                                         aria-valuenow="${usagePercentage}" 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="100">
+                                        ${usagePercentage}%
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    row.appendChild(col);
+                });
+                
+                container.innerHTML = '';
+                container.appendChild(row);
+            } else {
+                container.innerHTML = `<p class="text-center text-danger">${result.message}</p>`;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('quotas-container').innerHTML = '<p class="text-center text-danger">Error loading quotas</p>';
+        });
+    }
+    
+    // Format resource type
+    function formatResourceType(type) {
+        if (!type) return 'Unknown';
+        
+        // Convert snake_case or kebab-case to Title Case
+        return type
+            .replace(/_/g, ' ')
+            .replace(/-/g, ' ')
+            .split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+    }
+    
+    // Show alert
+    function showAlert(message, type = 'success') {
+        const alertContainer = document.getElementById('alert-container');
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.role = 'alert';
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        alertContainer.appendChild(alertDiv);
+        
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => {
+            const alert = bootstrap.Alert.getOrCreateInstance(alertDiv);
+            alert.close();
+        }, 5000);
+    }
+</script>
+{% endblock %}

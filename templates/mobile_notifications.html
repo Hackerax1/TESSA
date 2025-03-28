@@ -1,0 +1,136 @@
+{% extends "mobile_base.html" %}
+
+{% block title %}Notifications - Proxmox NLI{% endblock %}
+
+{% block content %}
+<div class="container-fluid mobile-container">
+    <div class="row">
+        <div class="col-12">
+            <div class="card mobile-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Notification Settings</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Notification Permission Status -->
+                    <div class="mb-4">
+                        <h6>Push Notifications</h6>
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="me-2">Status:</span>
+                            <span id="notification-permission-status" class="badge bg-warning">Not Enabled</span>
+                        </div>
+                        <button id="request-notification-permission" class="btn btn-primary btn-sm">
+                            <i class="fas fa-bell me-1"></i> Enable Notifications
+                        </button>
+                        <button id="test-notification" class="btn btn-outline-primary btn-sm ms-2">
+                            <i class="fas fa-paper-plane me-1"></i> Test Notification
+                        </button>
+                    </div>
+
+                    <!-- Notification Preferences -->
+                    <div id="notification-preferences-container" class="d-none">
+                        <h6>Notification Preferences</h6>
+                        
+                        <!-- Tabs for different notification categories -->
+                        <ul class="nav nav-tabs nav-fill mb-3" id="notificationTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="vm-tab" data-bs-toggle="tab" data-bs-target="#vm-events" type="button" role="tab" aria-controls="vm-events" aria-selected="true">
+                                    <i class="fas fa-server me-1"></i> VMs
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="backup-tab" data-bs-toggle="tab" data-bs-target="#backup-events" type="button" role="tab" aria-controls="backup-events" aria-selected="false">
+                                    <i class="fas fa-save me-1"></i> Backups
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="system-tab" data-bs-toggle="tab" data-bs-target="#system-events" type="button" role="tab" aria-controls="system-events" aria-selected="false">
+                                    <i class="fas fa-cogs me-1"></i> System
+                                </button>
+                            </li>
+                        </ul>
+                        
+                        <!-- Tab content -->
+                        <div class="tab-content" id="notificationTabContent">
+                            <!-- VM Events -->
+                            <div class="tab-pane fade show active" id="vm-events" role="tabpanel" aria-labelledby="vm-tab">
+                                <div id="vm-events-prefs">
+                                    <!-- Content will be populated by JavaScript -->
+                                    <div class="text-center py-3">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Backup Events -->
+                            <div class="tab-pane fade" id="backup-events" role="tabpanel" aria-labelledby="backup-tab">
+                                <div id="backup-events-prefs">
+                                    <!-- Content will be populated by JavaScript -->
+                                    <div class="text-center py-3">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- System Events -->
+                            <div class="tab-pane fade" id="system-events" role="tabpanel" aria-labelledby="system-tab">
+                                <div id="system-events-prefs">
+                                    <!-- Content will be populated by JavaScript -->
+                                    <div class="text-center py-3">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Reset Button -->
+                        <div class="mt-3">
+                            <button id="reset-notification-preferences" class="btn btn-outline-secondary btn-sm">
+                                <i class="fas fa-redo me-1"></i> Reset to Default
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Loading Indicator -->
+                    <div id="notification-preferences-loading" class="text-center py-3">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading notification preferences...</p>
+                    </div>
+                    
+                    <!-- Error Message -->
+                    <div id="notification-preferences-error" class="alert alert-danger d-none" role="alert">
+                        Failed to load notification preferences.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize notifications module
+        const notificationsModule = new Notifications();
+        notificationsModule.initialize();
+        
+        // Set up reset button
+        const resetButton = document.getElementById('reset-notification-preferences');
+        if (resetButton) {
+            resetButton.addEventListener('click', function() {
+                if (confirm('This will reset all notification preferences to default values. Continue?')) {
+                    notificationsModule.resetNotificationPreferences();
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

@@ -43,6 +43,12 @@ export default class DashboardPanels {
                     actions: ['start', 'stop', 'restart'],
                     showLabels: true
                 }
+            },
+            'service_status': {
+                render: this._renderServiceStatus.bind(this),
+                defaultConfig: {
+                    showQRCode: true
+                }
             }
         };
     }
@@ -114,6 +120,10 @@ export default class DashboardPanels {
                             </div>
                         </div>
                     ` : ''}
+                    <button class="btn btn-sm btn-outline-info vm-action qr-code-btn" 
+                            data-action="qrcode" data-vmid="${vm.vmid}" data-type="vm" title="QR Code Access">
+                        <i class="bi bi-qr-code"></i>
+                    </button>
                 </div>
             `).join('');
             
@@ -122,6 +132,21 @@ export default class DashboardPanels {
                     ${vmList}
                 </div>
             `;
+            
+            // Add event listeners to QR code buttons
+            container.querySelectorAll('.qr-code-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const resourceId = this.getAttribute('data-vmid');
+                    const resourceType = this.getAttribute('data-type');
+                    if (typeof window.showQRCode === 'function') {
+                        window.showQRCode(resourceType, resourceId);
+                    } else {
+                        // Fallback if the global function isn't available
+                        const qrCodeUrl = `/qr-code/${resourceType}/${resourceId}`;
+                        window.open(qrCodeUrl, '_blank');
+                    }
+                });
+            });
             
         } catch (error) {
             container.innerHTML = `
@@ -370,6 +395,139 @@ export default class DashboardPanels {
                 this._handleQuickAction(action);
             });
         });
+    }
+    
+    /**
+     * Render service status panel
+     */
+    _renderServiceStatus(container, config) {
+        // Create panel structure
+        container.innerHTML = `
+            <div class="panel">
+                <div class="panel-header">
+                    <h5 class="panel-title">
+                        <i class="bi bi-gear me-2"></i>
+                        Service Status
+                    </h5>
+                    <div class="panel-actions">
+                        <button class="btn btn-sm btn-outline-secondary refresh-btn" title="Refresh">
+                            <i class="bi bi-arrow-clockwise"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div class="service-status-panel">
+                        <div class="d-flex justify-content-between mb-3">
+                            <div>
+                                <span class="badge bg-success me-1" id="panel-running-services">0 Running</span>
+                                <span class="badge bg-danger" id="panel-stopped-services">0 Stopped</span>
+                            </div>
+                        </div>
+                        <div id="panel-service-list" class="service-list">
+                            <div class="text-center">
+                                <div class="spinner-border spinner-border-sm" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <span class="ms-2">Loading services...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Load service data
+        this.loadServiceData(container.querySelector('#panel-service-list'),
+                            container.querySelector('#panel-running-services'),
+                            container.querySelector('#panel-stopped-services'));
+
+        // Set up refresh button
+        container.querySelector('.refresh-btn').addEventListener('click', () => {
+            this.loadServiceData(container.querySelector('#panel-service-list'),
+                               container.querySelector('#panel-running-services'),
+                               container.querySelector('#panel-stopped-services'));
+        });
+    }
+
+    /**
+     * Load service data from the server
+     * @param {HTMLElement} container - Container to display service list
+     * @param {HTMLElement} runningCounter - Element to display running service count
+     * @param {HTMLElement} stoppedCounter - Element to display stopped service count
+     */
+    loadServiceData(container, runningCounter, stoppedCounter) {
+        // Fetch service data
+        fetch('/api/services')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.services && data.services.length > 0) {
+                    // Count running and stopped services
+                    let runningCount = 0;
+                    let stoppedCount = 0;
+                    
+                    // Clear container
+                    container.innerHTML = '';
+                    
+                    // Add service items
+                    data.services.forEach(service => {
+                        const isRunning = service.status === 'running';
+                        if (isRunning) runningCount++;
+                        else stoppedCount++;
+                        
+                        const serviceItem = document.createElement('div');
+                        serviceItem.className = 'service-item';
+                        serviceItem.innerHTML = `
+                            <div class="service-info">
+                                <span class="status-indicator ${isRunning ? 'status-running' : 'status-stopped'}"></span>
+                                <strong>${service.name}</strong>
+                                <span class="badge bg-info ms-1">${service.id}</span>
+                            </div>
+                            <div class="service-actions">
+                                <button class="btn btn-sm btn-outline-primary service-action" data-action="view" data-id="${service.id}" title="View Details">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                                <button class="btn btn-sm ${isRunning ? 'btn-outline-danger' : 'btn-outline-success'} service-action" 
+                                        data-action="${isRunning ? 'stop' : 'start'}" data-id="${service.id}" 
+                                        title="${isRunning ? 'Stop Service' : 'Start Service'}">
+                                    <i class="bi ${isRunning ? 'bi-stop-fill' : 'bi-play-fill'}"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-info service-action qr-code-btn" 
+                                        data-action="qrcode" data-id="${service.id}" data-type="service" title="QR Code Access">
+                                    <i class="bi bi-qr-code"></i>
+                                </button>
+                            </div>
+                        `;
+                        container.appendChild(serviceItem);
+                    });
+                    
+                    // Update counters
+                    runningCounter.textContent = `${runningCount} Running`;
+                    stoppedCounter.textContent = `${stoppedCount} Stopped`;
+                    
+                    // Add event listeners to QR code buttons
+                    container.querySelectorAll('.qr-code-btn').forEach(button => {
+                        button.addEventListener('click', function() {
+                            const resourceId = this.getAttribute('data-id');
+                            const resourceType = this.getAttribute('data-type');
+                            if (typeof window.showQRCode === 'function') {
+                                window.showQRCode(resourceType, resourceId);
+                            } else {
+                                // Fallback if the global function isn't available
+                                const qrCodeUrl = `/qr-code/${resourceType}/${resourceId}`;
+                                window.open(qrCodeUrl, '_blank');
+                            }
+                        });
+                    });
+                } else {
+                    container.innerHTML = '<div class="text-center text-muted">No services found</div>';
+                    runningCounter.textContent = '0 Running';
+                    stoppedCounter.textContent = '0 Stopped';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading service data:', error);
+                container.innerHTML = `<div class="alert alert-danger">Error loading service data: ${error.message}</div>`;
+            });
     }
     
     /**

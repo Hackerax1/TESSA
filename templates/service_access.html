@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">Service Access - {{ service_id }}</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Connection Details</h6>
+                    <div class="alert alert-info">
+                        <p><strong>Service ID:</strong> {{ service_id }}</p>
+                        <p><strong>Status:</strong> <span id="service-status">Checking...</span></p>
+                        <p><strong>URL:</strong> <span id="service-url">Loading...</span></p>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-primary" id="open-btn">
+                            <i class="bi bi-box-arrow-up-right"></i> Open Service
+                        </button>
+                        <button class="btn btn-success" id="start-btn">
+                            <i class="bi bi-play-fill"></i> Start Service
+                        </button>
+                        <button class="btn btn-danger" id="stop-btn">
+                            <i class="bi bi-stop-fill"></i> Stop Service
+                        </button>
+                        <button class="btn btn-warning" id="restart-btn">
+                            <i class="bi bi-arrow-clockwise"></i> Restart Service
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <h6>Service Information</h6>
+                    <div id="service-details" class="mb-3">
+                        <div class="d-flex justify-content-center align-items-center h-100">
+                            <div class="spinner-border text-success" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <h6>Recent Logs</h6>
+                    <div id="service-logs" class="logs-container">
+                        <div class="d-flex justify-content-center align-items-center h-100">
+                            <div class="spinner-border text-success" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card-footer">
+            <a href="/" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Load service details
+    fetch(`/api/services/${service_id}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('service-status').textContent = data.status;
+                
+                // Display service URL with link if available
+                if (data.url) {
+                    document.getElementById('service-url').innerHTML = `
+                        <a href="${data.url}" target="_blank">${data.url}</a>
+                    `;
+                } else {
+                    document.getElementById('service-url').textContent = 'Not available';
+                }
+                
+                // Render service details
+                const serviceDetails = document.getElementById('service-details');
+                serviceDetails.innerHTML = `
+                    <div class="service-info">
+                        <p><strong>Name:</strong> ${data.name}</p>
+                        <p><strong>Description:</strong> ${data.description || 'No description available'}</p>
+                        <p><strong>Version:</strong> ${data.version || 'Unknown'}</p>
+                        <p><strong>Host VM:</strong> ${data.vm_id || 'Unknown'}</p>
+                        <p><strong>Ports:</strong> ${data.ports ? data.ports.join(', ') : 'None'}</p>
+                    </div>
+                `;
+                
+                // Update button states based on service status
+                updateButtonStates(data.status);
+            } else {
+                document.getElementById('service-details').innerHTML = `
+                    <div class="alert alert-danger">
+                        Failed to load service details: ${data.message || 'Unknown error'}
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching service details:', error);
+            document.getElementById('service-details').innerHTML = `
+                <div class="alert alert-danger">
+                    Error loading service details. Please try again later.
+                </div>
+            `;
+        });
+    
+    // Load service logs
+    fetch(`/api/services/${service_id}/logs`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.logs.length > 0) {
+                const logsContainer = document.getElementById('service-logs');
+                logsContainer.innerHTML = `<pre class="logs-output">${data.logs.join('\n')}</pre>`;
+            } else {
+                document.getElementById('service-logs').innerHTML = `
+                    <div class="text-muted">No logs available.</div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching service logs:', error);
+            document.getElementById('service-logs').innerHTML = `
+                <div class="alert alert-danger">
+                    Error loading service logs. Please try again later.
+                </div>
+            `;
+        });
+    
+    // Button event handlers
+    document.getElementById('open-btn').addEventListener('click', function() {
+        fetch(`/api/services/${service_id}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.url) {
+                    window.open(data.url, '_blank');
+                } else {
+                    alert('Service URL not available. The service may not be running or does not have a web interface.');
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching service URL:', error);
+                alert('Error getting service URL. Please try again later.');
+            });
+    });
+    
+    document.getElementById('start-btn').addEventListener('click', function() {
+        if (confirm('Are you sure you want to start this service?')) {
+            fetch(`/api/services/${service_id}/start`, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Service start command sent successfully');
+                        // Refresh the page after a short delay
+                        setTimeout(() => location.reload(), 2000);
+                    } else {
+                        alert(`Failed to start service: ${data.message}`);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error starting service:', error);
+                    alert('Error sending start command. Please try again later.');
+                });
+        }
+    });
+    
+    document.getElementById('stop-btn').addEventListener('click', function() {
+        if (confirm('Are you sure you want to stop this service?')) {
+            fetch(`/api/services/${service_id}/stop`, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Service stop command sent successfully');
+                        // Refresh the page after a short delay
+                        setTimeout(() => location.reload(), 2000);
+                    } else {
+                        alert(`Failed to stop service: ${data.message}`);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error stopping service:', error);
+                    alert('Error sending stop command. Please try again later.');
+                });
+        }
+    });
+    
+    document.getElementById('restart-btn').addEventListener('click', function() {
+        if (confirm('Are you sure you want to restart this service?')) {
+            fetch(`/api/services/${service_id}/restart`, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Service restart command sent successfully');
+                        // Refresh the page after a short delay
+                        setTimeout(() => location.reload(), 2000);
+                    } else {
+                        alert(`Failed to restart service: ${data.message}`);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error restarting service:', error);
+                    alert('Error sending restart command. Please try again later.');
+                });
+        }
+    });
+    
+    function updateButtonStates(status) {
+        const startBtn = document.getElementById('start-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const restartBtn = document.getElementById('restart-btn');
+        const openBtn = document.getElementById('open-btn');
+        
+        if (status === 'running') {
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            restartBtn.disabled = false;
+            openBtn.disabled = false;
+        } else if (status === 'stopped') {
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            restartBtn.disabled = true;
+            openBtn.disabled = true;
+        } else {
+            // Other states like 'starting', 'stopping', etc.
+            startBtn.disabled = false;
+            stopBtn.disabled = false;
+            restartBtn.disabled = false;
+            openBtn.disabled = true;
+        }
+    }
+});
+</script>
+
+<style>
+.logs-container {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    padding: 0.5rem;
+    background-color: #f8f9fa;
+}
+
+.logs-output {
+    font-family: monospace;
+    font-size: 0.8rem;
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.service-info p {
+    margin-bottom: 0.5rem;
+}
+</style>
+{% endblock %}
