@@ -1,7 +1,7 @@
 import pytest
 import requests
 from unittest.mock import Mock, patch
-from ...api.proxmox_api import ProxmoxAPI
+from proxmox_nli.api.proxmox_api import ProxmoxAPI
 
 # Register the integration mark
 integration = pytest.mark.integration

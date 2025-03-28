@@ -3,8 +3,8 @@ import unittest
 from unittest.mock import Mock, patch
 import os
 import sys
-from proxmox_nli.installer.hardware.compatibility_checker import CompatibilityChecker
-from proxmox_nli.installer.hardware.hardware_compatibility_db import HardwareCompatibilityDB
+from installer.hardware.compatibility_checker import CompatibilityChecker
+from installer.hardware.hardware_compatibility_db import HardwareCompatibilityDB
 
 class TestCompatibilityChecker(unittest.TestCase):
     """Test cases for hardware compatibility checking."""
