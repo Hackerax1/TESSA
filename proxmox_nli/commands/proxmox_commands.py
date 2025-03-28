@@ -25,16 +25,14 @@ class ProxmoxCommands:
         
         vms = []
         for vm in result['data']:
-            vm_status = self.get_vm_status(vm['vmid'])
-            if vm_status['success']:
-                vms.append({
-                    'id': vm['vmid'],
-                    'name': vm['name'],
-                    'status': vm_status['status']['status'],
-                    'cpu': vm_status['status']['cpu'],
-                    'memory': vm_status['status']['memory'],
-                    'disk': vm_status['status']['disk']
-                })
+            # Extract VM data from the API response directly
+            # This ensures we capture all VMs from the initial response
+            vms.append({
+                'id': vm['vmid'],
+                'name': vm['name'],
+                'status': vm['status'],
+                'node': vm['node']
+            })
         
         return {"success": True, "vms": vms}
 
@@ -146,6 +144,10 @@ class ProxmoxCommands:
             'net0': 'virtio,bridge=vmbr0'
         }
         
+        # Add name if specified
+        if 'name' in params:
+            create_params['name'] = params['name']
+        
         # Add storage if specified
         if 'disk' in params:
             create_params['scsihw'] = 'virtio-scsi-pci'
@@ -220,7 +222,9 @@ class ProxmoxCommands:
             return result
         
         for vm in result['data']:
-            if str(vm['vmid']) == str(vm_id):
+            # Convert both to string to ensure comparison works with either type
+            # Make sure vm is a dictionary before using get()
+            if isinstance(vm, dict) and str(vm.get('vmid', '')) == str(vm_id):
                 return {"success": True, "node": vm['node']}
         
         return {"success": False, "message": f"VM {vm_id} not found"}

@@ -1,6 +1,13 @@
 """Tests for hardware compatibility and detection functionality."""
 import unittest
 from unittest.mock import Mock, patch
+
+import sys
+import os
+
+# Add the project root directory to the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+
 from installer.hardware.compatibility_checker import CompatibilityChecker
 from installer.hardware.types import HardwareCompatibility
 

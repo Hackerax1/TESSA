@@ -2,6 +2,12 @@ import unittest
 from unittest.mock import patch, MagicMock
 import platform
 import psutil
+import sys
+import os
+
+# Add the project root directory to the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+
 from installer.hardware.system_info import SystemInfoManager
 from installer.hardware.storage_info import StorageInfoManager
 from installer.hardware.network_info import NetworkInfoManager

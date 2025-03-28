@@ -34,7 +34,9 @@ class CompatibilityChecker:
         """Check CPU virtualization support."""
         cpu_virt_available = False
         if "virtualization_support" in self.cpu_info and isinstance(self.cpu_info["virtualization_support"], dict):
-            cpu_virt_available = self.cpu_info["virtualization_support"].get("available", False)
+            # Check for either svm (AMD-V) or vmx (Intel VT-x) virtualization extensions
+            virt_support = self.cpu_info["virtualization_support"]
+            cpu_virt_available = virt_support.get("available", False) or virt_support.get("svm", False) or virt_support.get("vmx", False)
         
         if not cpu_virt_available:
             results.append(
@@ -170,7 +172,18 @@ class CompatibilityChecker:
                 )
             )
         else:
-            # Check if any interfaces have decent speed
+            # First add the general network interface compatibility result
+            results.append(
+                HardwareCompatibility(
+                    component="Network Interfaces",
+                    is_compatible=True,
+                    message="Active network interfaces detected",
+                    severity="info",
+                    fallback_available=False
+                )
+            )
+            
+            # Now check if any interfaces have decent speed
             has_fast_network = False
             for interface in self.network_info.get("interfaces", []):
                 if interface.get("is_up", False) and interface.get("speed", 0) >= 100:  # 100 Mbps or higher

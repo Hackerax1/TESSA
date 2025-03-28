@@ -4,6 +4,11 @@ Tests for security components including authentication, permissions, and session
 import pytest
 from datetime import datetime, timedelta
 import jwt
+import sys
+import os
+
+# Add the project root directory to the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from proxmox_nli.core.security.auth_manager import AuthManager
 from proxmox_nli.core.security.permission_handler import PermissionHandler
 from proxmox_nli.core.security.token_manager import TokenManager

@@ -4,6 +4,7 @@ pytest
 pytest-mock
 psutil
 SpeechRecognition
+sklearn
 pyaudio
 gunicorn
 nltk

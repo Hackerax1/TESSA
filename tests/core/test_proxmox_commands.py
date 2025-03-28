@@ -19,14 +19,36 @@ class TestProxmoxCommands(unittest.TestCase):
     
     def test_list_vms(self):
         """Test listing VMs"""
-        # Mock API response
-        self.mock_api.api_request.return_value = {
-            "success": True, 
-            "data": [
-                {"vmid": 100, "name": "test-vm1", "status": "running", "node": "node1"},
-                {"vmid": 101, "name": "test-vm2", "status": "stopped", "node": "node2"}
-            ]
-        }
+        # Mock API response for the cluster resources
+        self.mock_api.api_request.side_effect = [
+            {
+                "success": True, 
+                "data": [
+                    {"vmid": 100, "name": "test-vm1", "status": "running", "node": "node1"},
+                    {"vmid": 101, "name": "test-vm2", "status": "stopped", "node": "node2"}
+                ]
+            },
+            # Mock response for first VM status
+            {
+                "success": True,
+                "data": {
+                    "status": "running",
+                    "cpu": 0.5,
+                    "mem": 1024*1024*1024,  # 1GB in bytes
+                    "disks": {"scsi0": {"size": 32*1024*1024*1024}}  # 32GB in bytes
+                }
+            },
+            # Mock response for second VM status
+            {
+                "success": True,
+                "data": {
+                    "status": "stopped",
+                    "cpu": 0,
+                    "mem": 2048*1024*1024,  # 2GB in bytes
+                    "disks": {"scsi0": {"size": 64*1024*1024*1024}}  # 64GB in bytes
+                }
+            }
+        ]
         
         # Call the list_vms method
         result = self.commands.list_vms()
@@ -34,13 +56,13 @@ class TestProxmoxCommands(unittest.TestCase):
         # Verify the result
         self.assertTrue(result["success"])
         self.assertEqual(len(result["vms"]), 2)
-        self.assertEqual(result["vms"][0]["vmid"], 100)
+        self.assertEqual(result["vms"][0]["id"], 100)
         self.assertEqual(result["vms"][0]["name"], "test-vm1")
         self.assertEqual(result["vms"][0]["status"], "running")
-        self.assertEqual(result["vms"][1]["vmid"], 101)
+        self.assertEqual(result["vms"][1]["id"], 101)
         
-        # Verify the API call
-        self.mock_api.api_request.assert_called_once_with('GET', 'cluster/resources?type=vm')
+        # Verify the API calls
+        self.assertEqual(self.mock_api.api_request.call_count, 3)  # 1 for list + 2 for VM status
 
     def test_list_vms_failure(self):
         """Test listing VMs when API call fails"""

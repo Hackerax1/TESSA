@@ -2,6 +2,11 @@ import unittest
 from unittest.mock import patch, MagicMock
 import platform
 import shutil
+import sys
+import os
+
+# Add the project root directory to the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from installer.hardware.driver_manager import DriverManager
 from installer.hardware.types import DriverInfo
 

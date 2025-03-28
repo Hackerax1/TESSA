@@ -2,7 +2,7 @@
 Command executor module handling execution of various Proxmox commands.
 Provides centralized command routing, validation, and execution.
 """
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 class CommandExecutor:
     def __init__(self, base_nli):
@@ -50,6 +50,126 @@ class CommandExecutor:
                 "message": f"Error executing command: {str(e)}"
             }
 
+    def _execute_command(self, command: str, positional_args: List[str] = None, entities: Dict[str, Any] = None) -> Dict[str, Any]:
+        """Execute a command with positional arguments and entities
+        
+        This is an internal method used for command routing with more specific parameter handling.
+        
+        Args:
+            command: Command to execute
+            positional_args: List of positional arguments
+            entities: Dictionary of named entities/parameters
+            
+        Returns:
+            Dict containing command execution results
+        """
+        if positional_args is None:
+            positional_args = []
+        if entities is None:
+            entities = {}
+            
+        # Help command handling
+        if command == "help":
+            return self.get_help()
+            
+        # VM Commands
+        if command == "list_vms":
+            return self.commands.list_vms()
+        elif command == "start_vm":
+            if len(positional_args) > 0:
+                vm_id = positional_args[0]
+            elif "VM_ID" in entities:
+                vm_id = entities["VM_ID"]
+            else:
+                return {"success": False, "message": "Please specify a VM ID"}
+            return self.commands.start_vm(vm_id)
+        elif command == "stop_vm":
+            if len(positional_args) > 0:
+                vm_id = positional_args[0]
+            elif "VM_ID" in entities:
+                vm_id = entities["VM_ID"]
+            else:
+                return {"success": False, "message": "Please specify a VM ID"}
+            return self.commands.stop_vm(vm_id)
+        elif command == "restart_vm":
+            if len(positional_args) > 0:
+                vm_id = positional_args[0]
+            elif "VM_ID" in entities:
+                vm_id = entities["VM_ID"]
+            else:
+                return {"success": False, "message": "Please specify a VM ID"}
+            return self.commands.restart_vm(vm_id)
+        elif command == "delete_vm":
+            if len(positional_args) > 0:
+                vm_id = positional_args[0]
+            elif "VM_ID" in entities:
+                vm_id = entities["VM_ID"]
+            else:
+                return {"success": False, "message": "Please specify a VM ID"}
+            return self.commands.delete_vm(vm_id)
+        elif command == "vm_status":
+            if len(positional_args) > 0:
+                vm_id = positional_args[0]
+            elif "VM_ID" in entities:
+                vm_id = entities["VM_ID"]
+            else:
+                return {"success": False, "message": "Please specify a VM ID"}
+            return self.commands.get_vm_status(vm_id)
+        elif command == "create_vm":
+            if "PARAMS" in entities:
+                vm_params = entities["PARAMS"]
+            else:
+                return {"success": False, "message": "Please specify VM parameters"}
+            return self.commands.create_vm(vm_params)
+            
+        # Docker Commands
+        elif command == "list_docker_containers":
+            if len(positional_args) > 0:
+                vm_id = positional_args[0]
+            elif "VM_ID" in entities:
+                vm_id = entities["VM_ID"]
+            else:
+                return {"success": False, "message": "Please specify a VM ID"}
+            return self.docker_commands.list_docker_containers(vm_id)
+        elif command == "start_docker_container":
+            if len(positional_args) > 1:
+                container_name = positional_args[0]
+                vm_id = positional_args[1]
+            elif "CONTAINER_NAME" in entities and "VM_ID" in entities:
+                container_name = entities["CONTAINER_NAME"]
+                vm_id = entities["VM_ID"]
+            else:
+                return {"success": False, "message": "Please specify a container name and VM ID"}
+            return self.docker_commands.start_docker_container(container_name, vm_id)
+        elif command == "stop_docker_container":
+            if len(positional_args) > 1:
+                container_name = positional_args[0]
+                vm_id = positional_args[1]
+            elif "CONTAINER_NAME" in entities and "VM_ID" in entities:
+                container_name = entities["CONTAINER_NAME"]
+                vm_id = entities["VM_ID"]
+            else:
+                return {"success": False, "message": "Please specify a container name and VM ID"}
+            return self.docker_commands.stop_docker_container(container_name, vm_id)
+            
+        # CLI Commands
+        elif command == "run_cli_command":
+            if len(positional_args) > 1:
+                cmd = positional_args[0]
+                vm_id = positional_args[1]
+            elif "COMMAND" in entities and "VM_ID" in entities:
+                cmd = entities["COMMAND"]
+                vm_id = entities["VM_ID"]
+            else:
+                return {"success": False, "message": "Please specify a command and VM ID"}
+            return self.vm_command.run_cli_command(vm_id, cmd)
+            
+        # Invalid Command
+        return {
+            "success": False,
+            "message": f"I don't understand the command '{command}'. Try using 'help' for available commands."
+        }
+        
     def _validate_command(self, command: str, args: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Validate command and arguments before execution
         
