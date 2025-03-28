@@ -3,87 +3,66 @@ name: Code Quality
 on: [push, pull_request]
 
 jobs:
-  core-tests:
-    name: Core Tests
+  setup:
+    name: Setup Environment
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-python@v2
+    - uses: actions/checkout@v3
+    - uses: actions/setup-python@v4
       with:
-        python-version: 3.9
+        python-version: '3.9'
+        cache: 'pip'
+    - name: Cache apt packages
+      uses: awalsh128/cache-apt-pkgs-action@latest
+      with:
+        packages: portaudio19-dev
+        version: 1.0
     - name: Install dependencies
       run: |
-        sudo apt-get update
-        sudo apt-get install -y portaudio19-dev
         pip install -r requirements.txt
-    - name: Run core tests
-      run: |
-        pytest tests/core/ -v
+    - name: Cache virtual environment
+      uses: actions/cache@v3
+      with:
+        path: .venv
+        key: venv-${{ runner.os }}-${{ hashFiles('**/requirements.txt') }}
 
-  nlu-tests:
-    name: NLU Tests  
+  tests:
+    needs: setup
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        test-group: [core, nlu, hardware, plugins, backup]
+        include:
+          - test-group: core
+            path: tests/core/
+          - test-group: nlu
+            path: tests/nlu/
+          - test-group: hardware
+            path: tests/hardware/
+          - test-group: plugins
+            path: tests/plugins/
+          - test-group: backup
+            path: tests/test_backup_scheduler.py
+    name: ${{ matrix.test-group }} Tests
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-python@v2
+    - uses: actions/checkout@v3
+    - uses: actions/setup-python@v4
       with:
-        python-version: 3.9
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y portaudio19-dev
-        pip install -r requirements.txt
-    - name: Run NLU tests
-      run: |
-        pytest tests/nlu/ -v
-
-  hardware-tests:
-    name: Hardware Tests
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-python@v2
+        python-version: '3.9'
+        cache: 'pip'
+    - name: Restore cache
+      uses: actions/cache@v3
       with:
-        python-version: 3.9
-    - name: Install dependencies
+        path: .venv
+        key: venv-${{ runner.os }}-${{ hashFiles('**/requirements.txt') }}
+    - name: Run ${{ matrix.test-group }} tests
+      timeout-minutes: 10
       run: |
-        sudo apt-get update
-        sudo apt-get install -y portaudio19-dev
-        pip install -r requirements.txt
-    - name: Run hardware tests
-      run: |
-        pytest tests/hardware/ -v
-
-  plugin-tests:
-    name: Plugin Tests
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-python@v2
+        pytest ${{ matrix.path }} -v --junitxml=test-results/${{ matrix.test-group }}.xml
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v3
       with:
-        python-version: 3.9
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y portaudio19-dev
-        pip install -r requirements.txt
-    - name: Run plugin tests
-      run: |
-        pytest tests/plugins/ -v
-
-  backup-tests:
-    name: Backup Tests
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-python@v2
-      with:
-        python-version: 3.9
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y portaudio19-dev
-        pip install -r requirements.txt
-    - name: Run backup tests
-      run: |
-        pytest tests/test_backup_scheduler.py -v
+        name: test-results-${{ matrix.test-group }}
+        path: test-results/
