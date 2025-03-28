@@ -1,0 +1,77 @@
+id: opnsense
+name: OPNsense
+description: Open source firewall and router platform with enterprise-grade features, based on FreeBSD and the pf firewall
+keywords:
+  - firewall
+  - router
+  - network
+  - vpn
+  - proxy
+  - dns
+  - dhcp
+  - networking
+  - security
+  - ids
+  - ips
+user_goals:
+  - id: networking
+    relevance: high
+    reason: "OPNsense provides comprehensive network management and security features"
+  - id: privacy
+    relevance: high
+    reason: "Enables secure network isolation and traffic filtering for enhanced privacy"
+vm_requirements:
+  memory: 2048
+  cores: 2
+  disk: 20
+  os_template: debian-11
+deployment:
+  method: script
+  script: |
+    #!/bin/bash
+    # Download OPNsense ISO
+    wget https://mirror.ams1.nl.leaseweb.net/opnsense/releases/23.7/OPNsense-23.7.1-dvd-amd64.iso.gz
+    gunzip OPNsense-23.7.1-dvd-amd64.iso.gz
+    
+    # Note: VM creation and network configuration will be handled by Proxmox
+    
+  post_install_steps:
+    - "echo 'Please complete OPNsense initial setup through the web interface'"
+
+access_info: |
+  OPNsense has been successfully deployed!
+  
+  Initial Access:
+  - Web Interface: https://<VM_IP>
+  - Default Username: root
+  - Default Password: opnsense
+  
+  Initial Setup Steps:
+  1. Complete the setup wizard
+  2. Change the default password
+  3. Configure WAN and LAN interfaces
+  4. Set up DHCP server for LAN
+  5. Configure firewall rules
+  6. Set up any additional services (VPN, proxy, etc.)
+  
+notes: |
+  OPNsense provides enterprise-grade network security features:
+  - Modern web interface with responsive design
+  - Weekly security updates
+  - Stateful firewall with pf
+  - Intrusion detection and prevention (Suricata)
+  - Traffic shaping and QoS
+  - VPN capabilities (OpenVPN, WireGuard, IPsec)
+  - Captive portal
+  - Forward and reverse proxies
+  - High availability options
+  - Detailed reporting and monitoring
+  - Plugin system for additional features
+  
+  Network Configuration Tips:
+  - Use at least 2 network interfaces (WAN/LAN)
+  - Consider VLAN support for network segmentation
+  - Enable HTTPS for web interface
+  - Regular backups of configuration
+  - Monitor system resources
+  - Plan network subnets carefully

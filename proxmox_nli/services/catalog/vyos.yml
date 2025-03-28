@@ -1,0 +1,76 @@
+id: vyos
+name: VyOS
+description: Linux-based network operating system providing advanced routing, firewall, and VPN capabilities via a unified CLI
+keywords:
+  - firewall
+  - router
+  - network
+  - vpn
+  - bgp
+  - ospf
+  - routing
+  - cli
+  - networking
+  - security
+  - linux
+user_goals:
+  - id: networking
+    relevance: high
+    reason: "VyOS provides powerful network routing and management capabilities"
+  - id: privacy
+    relevance: medium
+    reason: "Offers strong VPN and firewall features for securing network traffic"
+vm_requirements:
+  memory: 1024
+  cores: 2
+  disk: 16
+  os_template: debian-11
+deployment:
+  method: script
+  script: |
+    #!/bin/bash
+    # Download VyOS ISO
+    wget https://downloads.vyos.io/rolling/current/amd64/vyos-rolling-latest.iso
+    
+    # Note: VM creation and network configuration will be handled by Proxmox
+    
+  post_install_steps:
+    - "echo 'Please complete VyOS initial setup through the console'"
+
+access_info: |
+  VyOS has been successfully deployed!
+  
+  Initial Access:
+  - Console access via Proxmox VE console
+  - Default Username: vyos
+  - Default Password: vyos
+  
+  Initial Setup Steps:
+  1. Log in with the default credentials
+  2. Enter configuration mode with "configure"
+  3. Set a new password with "set system login user vyos authentication plaintext-password YOUR_PASSWORD"
+  4. Configure network interfaces
+  5. Save configuration with "commit" and "save"
+  6. Set up additional services (routing, firewall, VPN, etc.)
+  
+notes: |
+  VyOS provides powerful network management capabilities:
+  - CLI-driven configuration with commit model
+  - Advanced routing protocols (BGP, OSPF, RIP)
+  - Stateful firewall
+  - Site-to-site and remote access VPN (OpenVPN, IPsec, WireGuard)
+  - QoS and traffic shaping
+  - DHCP, DNS, and web proxy services
+  - Network monitoring and diagnostics
+  - Zero-touch provisioning capabilities
+  - Automated deployments with config scripts
+  
+  Configuration Tips:
+  - Use configuration mode for all changes
+  - Always commit and save after making changes
+  - Use "compare" to see pending changes
+  - Configure at least 2 network interfaces (WAN/LAN)
+  - Use "set service ssh" to enable SSH access
+  - Create regular configuration backups
+  - Consider using config versioning
+  - For production, use stable releases rather than rolling
