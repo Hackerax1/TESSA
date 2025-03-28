@@ -122,4 +122,43 @@
   - [ ] Create synthetic training data from common homelab scenarios
   - [ ] Develop model pruning and optimization for local deployment
 
-- [ ] Add multi-language voice support.
+- [ ] **Add multi-language voice support.**
+
+- [ ] **Initial Setup Enhancements:**
+  - [ ] Create interactive network planning wizard with topology designer
+  - [ ] Implement VLAN and subnet planning templates
+  - [ ] Add automated network configuration validation
+  - [ ] Develop hardware compatibility pre-check utility
+  - [ ] Create one-click service bundle deployments
+
+- [ ] **Advanced Configuration Features:**
+  - [ ] Implement Infrastructure-as-Code export/import
+    - [ ] Add Terraform configuration export
+    - [ ] Add Ansible playbook generation
+    - [ ] Implement version control integration
+  - [ ] Build cross-platform migration tools
+    - [ ] Add Unraid migration assistant
+    - [ ] Add TrueNAS migration assistant
+    - [ ] Add ESXi migration assistant
+  - [ ] Enhance service discovery
+    - [ ] Implement automated local DNS configuration
+    - [ ] Add mDNS/Avahi integration
+    - [ ] Create unified service directory
+
+- [ ] **User Experience Improvements:**
+  - [ ] Create personalized setup journeys based on expertise
+  - [ ] Implement knowledge-building system
+  - [ ] Add configuration validation and rollback
+  - [ ] Develop resource planning tools
+    - [ ] Add pre-setup resource calculator
+    - [ ] Implement disk space forecasting
+    - [ ] Create hardware recommendations engine
+
+- [ ] **Community Features:**
+  - [ ] Build platform for sharing homelab configurations
+  - [ ] Implement community template import system
+  - [ ] Create setup showcase feature
+  - [ ] Add collaborative setup assistance
+    - [ ] Implement remote setup help capability
+    - [ ] Add screen sharing functionality
+    - [ ] Create mentor-mentee matching system
