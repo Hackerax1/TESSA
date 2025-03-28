@@ -1,0 +1,110 @@
+id: proxmox-helper-scripts
+name: Proxmox VE Helper-Scripts
+description: Collection of community-maintained helper scripts for Proxmox VE management and automation
+keywords:
+  - scripts
+  - automation
+  - management
+  - utilities
+  - tools
+  - community
+  - proxmox
+  - helpers
+  - admin
+vm_requirements:
+  memory: 512
+  cores: 1
+  disk: 5
+  os_template: ubuntu-22.04
+user_goals:
+  - id: management
+    relevance: high
+    reason: "Provides scripts to automate common management tasks in Proxmox VE"
+  - id: automation
+    relevance: high
+    reason: "Offers automation scripts for recurring Proxmox maintenance and configuration tasks"
+  - id: productivity
+    relevance: medium
+    reason: "Saves time by providing ready-made solutions to common Proxmox tasks"
+deployment:
+  method: script
+  script: |
+    #!/bin/bash
+    echo "Installing Proxmox VE Helper-Scripts..."
+    
+    # Install dependencies
+    apt-get update
+    apt-get install -y git curl wget jq
+
+    # Create directory for scripts
+    mkdir -p /opt/proxmox-helper-scripts
+    cd /opt/proxmox-helper-scripts
+    
+    # Clone the repository
+    git clone https://github.com/community-scripts/ProxmoxVE.git .
+    
+    # Create a simple script to update the repository
+    cat > /usr/local/bin/update-proxmox-scripts << 'EOF'
+    #!/bin/bash
+    cd /opt/proxmox-helper-scripts
+    git pull
+    echo "Proxmox VE Helper-Scripts updated successfully."
+    EOF
+    
+    # Make it executable
+    chmod +x /usr/local/bin/update-proxmox-scripts
+    
+    # Add symlinks to common scripts in /usr/local/bin
+    for script in $(find /opt/proxmox-helper-scripts/scripts -name "*.sh" -o -name "*.py"); do
+      script_name=$(basename $script)
+      ln -sf $script /usr/local/bin/$script_name
+      chmod +x $script
+    done
+    
+    echo "Proxmox VE Helper-Scripts installed successfully."
+
+access_info: |
+  Proxmox VE Helper-Scripts have been installed!
+  
+  Scripts are available in: /opt/proxmox-helper-scripts/scripts/
+  
+  Key Features:
+  - All scripts are also available in /usr/local/bin/ for easy access
+  - Over 200+ community-maintained scripts for various Proxmox tasks
+  - Organized into categories like backup, storage, network, etc.
+  
+  Usage:
+  - You can run scripts directly with ./<script_name>.sh
+  - Some scripts may require specific parameters, check the script header for usage
+  - To update all scripts, run: update-proxmox-scripts
+  
+  Additionally, you can use the Proxmox NLI Helper-Scripts plugin (if enabled) with these commands:
+  - "list helper scripts" - View available scripts by category
+  - "search helper scripts <query>" - Search for scripts by keyword
+  - "get helper script <name>" - View details about a specific script
+  - "download helper script <name>" - Download a script for local use
+  - "execute helper script <name>" - Execute a specific helper script
+
+notes: |
+  The Proxmox VE Helper-Scripts repository is a community-maintained collection of scripts for Proxmox VE management and automation.
+  
+  Features:
+  - Backup & restore scripts
+  - Storage management utilities
+  - Network configuration tools
+  - VM & container management scripts
+  - Cluster management tools
+  - Security hardening scripts
+  
+  Benefits:
+  - Save time with ready-made solutions
+  - Learn from well-written examples
+  - Adapt scripts to your specific needs
+  - Leverage community knowledge
+  
+  Web Interface:
+  - Browse all scripts with documentation at: https://community-scripts.github.io/ProxmoxVE/scripts
+  
+  Contribution:
+  - Consider contributing your own scripts back to the community
+  - Repository: https://github.com/community-scripts/ProxmoxVE
