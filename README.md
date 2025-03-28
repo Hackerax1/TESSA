@@ -35,7 +35,7 @@ TESSA transforms Proxmox virtualization into an accessible platform through natu
 
 ### Installation
 
-1. Download the TESSA installer image
+1. Download the TESSA installer image from the [Releases page](https://github.com/Hackerax1/proxmox-nli/releases)
 2. Create a bootable USB drive using the image
 3. Boot your target system from the USB drive
 4. Follow the on-screen instructions
@@ -61,13 +61,54 @@ TESSA is built on Python and integrates deeply with Proxmox's API. Developers ca
 - Improve natural language understanding capabilities
 - Enhance visualization and reporting features
 
-Check out our [Developer Documentation](https://github.com/tessa-project/docs) for more information.
+Check out our [documentation](./docs) for more information.
+
+### Development Environment Setup
+
+```bash
+# Clone this repository
+git clone https://github.com/Hackerax1/proxmox-nli.git
+cd proxmox-nli
+
+# Set up virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run the application
+python app.py
+```
+
+### Docker Development
+
+```bash
+# Build the Docker image
+docker build -t tessa:dev .
+
+# Run the container
+docker run -p 5000:5000 --name tessa-dev tessa:dev
+```
 
 ## Community
 
-- **Forum**: [TESSA Community](https://community.tessa-project.org)
-- **Chat**: [Discord Server](https://discord.gg/tessa-project)
-- **Bug Reports**: [GitHub Issues](https://github.com/tessa-project/tessa/issues)
+Join our growing community:
+
+- **GitHub Discussions**: Use [GitHub Discussions](https://github.com/Hackerax1/proxmox-nli/discussions) for questions and ideas
+- **Issues**: Report bugs or request features in [GitHub Issues](https://github.com/Hackerax1/proxmox-nli/issues)
+- **Pull Requests**: Contributions are welcome! Please check our [contribution guidelines](./docs/CONTRIBUTING.md)
+
+## Security
+
+We take security seriously. All code is regularly scanned for vulnerabilities, and we follow best practices for secure development:
+
+- Input sanitization across all interfaces
+- Principle of least privilege for all operations
+- Regular dependency vulnerability scanning
+- Rate limiting and anti-CSRF measures in web interfaces
+
+See our [security policy](./docs/SECURITY.md) for details on reporting vulnerabilities.
 
 ## License
 
@@ -78,7 +119,7 @@ TESSA is released under the [MIT License](LICENSE).
 TESSA builds upon the excellent work of:
 - The Proxmox team
 - Various open-source self-hosted applications
-- Contributors to the hardware compatibility database
+- Contributors to our codebase
 - Everyone who has tested and provided feedback
 
 ---
