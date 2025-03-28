@@ -10,6 +10,9 @@ COPY requirements.txt .
 # Install gcc and any dependencies
 RUN apt-get update && apt-get install -y gcc
 
+# Add this line to install portaudio
+RUN apt-get update && apt-get install -y portaudio19-dev
+
 # Install the dependencies specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
