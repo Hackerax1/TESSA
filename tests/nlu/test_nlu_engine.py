@@ -1,4 +1,9 @@
 import pytest
+import sys
+import os
+
+# Add the project root directory to the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from unittest.mock import Mock, patch
 from proxmox_nli.nlu.nlu_engine import NLU_Engine
 from proxmox_nli.nlu.preprocessing import Preprocessor

@@ -4,7 +4,11 @@ Test for the Hugging Face client implementation
 import pytest
 from unittest.mock import patch, MagicMock
 import json
+import sys
 import os
+
+# Add the project root directory to the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from proxmox_nli.nlu.huggingface_client import HuggingFaceClient
 
 class TestHuggingFaceClient:
