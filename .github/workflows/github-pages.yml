@@ -55,6 +55,8 @@ jobs:
 
   deploy:
     environment:
+      # github-pages is actually valid, but there's a VS Code extension bug that flags it
+      # as invalid. This comment silences the error without changing the value.
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
