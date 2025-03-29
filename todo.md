@@ -134,7 +134,7 @@
 
 - [ ] **Advanced Configuration Features:**
   - [ ] Implement Infrastructure-as-Code export/import
-    - [ ] Add Terraform configuration export
+    - [X] Add Terraform configuration export
     - [ ] Add Ansible playbook generation
     - [ ] Implement version control integration
 
