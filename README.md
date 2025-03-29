@@ -2,6 +2,10 @@
 
 ![TESSA Logo](static/TessaLogo.webp)
 
+## Live UI Demo
+
+Check out the [UI Demo on GitHub Pages](https://hackerax1.github.io/proxmox-nli/) to see TESSA's interface in action without having to install anything.
+
 ## What is TESSA?
 
 TESSA (Technical Environment Self-Service Assistant) is an open-source project that puts the power of a professional homelab into the hands of everyday users. No more cloud dependence, no more technical barriers—just simple, natural language interaction with your own private infrastructure.
