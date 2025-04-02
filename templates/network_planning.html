@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+
+{% block title %}Network Planning Wizard{% endblock %}
+
+{% block head %}
+{{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/network_planning.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">Network Planning Wizard</h1>
+            <p class="lead">
+                Design and plan your Proxmox network infrastructure with our interactive network planning wizard.
+                Create network topologies, configure VLANs, and generate network configurations for your Proxmox nodes.
+            </p>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Your Network Plans</h5>
+                </div>
+                <div class="card-body">
+                    <div id="plans-loading" class="text-center py-4">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading your network plans...</p>
+                    </div>
+                    <div id="plans-list" class="d-none">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Description</th>
+                                        <th>Last Updated</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="plans-table-body">
+                                    <!-- Plans will be populated here -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="no-plans-message" class="alert alert-info d-none">
+                            <i class="fas fa-info-circle"></i>
+                            You don't have any network plans yet. Create your first plan to get started.
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn btn-primary" id="create-plan-btn">
+                        <i class="fas fa-plus"></i> Create New Plan
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Getting Started</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-4">
+                        <h6><i class="fas fa-info-circle"></i> What is the Network Planning Wizard?</h6>
+                        <p>
+                            The Network Planning Wizard helps you design and plan your Proxmox network infrastructure.
+                            You can create visual network topologies, configure VLANs, and generate network configurations
+                            for your Proxmox nodes.
+                        </p>
+                    </div>
+                    <div class="mb-4">
+                        <h6><i class="fas fa-question-circle"></i> How to use the Network Planning Wizard?</h6>
+                        <ol>
+                            <li>Create a new network plan</li>
+                            <li>Add nodes (Proxmox servers, routers, switches) to your topology</li>
+                            <li>Define networks (LANs, VLANs) and their properties</li>
+                            <li>Connect nodes to networks</li>
+                            <li>Validate your network plan</li>
+                            <li>Generate Proxmox network configuration</li>
+                        </ol>
+                    </div>
+                    <div>
+                        <h6><i class="fas fa-lightbulb"></i> Tips</h6>
+                        <ul>
+                            <li>Use templates to quickly create common network topologies</li>
+                            <li>Validate your network plan to check for common issues</li>
+                            <li>Use the visual designer to create a clear overview of your network</li>
+                            <li>Export your network configuration to apply it to your Proxmox nodes</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Templates</h5>
+                </div>
+                <div class="card-body">
+                    <p>
+                        Start with a template to quickly create a common network topology.
+                        You can customize it later to fit your specific needs.
+                    </p>
+                    <div class="row">
+                        <div class="col-md-3 mb-3">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">Empty</h5>
+                                    <p class="card-text">Start with a blank canvas</p>
+                                    <img src="{{ url_for('static', filename='img/network_templates/empty.png') }}" class="img-fluid mb-3" alt="Empty template">
+                                    <button class="btn btn-outline-primary btn-sm template-btn" data-template="empty">
+                                        Use Template
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">Small Home</h5>
+                                    <p class="card-text">Single Proxmox node with router</p>
+                                    <img src="{{ url_for('static', filename='img/network_templates/small.png') }}" class="img-fluid mb-3" alt="Small template">
+                                    <button class="btn btn-outline-primary btn-sm template-btn" data-template="small">
+                                        Use Template
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">Medium Office</h5>
+                                    <p class="card-text">Multiple nodes with VLANs</p>
+                                    <img src="{{ url_for('static', filename='img/network_templates/medium.png') }}" class="img-fluid mb-3" alt="Medium template">
+                                    <button class="btn btn-outline-primary btn-sm template-btn" data-template="medium">
+                                        Use Template
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">Enterprise</h5>
+                                    <p class="card-text">Redundant setup with multiple VLANs</p>
+                                    <img src="{{ url_for('static', filename='img/network_templates/large.png') }}" class="img-fluid mb-3" alt="Large template">
+                                    <button class="btn btn-outline-primary btn-sm template-btn" data-template="large">
+                                        Use Template
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Plan Modal -->
+<div class="modal fade" id="create-plan-modal" tabindex="-1" aria-labelledby="create-plan-modal-label" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="create-plan-modal-label">Create New Network Plan</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="create-plan-form">
+                    <div class="mb-3">
+                        <label for="plan-name" class="form-label">Plan Name</label>
+                        <input type="text" class="form-control" id="plan-name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="plan-description" class="form-label">Description (Optional)</label>
+                        <textarea class="form-control" id="plan-description" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="plan-template" class="form-label">Template</label>
+                        <select class="form-select" id="plan-template">
+                            <option value="empty" selected>Empty (Start from scratch)</option>
+                            <option value="small">Small Home Network</option>
+                            <option value="medium">Medium Office Network</option>
+                            <option value="large">Enterprise Network</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="create-plan-submit">Create Plan</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Plan Modal -->
+<div class="modal fade" id="delete-plan-modal" tabindex="-1" aria-labelledby="delete-plan-modal-label" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="delete-plan-modal-label">Delete Network Plan</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete the network plan "<span id="delete-plan-name"></span>"?</p>
+                <p class="text-danger">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="delete-plan-confirm">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/modules/network_planning.js') }}" type="module"></script>
+{% endblock %}

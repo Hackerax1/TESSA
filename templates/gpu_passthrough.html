@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}GPU Passthrough Optimization{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div id="gpu-passthrough-container"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+    import { GPUPassthroughAssistant } from '/static/js/modules/gpu_passthrough.js';
+    
+    // Initialize GPU passthrough assistant
+    const gpuAssistant = new GPUPassthroughAssistant();
+    gpuAssistant.init();
+</script>
+{% endblock %}

@@ -57,11 +57,11 @@
 - [ ] **User Experience:**
   - [X] Add natural conversation transitions and topic memory between sessions.
   - [X] Improve ambient mode and wake word detection.
-  - [ ] Implement voice authentication for different users.
+  - [X] Implement voice authentication for different users.
 
 - [ ] **Web Interface:**
-  - [ ] Develop a dedicated mobile UI optimized for touch.
-  - [ ] Add push notifications for important events.
+  - [X] Develop a dedicated mobile UI optimized for touch.
+  - [X] Add push notifications for important events.
   - [X] Implement QR code access to VMs and services.
 
 - [ ] **Backup and Recovery:**
@@ -112,8 +112,8 @@
 
 - [ ] **Advanced Features:**
   - [ ] Implement predictive scaling based on workload patterns.
-  - [ ] Add GPU passthrough optimization assistant.
-  - [ ] Create resource quota management system.
+  - [X] Add GPU passthrough optimization assistant.
+  - [X] Create resource quota management system.
 
 - [ ] **LLM Integration:**
   - [ ] Train specialized LLM model on homelab and Proxmox documentation
@@ -126,20 +126,20 @@
 - [ ] **Add multi-language voice support.**
 
 - [ ] **Initial Setup Enhancements:**
-  - [ ] Create interactive network planning wizard with topology designer
-  - [ ] Implement VLAN and subnet planning templates
-  - [ ] Add automated network configuration validation
-  - [ ] Develop hardware compatibility pre-check utility
-  - [ ] Create one-click service bundle deployments
+  - [X] Create interactive network planning wizard with topology designer
+  - [X] Implement VLAN and subnet planning templates
+  - [] Add automated network configuration validation
+  - [] Develop hardware compatibility pre-check utility
+  - [] Create one-click service bundle deployments
 
 - [ ] **Advanced Configuration Features:**
-  - [ ] Implement Infrastructure-as-Code export/import
+  - [X] Implement Infrastructure-as-Code export/import
     - [X] Add Terraform configuration export
-    - [ ] Add Ansible playbook generation
-    - [ ] Implement version control integration
+    - [X] Add Ansible playbook generation
+    - [X] Implement version control integration
 
 - [ ] **Build cross-platform migration tools**
-  - [ ] Add Unraid migration assistant
+  - [X] Add Unraid migration assistant
   - [ ] Add TrueNAS migration assistant
   - [ ] Add ESXi migration assistant
 
@@ -148,10 +148,10 @@
   - [ ] Add mDNS/Avahi integration
   - [ ] Create unified service directory
 
-- [ ] **User Experience Improvements:**
-  - [ ] Create personalized setup journeys based on expertise
-  - [ ] Implement knowledge-building system
-  - [ ] Add configuration validation and rollback
+- [x] **User Experience Improvements:**
+  - [x] Create personalized setup journeys based on expertise
+  - [x] Implement knowledge-building system
+  - [x] Add configuration validation and rollback
 
 - [ ] **Develop resource planning tools**
   - [ ] Add pre-setup resource calculator

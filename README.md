@@ -39,11 +39,7 @@ TESSA transforms Proxmox virtualization into an accessible platform through natu
 
 ### Installation
 
-1. Download the TESSA installer image from the [Releases page](https://github.com/Hackerax1/proxmox-nli/releases)
-2. Create a bootable USB drive using the image
-3. Boot your target system from the USB drive
-4. Follow the on-screen instructions
-5. Scan the QR code with your phone when prompted to access the web interface
+
 
 ### First Steps
 

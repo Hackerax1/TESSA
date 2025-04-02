@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+
+{% block title %}Resource Planning - Proxmox NLI{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>Resource Planning Tools</h1>
+            <p class="lead">Plan and optimize your Proxmox VE infrastructure resources</p>
+        </div>
+    </div>
+
+    <div class="row row-cols-1 row-cols-md-3 g-4">
+        <div class="col">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="fas fa-calculator text-primary me-2"></i>Pre-setup Resource Calculator</h5>
+                    <p class="card-text">Calculate the CPU, memory, storage, and network resources required for your planned virtual machines.</p>
+                    <ul class="list-group list-group-flush mb-3">
+                        <li class="list-group-item"><i class="fas fa-check-circle text-success me-2"></i>VM profile selection</li>
+                        <li class="list-group-item"><i class="fas fa-check-circle text-success me-2"></i>Resource requirement calculations</li>
+                        <li class="list-group-item"><i class="fas fa-check-circle text-success me-2"></i>Proxmox overhead estimation</li>
+                    </ul>
+                    <a href="/resource-planning/calculator" class="btn btn-primary">Open Calculator</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="fas fa-chart-line text-primary me-2"></i>Disk Space Forecasting</h5>
+                    <p class="card-text">Forecast your disk space usage over time based on your VM workloads and growth patterns.</p>
+                    <ul class="list-group list-group-flush mb-3">
+                        <li class="list-group-item"><i class="fas fa-check-circle text-success me-2"></i>Growth trend analysis</li>
+                        <li class="list-group-item"><i class="fas fa-check-circle text-success me-2"></i>Snapshot space estimation</li>
+                        <li class="list-group-item"><i class="fas fa-check-circle text-success me-2"></i>Capacity planning</li>
+                    </ul>
+                    <a href="/resource-planning/forecasting" class="btn btn-primary">Open Forecasting Tool</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="fas fa-microchip text-primary me-2"></i>Hardware Recommendations</h5>
+                    <p class="card-text">Get hardware recommendations based on your calculated resource requirements.</p>
+                    <ul class="list-group list-group-flush mb-3">
+                        <li class="list-group-item"><i class="fas fa-check-circle text-success me-2"></i>CPU recommendations</li>
+                        <li class="list-group-item"><i class="fas fa-check-circle text-success me-2"></i>Memory sizing</li>
+                        <li class="list-group-item"><i class="fas fa-check-circle text-success me-2"></i>Storage configuration</li>
+                        <li class="list-group-item"><i class="fas fa-check-circle text-success me-2"></i>Network requirements</li>
+                    </ul>
+                    <a href="/resource-planning/recommendations" class="btn btn-primary">Open Recommendations</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-5">
+        <div class="col">
+            <h2>Saved Resource Plans</h2>
+            <div class="table-responsive">
+                <table class="table table-hover" id="resource-plans-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Description</th>
+                            <th>VMs</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Plans will be loaded dynamically -->
+                        <tr id="loading-plans">
+                            <td colspan="5" class="text-center">
+                                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                Loading plans...
+                            </td>
+                        </tr>
+                        <tr id="no-plans" style="display: none;">
+                            <td colspan="5" class="text-center">No resource plans found. Create a new plan using the calculator.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+    import { apiRequest } from '/static/js/modules/api.js';
+    import { showToast } from '/static/js/modules/notifications.js';
+    
+    document.addEventListener('DOMContentLoaded', async () => {
+        // Load saved resource plans
+        await loadResourcePlans();
+    });
+    
+    async function loadResourcePlans() {
+        try {
+            const response = await apiRequest('GET', '/api/resource-planning/plans');
+            
+            if (response && response.success) {
+                const plans = response.plans;
+                const tableBody = document.getElementById('resource-plans-table').querySelector('tbody');
+                
+                // Hide loading row
+                document.getElementById('loading-plans').style.display = 'none';
+                
+                if (plans.length === 0) {
+                    // Show no plans message
+                    document.getElementById('no-plans').style.display = 'table-row';
+                } else {
+                    // Render plans
+                    plans.forEach(plan => {
+                        const row = document.createElement('tr');
+                        
+                        // Format date
+                        const createdDate = new Date(plan.created_at);
+                        const formattedDate = createdDate.toLocaleDateString() + ' ' + createdDate.toLocaleTimeString();
+                        
+                        // Count VMs
+                        const vmCount = plan.vm_plan ? plan.vm_plan.length : 0;
+                        
+                        row.innerHTML = `
+                            <td>${plan.name || 'Unnamed Plan'}</td>
+                            <td>${plan.description || '-'}</td>
+                            <td>${vmCount}</td>
+                            <td>${formattedDate}</td>
+                            <td>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="/resource-planning/calculator?plan=${plan.id}" class="btn btn-outline-primary">
+                                        <i class="fas fa-edit"></i> Edit
+                                    </a>
+                                    <button type="button" class="btn btn-outline-danger delete-plan-btn" data-plan-id="${plan.id}">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </button>
+                                </div>
+                            </td>
+                        `;
+                        
+                        tableBody.appendChild(row);
+                    });
+                    
+                    // Add event listeners to delete buttons
+                    document.querySelectorAll('.delete-plan-btn').forEach(button => {
+                        button.addEventListener('click', async (e) => {
+                            const planId = e.currentTarget.getAttribute('data-plan-id');
+                            if (confirm('Are you sure you want to delete this resource plan?')) {
+                                await deletePlan(planId);
+                            }
+                        });
+                    });
+                }
+            } else {
+                throw new Error(response.message || 'Failed to load resource plans');
+            }
+        } catch (error) {
+            console.error('Error loading resource plans:', error);
+            showToast(`Error loading resource plans: ${error.message}`, 'error');
+            
+            // Hide loading row and show error
+            document.getElementById('loading-plans').style.display = 'none';
+            const tableBody = document.getElementById('resource-plans-table').querySelector('tbody');
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td colspan="5" class="text-center text-danger">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    Failed to load resource plans. Please try refreshing the page.
+                </td>
+            `;
+            tableBody.appendChild(row);
+        }
+    }
+    
+    async function deletePlan(planId) {
+        try {
+            const response = await apiRequest('DELETE', `/api/resource-planning/plans/${planId}`);
+            
+            if (response && response.success) {
+                showToast('Resource plan deleted successfully', 'success');
+                
+                // Reload the page to refresh the plans list
+                window.location.reload();
+            } else {
+                throw new Error(response.message || 'Failed to delete resource plan');
+            }
+        } catch (error) {
+            console.error('Error deleting resource plan:', error);
+            showToast(`Error deleting resource plan: ${error.message}`, 'error');
+        }
+    }
+</script>
+{% endblock %}

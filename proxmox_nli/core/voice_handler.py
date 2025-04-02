@@ -474,42 +474,66 @@ class VoiceHandler:
         """
         try:
             # Decode base64 audio data
-            audio_bytes = base64.b64decode(audio_data_base64.split(',')[1])
+            audio_data = base64.b64decode(audio_data_base64.split(',')[1] if ',' in audio_data_base64 else audio_data_base64)
             
             # Save to temporary file
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as temp_file:
-                temp_file.write(audio_bytes)
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
+                temp_file.write(audio_data)
                 temp_file_path = temp_file.name
             
-            # Extract features
-            y, sr = librosa.load(temp_file_path)
-            
-            # Clean up temporary file
-            os.unlink(temp_file_path)
-            
-            # Extract MFCC features (common for voice authentication)
-            mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=40)
-            
-            # Get statistical features
-            mfccs_mean = np.mean(mfccs, axis=1)
-            mfccs_var = np.var(mfccs, axis=1)
-            
-            # Combine features
-            features = np.concatenate((mfccs_mean, mfccs_var))
-            
-            return features
+            try:
+                # Load audio file
+                y, sr = librosa.load(temp_file_path, sr=None)
+                
+                # Extract features
+                # MFCC (Mel-frequency cepstral coefficients)
+                mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=20)
+                mfcc_mean = np.mean(mfccs, axis=1)
+                
+                # Spectral features
+                spectral_centroid = librosa.feature.spectral_centroid(y=y, sr=sr)
+                spectral_centroid_mean = np.mean(spectral_centroid, axis=1)
+                
+                spectral_bandwidth = librosa.feature.spectral_bandwidth(y=y, sr=sr)
+                spectral_bandwidth_mean = np.mean(spectral_bandwidth, axis=1)
+                
+                spectral_rolloff = librosa.feature.spectral_rolloff(y=y, sr=sr)
+                spectral_rolloff_mean = np.mean(spectral_rolloff, axis=1)
+                
+                # Temporal features
+                zero_crossing_rate = librosa.feature.zero_crossing_rate(y)
+                zero_crossing_rate_mean = np.mean(zero_crossing_rate, axis=1)
+                
+                # Combine features
+                features = np.concatenate([
+                    mfcc_mean, 
+                    spectral_centroid_mean, 
+                    spectral_bandwidth_mean, 
+                    spectral_rolloff_mean,
+                    zero_crossing_rate_mean
+                ])
+                
+                # Normalize features
+                features_norm = features / np.linalg.norm(features)
+                
+                return features_norm
+                
+            finally:
+                # Clean up temporary file
+                os.unlink(temp_file_path)
             
         except Exception as e:
             logger.error(f"Error extracting voice features: {e}")
             return None
-    
-    def register_voice(self, user_id: str, audio_samples: List[str]) -> bool:
+
+    def register_voice(self, user_id: str, audio_samples: List[str], phrase: str = None) -> bool:
         """
         Register a user's voice for authentication
         
         Args:
             user_id: User ID
             audio_samples: List of base64 encoded audio samples
+            phrase: Optional passphrase used for registration
             
         Returns:
             bool: True if registration successful, False otherwise
@@ -539,38 +563,56 @@ class VoiceHandler:
             # Save voice signature
             self.save_voice_signature(signature)
             
+            # Store the passphrase if provided
+            if phrase:
+                passphrase_path = self.voice_auth_dir / f"{user_id}_passphrase.txt"
+                with open(passphrase_path, "w") as f:
+                    f.write(phrase)
+            
+            logger.info(f"Voice registration successful for user {user_id} with {len(features)} samples")
             return True
             
         except Exception as e:
             logger.error(f"Error registering voice for user {user_id}: {e}")
             return False
     
-    def authenticate_voice(self, audio_data_base64: str, threshold: float = 0.7) -> Optional[str]:
+    def authenticate_voice(self, audio_data_base64: str, threshold: float = 0.7, user_id: str = None, 
+                          require_passphrase: bool = False, spoken_text: str = None) -> Tuple[bool, Optional[str], float]:
         """
         Authenticate a user by their voice
         
         Args:
             audio_data_base64: Base64 encoded audio data
             threshold: Similarity threshold for authentication (0-1)
+            user_id: Optional user ID to authenticate against specific user
+            require_passphrase: Whether to require passphrase verification
+            spoken_text: Recognized text from the audio (for passphrase verification)
             
         Returns:
-            str: User ID if authenticated, None otherwise
+            Tuple[bool, str, float]: (Success, User ID if authenticated, Confidence score)
         """
         try:
             if not self.voice_signatures:
                 logger.warning("No voice signatures registered for authentication")
-                return None
+                return False, None, 0.0
             
             # Extract features from audio sample
             features = self.extract_voice_features(audio_data_base64)
             if features is None:
-                return None
+                return False, None, 0.0
+            
+            # If user_id is provided, only authenticate against that user
+            signatures_to_check = {}
+            if user_id and user_id in self.voice_signatures:
+                signatures_to_check[user_id] = self.voice_signatures[user_id]
+            else:
+                signatures_to_check = self.voice_signatures
             
             best_match = None
             best_score = 0
             
             # Compare with registered voice signatures
-            for user_id, signature in self.voice_signatures.items():
+            for uid, signature in signatures_to_check.items():
                 scores = []
                 
                 # Calculate similarity with each registered sample
@@ -585,20 +627,166 @@ class VoiceHandler:
                 # Update best match
                 if avg_score > best_score:
                     best_score = avg_score
-                    best_match = user_id
+                    best_match = uid
             
             # Check if score exceeds threshold
             if best_score >= threshold:
+                # Check passphrase if required
+                if require_passphrase and spoken_text:
+                    passphrase_path = self.voice_auth_dir / f"{best_match}_passphrase.txt"
+                    if passphrase_path.exists():
+                        with open(passphrase_path, "r") as f:
+                            passphrase = f.read().strip().lower()
+                            
+                        # Simple text similarity check for passphrase
+                        spoken_text_lower = spoken_text.lower()
+                        if passphrase not in spoken_text_lower and not self._phonetic_match(passphrase, spoken_text_lower, 0.8):
+                            logger.warning(f"Passphrase verification failed for user {best_match}")
+                            return False, None, best_score
+                
                 self.active_user_id = best_match
                 logger.info(f"User {best_match} authenticated with score {best_score:.2f}")
-                return best_match
+                return True, best_match, best_score
             else:
                 logger.warning(f"Voice authentication failed. Best match: {best_match} with score {best_score:.2f}")
-                return None
+                return False, None, best_score
             
         except Exception as e:
             logger.error(f"Error authenticating voice: {e}")
-            return None
+            return False, None, 0.0
+    
+    def update_voice_signature(self, user_id: str, audio_data_base64: str) -> bool:
+        """
+        Update a user's voice signature with a new sample
+        
+        Args:
+            user_id: User ID
+            audio_data_base64: Base64 encoded audio data
+            
+        Returns:
+            bool: True if update successful, False otherwise
+        """
+        try:
+            if user_id not in self.voice_signatures:
+                logger.error(f"No voice signature found for user {user_id}")
+                return False
+            
+            # Extract features from the new sample
+            new_features = self.extract_voice_features(audio_data_base64)
+            if new_features is None:
+                return False
+            
+            # Get existing signature
+            signature = self.voice_signatures[user_id]
+            
+            # Add new features (keep up to 10 samples)
+            signature.features.append(new_features)
+            if len(signature.features) > 10:
+                signature.features = signature.features[-10:]
+            
+            # Update timestamp
+            signature.updated_at = datetime.now().isoformat()
+            
+            # Save updated signature
+            self.save_voice_signature(signature)
+            
+            logger.info(f"Voice signature updated for user {user_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error updating voice signature for user {user_id}: {e}")
+            return False
+    
+    def delete_voice_signature(self, user_id: str) -> bool:
+        """
+        Delete a user's voice signature
+        
+        Args:
+            user_id: User ID
+            
+        Returns:
+            bool: True if deletion successful, False otherwise
+        """
+        try:
+            if user_id not in self.voice_signatures:
+                logger.error(f"No voice signature found for user {user_id}")
+                return False
+            
+            # Delete signature file
+            sig_path = self.voice_auth_dir / f"{user_id}.json"
+            if sig_path.exists():
+                os.remove(sig_path)
+            
+            # Delete passphrase file if exists
+            passphrase_path = self.voice_auth_dir / f"{user_id}_passphrase.txt"
+            if passphrase_path.exists():
+                os.remove(passphrase_path)
+            
+            # Remove from in-memory signatures
+            del self.voice_signatures[user_id]
+            
+            # Reset active user if it was this user
+            if self.active_user_id == user_id:
+                self.active_user_id = None
+            
+            logger.info(f"Voice signature deleted for user {user_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error deleting voice signature for user {user_id}: {e}")
+            return False
+    
+    def list_voice_users(self) -> List[Dict[str, Any]]:
+        """
+        List all users with registered voice signatures
+        
+        Returns:
+            List of user information dictionaries
+        """
+        users = []
+        
+        for user_id, signature in self.voice_signatures.items():
+            # Check if user has a passphrase
+            passphrase_path = self.voice_auth_dir / f"{user_id}_passphrase.txt"
+            has_passphrase = passphrase_path.exists()
+            
+            users.append({
+                "user_id": user_id,
+                "created_at": signature.created_at,
+                "updated_at": signature.updated_at,
+                "sample_count": len(signature.features),
+                "has_passphrase": has_passphrase
+            })
+        
+        return users
+    
+    def set_user_passphrase(self, user_id: str, passphrase: str) -> bool:
+        """
+        Set or update a user's authentication passphrase
+        
+        Args:
+            user_id: User ID
+            passphrase: Authentication passphrase
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            if user_id not in self.voice_signatures:
+                logger.error(f"No voice signature found for user {user_id}")
+                return False
+            
+            # Save passphrase
+            passphrase_path = self.voice_auth_dir / f"{user_id}_passphrase.txt"
+            with open(passphrase_path, "w") as f:
+                f.write(passphrase)
+            
+            logger.info(f"Passphrase set for user {user_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error setting passphrase for user {user_id}: {e}")
+            return False
     
     def start_ambient_mode(self, callback=None, energy_threshold=None, use_offline=None):
         """

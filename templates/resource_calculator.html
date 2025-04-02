@@ -1,0 +1,583 @@
+{% extends "base.html" %}
+
+{% block title %}Resource Calculator - Proxmox NLI{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>Pre-setup Resource Calculator</h1>
+            <p class="lead">Calculate the resources required for your Proxmox VE infrastructure</p>
+        </div>
+        <div class="col-auto">
+            <a href="/resource-planning" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Back to Resource Planning
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">VM Plan</h5>
+                </div>
+                <div class="card-body">
+                    <form id="resource-plan-form">
+                        <div class="mb-3 row">
+                            <div class="col-md-6">
+                                <label for="plan-name" class="form-label">Plan Name</label>
+                                <input type="text" class="form-control" id="plan-name" placeholder="My Resource Plan">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="plan-description" class="form-label">Description</label>
+                                <input type="text" class="form-control" id="plan-description" placeholder="Optional description">
+                            </div>
+                        </div>
+
+                        <h6 class="mt-4 mb-3">Virtual Machines</h6>
+                        <div id="vm-list" class="mb-3">
+                            <!-- VM items will be added here dynamically -->
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <button type="button" id="add-vm-btn" class="btn btn-outline-primary">
+                                <i class="fas fa-plus me-2"></i>Add VM
+                            </button>
+                            <div>
+                                <button type="button" id="save-plan-btn" class="btn btn-primary">
+                                    <i class="fas fa-save me-2"></i>Save Plan
+                                </button>
+                                <button type="button" id="calculate-btn" class="btn btn-success ms-2">
+                                    <i class="fas fa-calculator me-2"></i>Calculate Resources
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">VM Profiles</h5>
+                </div>
+                <div class="card-body">
+                    <div id="vm-profiles-container">
+                        <div class="text-center">
+                            <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            Loading profiles...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4" id="results-card" style="display: none;">
+                <div class="card-header">
+                    <h5 class="mb-0">Resource Requirements</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="mb-3">Required Resources</h6>
+                            <div class="table-responsive">
+                                <table class="table table-bordered">
+                                    <tbody>
+                                        <tr>
+                                            <th>CPU Cores</th>
+                                            <td id="required-cpu-cores">-</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Memory</th>
+                                            <td id="required-memory">-</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Storage</th>
+                                            <td id="required-storage">-</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Network Bandwidth</th>
+                                            <td id="required-network">-</td>
+                                        </tr>
+                                        <tr>
+                                            <th>GPU Required</th>
+                                            <td id="required-gpu">-</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="mb-3">Recommended Resources (with headroom)</h6>
+                            <div class="table-responsive">
+                                <table class="table table-bordered">
+                                    <tbody>
+                                        <tr>
+                                            <th>CPU Cores</th>
+                                            <td id="recommended-cpu-cores">-</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Memory</th>
+                                            <td id="recommended-memory">-</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Storage</th>
+                                            <td id="recommended-storage">-</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Network Bandwidth</th>
+                                            <td id="recommended-network">-</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-12 d-flex justify-content-end">
+                            <button type="button" id="forecast-btn" class="btn btn-info me-2">
+                                <i class="fas fa-chart-line me-2"></i>Forecast Disk Usage
+                            </button>
+                            <button type="button" id="recommend-btn" class="btn btn-primary">
+                                <i class="fas fa-microchip me-2"></i>Get Hardware Recommendations
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add VM Modal -->
+<div class="modal fade" id="add-vm-modal" tabindex="-1" aria-labelledby="add-vm-modal-label" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="add-vm-modal-label">Add Virtual Machine</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="add-vm-form">
+                    <div class="mb-3">
+                        <label for="vm-profile" class="form-label">VM Profile</label>
+                        <select class="form-select" id="vm-profile" required>
+                            <option value="">Select a profile</option>
+                            <!-- Profiles will be loaded dynamically -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="vm-name" class="form-label">Name (Optional)</label>
+                        <input type="text" class="form-control" id="vm-name" placeholder="e.g., Web Server">
+                    </div>
+                    <div class="mb-3">
+                        <label for="vm-quantity" class="form-label">Quantity</label>
+                        <input type="number" class="form-control" id="vm-quantity" min="1" value="1">
+                    </div>
+                    <div class="mb-3">
+                        <label for="vm-growth-factor" class="form-label">Growth Factor (Optional)</label>
+                        <input type="number" class="form-control" id="vm-growth-factor" min="1.0" step="0.1" placeholder="e.g., 1.2 for 20% annual growth">
+                        <div class="form-text">Annual growth rate for disk usage forecasting. Leave empty to use profile default.</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="add-vm-submit-btn">Add VM</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+    import { apiRequest } from '/static/js/modules/api.js';
+    import { showToast } from '/static/js/modules/notifications.js';
+    
+    // Global variables
+    let vmProfiles = {};
+    let currentPlanId = null;
+    let calculatedResources = null;
+    
+    document.addEventListener('DOMContentLoaded', async () => {
+        // Check if we're editing an existing plan
+        const urlParams = new URLSearchParams(window.location.search);
+        const planId = urlParams.get('plan');
+        
+        // Load VM profiles
+        await loadVMProfiles();
+        
+        // Set up event listeners
+        document.getElementById('add-vm-btn').addEventListener('click', showAddVMModal);
+        document.getElementById('add-vm-submit-btn').addEventListener('click', addVM);
+        document.getElementById('calculate-btn').addEventListener('click', calculateResources);
+        document.getElementById('save-plan-btn').addEventListener('click', savePlan);
+        document.getElementById('forecast-btn').addEventListener('click', () => {
+            window.location.href = '/resource-planning/forecasting';
+        });
+        document.getElementById('recommend-btn').addEventListener('click', () => {
+            if (calculatedResources) {
+                window.location.href = '/resource-planning/recommendations?requirements=' + encodeURIComponent(JSON.stringify(calculatedResources));
+            } else {
+                showToast('Please calculate resources first', 'warning');
+            }
+        });
+        
+        // Load plan if editing
+        if (planId) {
+            currentPlanId = planId;
+            await loadPlan(planId);
+        }
+    });
+    
+    async function loadVMProfiles() {
+        try {
+            const response = await apiRequest('GET', '/api/resource-planning/vm-profiles');
+            
+            if (response && response.success) {
+                vmProfiles = response.profiles;
+                
+                // Render profiles in sidebar
+                renderVMProfiles();
+                
+                // Populate select in modal
+                const select = document.getElementById('vm-profile');
+                select.innerHTML = '<option value="">Select a profile</option>';
+                
+                Object.entries(vmProfiles).forEach(([id, profile]) => {
+                    const option = document.createElement('option');
+                    option.value = id;
+                    option.textContent = profile.name;
+                    select.appendChild(option);
+                });
+            } else {
+                throw new Error(response.message || 'Failed to load VM profiles');
+            }
+        } catch (error) {
+            console.error('Error loading VM profiles:', error);
+            showToast(`Error loading VM profiles: ${error.message}`, 'error');
+            
+            // Show error in profiles container
+            const container = document.getElementById('vm-profiles-container');
+            container.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    Failed to load VM profiles. Please try refreshing the page.
+                </div>
+            `;
+        }
+    }
+    
+    function renderVMProfiles() {
+        const container = document.getElementById('vm-profiles-container');
+        container.innerHTML = '';
+        
+        Object.entries(vmProfiles).forEach(([id, profile]) => {
+            const card = document.createElement('div');
+            card.className = 'card mb-2';
+            card.innerHTML = `
+                <div class="card-body p-3">
+                    <h6 class="card-title">${profile.name}</h6>
+                    <p class="card-text small">${profile.description}</p>
+                    <div class="small">
+                        <div><strong>CPU:</strong> ${profile.cpu_cores} cores</div>
+                        <div><strong>Memory:</strong> ${formatMemory(profile.memory_mb)}</div>
+                        <div><strong>Disk:</strong> ${profile.disk_gb} GB</div>
+                    </div>
+                    <button class="btn btn-sm btn-outline-primary mt-2 add-profile-btn" data-profile-id="${id}">
+                        <i class="fas fa-plus me-1"></i>Add
+                    </button>
+                </div>
+            `;
+            
+            container.appendChild(card);
+            
+            // Add event listener to the Add button
+            card.querySelector('.add-profile-btn').addEventListener('click', () => {
+                const vmProfile = document.getElementById('vm-profile');
+                vmProfile.value = id;
+                
+                // Show the modal
+                const modal = new bootstrap.Modal(document.getElementById('add-vm-modal'));
+                modal.show();
+            });
+        });
+    }
+    
+    function showAddVMModal() {
+        // Reset form
+        document.getElementById('add-vm-form').reset();
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('add-vm-modal'));
+        modal.show();
+    }
+    
+    function addVM() {
+        const profileId = document.getElementById('vm-profile').value;
+        const name = document.getElementById('vm-name').value.trim();
+        const quantity = parseInt(document.getElementById('vm-quantity').value) || 1;
+        const growthFactor = document.getElementById('vm-growth-factor').value ? 
+            parseFloat(document.getElementById('vm-growth-factor').value) : null;
+        
+        if (!profileId) {
+            showToast('Please select a VM profile', 'warning');
+            return;
+        }
+        
+        const profile = vmProfiles[profileId];
+        
+        if (!profile) {
+            showToast('Invalid VM profile selected', 'warning');
+            return;
+        }
+        
+        // Create VM item
+        const vmItem = {
+            profile_id: profileId,
+            name: name || profile.name,
+            quantity: quantity
+        };
+        
+        if (growthFactor) {
+            vmItem.growth_factor = growthFactor;
+        }
+        
+        // Add to VM list
+        addVMToList(vmItem);
+        
+        // Hide modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('add-vm-modal'));
+        modal.hide();
+    }
+    
+    function addVMToList(vmItem) {
+        const vmList = document.getElementById('vm-list');
+        const profile = vmProfiles[vmItem.profile_id];
+        
+        const vmElement = document.createElement('div');
+        vmElement.className = 'card mb-2 vm-item';
+        vmElement.dataset.profileId = vmItem.profile_id;
+        vmElement.dataset.quantity = vmItem.quantity;
+        
+        if (vmItem.growth_factor) {
+            vmElement.dataset.growthFactor = vmItem.growth_factor;
+        }
+        
+        vmElement.innerHTML = `
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-1">${vmItem.name} ${vmItem.quantity > 1 ? `(${vmItem.quantity})` : ''}</h6>
+                        <div class="small text-muted">
+                            ${profile.cpu_cores} cores, ${formatMemory(profile.memory_mb)}, ${profile.disk_gb} GB
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-danger remove-vm-btn">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        // Add event listener to remove button
+        vmElement.querySelector('.remove-vm-btn').addEventListener('click', () => {
+            vmElement.remove();
+        });
+        
+        vmList.appendChild(vmElement);
+    }
+    
+    async function calculateResources() {
+        try {
+            // Get VM plan from the list
+            const vmPlan = getVMPlanFromList();
+            
+            if (vmPlan.length === 0) {
+                showToast('Please add at least one VM to calculate resources', 'warning');
+                return;
+            }
+            
+            // Call API to calculate resources
+            const response = await apiRequest('POST', '/api/resource-planning/calculate', {
+                vm_plan: vmPlan
+            });
+            
+            if (response && response.success) {
+                calculatedResources = response.resources;
+                
+                // Display results
+                displayResourceResults(calculatedResources);
+                
+                // Show results card
+                document.getElementById('results-card').style.display = 'block';
+                
+                // Scroll to results
+                document.getElementById('results-card').scrollIntoView({ behavior: 'smooth' });
+            } else {
+                throw new Error(response.message || 'Failed to calculate resources');
+            }
+        } catch (error) {
+            console.error('Error calculating resources:', error);
+            showToast(`Error calculating resources: ${error.message}`, 'error');
+        }
+    }
+    
+    function displayResourceResults(resources) {
+        // Required resources
+        document.getElementById('required-cpu-cores').textContent = resources.required.cpu_cores;
+        document.getElementById('required-memory').textContent = formatMemory(resources.required.memory_mb);
+        document.getElementById('required-storage').textContent = `${resources.required.disk_gb} GB`;
+        document.getElementById('required-network').textContent = `${resources.required.network_bandwidth_mbps} Mbps`;
+        document.getElementById('required-gpu').textContent = resources.required.gpu_required ? 'Yes' : 'No';
+        
+        // Recommended resources
+        document.getElementById('recommended-cpu-cores').textContent = resources.recommended.cpu_cores;
+        document.getElementById('recommended-memory').textContent = formatMemory(resources.recommended.memory_mb);
+        document.getElementById('recommended-storage').textContent = `${resources.recommended.disk_gb} GB`;
+        document.getElementById('recommended-network').textContent = `${resources.recommended.network_bandwidth_mbps} Mbps`;
+    }
+    
+    function getVMPlanFromList() {
+        const vmItems = document.querySelectorAll('.vm-item');
+        const vmPlan = [];
+        
+        vmItems.forEach(item => {
+            const vmItem = {
+                profile_id: item.dataset.profileId,
+                quantity: parseInt(item.dataset.quantity) || 1
+            };
+            
+            if (item.dataset.growthFactor) {
+                vmItem.growth_factor = parseFloat(item.dataset.growthFactor);
+            }
+            
+            vmPlan.push(vmItem);
+        });
+        
+        return vmPlan;
+    }
+    
+    async function savePlan() {
+        try {
+            const name = document.getElementById('plan-name').value.trim();
+            const description = document.getElementById('plan-description').value.trim();
+            const vmPlan = getVMPlanFromList();
+            
+            if (!name) {
+                showToast('Please enter a plan name', 'warning');
+                return;
+            }
+            
+            if (vmPlan.length === 0) {
+                showToast('Please add at least one VM to save the plan', 'warning');
+                return;
+            }
+            
+            // Create plan data
+            const planData = {
+                name: name,
+                description: description,
+                vm_plan: vmPlan
+            };
+            
+            // Add calculated resources if available
+            if (calculatedResources) {
+                planData.resources = calculatedResources;
+            }
+            
+            // Add plan ID if editing
+            if (currentPlanId) {
+                planData.id = currentPlanId;
+            }
+            
+            // Save plan
+            const endpoint = currentPlanId ? 
+                `/api/resource-planning/plans/${currentPlanId}` : 
+                '/api/resource-planning/plans';
+            
+            const method = currentPlanId ? 'PUT' : 'POST';
+            
+            const response = await apiRequest(method, endpoint, planData);
+            
+            if (response && response.success) {
+                showToast('Resource plan saved successfully', 'success');
+                
+                // Update current plan ID if new plan
+                if (!currentPlanId) {
+                    currentPlanId = response.plan_id;
+                    
+                    // Update URL without reloading
+                    const url = new URL(window.location);
+                    url.searchParams.set('plan', currentPlanId);
+                    window.history.pushState({}, '', url);
+                }
+            } else {
+                throw new Error(response.message || 'Failed to save resource plan');
+            }
+        } catch (error) {
+            console.error('Error saving resource plan:', error);
+            showToast(`Error saving resource plan: ${error.message}`, 'error');
+        }
+    }
+    
+    async function loadPlan(planId) {
+        try {
+            const response = await apiRequest('GET', `/api/resource-planning/plans/${planId}`);
+            
+            if (response && response.success) {
+                const plan = response.plan;
+                
+                // Set plan name and description
+                document.getElementById('plan-name').value = plan.name || '';
+                document.getElementById('plan-description').value = plan.description || '';
+                
+                // Clear VM list
+                document.getElementById('vm-list').innerHTML = '';
+                
+                // Add VMs to list
+                if (plan.vm_plan && plan.vm_plan.length > 0) {
+                    plan.vm_plan.forEach(vmItem => {
+                        // Add profile name as VM name if not specified
+                        if (!vmItem.name && vmItem.profile_id in vmProfiles) {
+                            vmItem.name = vmProfiles[vmItem.profile_id].name;
+                        }
+                        
+                        addVMToList(vmItem);
+                    });
+                }
+                
+                // Display calculated resources if available
+                if (plan.resources) {
+                    calculatedResources = plan.resources;
+                    displayResourceResults(calculatedResources);
+                    document.getElementById('results-card').style.display = 'block';
+                }
+                
+                showToast('Resource plan loaded successfully', 'success');
+            } else {
+                throw new Error(response.message || 'Failed to load resource plan');
+            }
+        } catch (error) {
+            console.error('Error loading resource plan:', error);
+            showToast(`Error loading resource plan: ${error.message}`, 'error');
+        }
+    }
+    
+    function formatMemory(memoryMB) {
+        if (memoryMB >= 1024) {
+            return `${(memoryMB / 1024).toFixed(1)} GB`;
+        } else {
+            return `${memoryMB} MB`;
+        }
+    }
+</script>
+{% endblock %}

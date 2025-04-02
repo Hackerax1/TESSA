@@ -48,8 +48,7 @@ class ExportManager:
             "ansible": {
                 "enabled": True,
                 "inventory_format": "yaml",
-                "generate_playbooks": True,
-                "include_roles": True,
+                "include_sensitive": False,
                 "resource_types": ["vm", "lxc", "storage", "network"]
             },
             "version_control": {
@@ -57,7 +56,8 @@ class ExportManager:
                 "type": "git",
                 "auto_commit": True,
                 "remote": "",
-                "branch": "main"
+                "branch": "main",
+                "commit_message": "Update configuration via TESSA export"
             }
         }
         
@@ -123,7 +123,8 @@ class ExportManager:
                 vcs = VersionControlIntegration()
                 vcs_result = vcs.add_to_repository(
                     directory=output_dir,
-                    message="Update Terraform configuration via TESSA export"
+                    message=self.config["version_control"].get("commit_message", "Update Terraform configuration via TESSA export"),
+                    branch=self.config["version_control"].get("branch")
                 )
                 result["vcs_integration"] = vcs_result
             
@@ -150,8 +151,7 @@ class ExportManager:
             result = exporter.export(
                 output_dir=output_dir,
                 resource_types=resource_types,
-                generate_playbooks=self.config["ansible"]["generate_playbooks"],
-                include_roles=self.config["ansible"]["include_roles"]
+                include_sensitive=self.config["ansible"].get("include_sensitive", False)
             )
             
             if self.config["version_control"]["enabled"] and self.config["version_control"]["auto_commit"]:
@@ -159,7 +159,8 @@ class ExportManager:
                 vcs = VersionControlIntegration()
                 vcs_result = vcs.add_to_repository(
                     directory=output_dir,
-                    message="Update Ansible configuration via TESSA export"
+                    message=self.config["version_control"].get("commit_message", "Update Ansible configuration via TESSA export"),
+                    branch=self.config["version_control"].get("branch")
                 )
                 result["vcs_integration"] = vcs_result
             

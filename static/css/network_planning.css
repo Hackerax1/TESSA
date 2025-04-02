@@ -1,0 +1,25 @@
+/**
+ * Network Planning CSS
+ * Styles for the network planning wizard
+ */
+
+/* Template cards */
+.template-btn {
+    width: 100%;
+}
+
+/* Plan cards */
+.plan-card {
+    transition: transform 0.2s ease;
+}
+
+.plan-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Template images */
+.card img {
+    max-height: 120px;
+    object-fit: contain;
+}

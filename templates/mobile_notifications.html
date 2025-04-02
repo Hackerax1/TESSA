@@ -18,11 +18,11 @@
                             <span class="me-2">Status:</span>
                             <span id="notification-permission-status" class="badge bg-warning">Not Enabled</span>
                         </div>
-                        <button id="request-notification-permission" class="btn btn-primary btn-sm">
-                            <i class="fas fa-bell me-1"></i> Enable Notifications
+                        <button id="request-notification-permission" class="btn btn-primary">
+                            <i class="bi bi-bell me-1"></i> Enable Notifications
                         </button>
-                        <button id="test-notification" class="btn btn-outline-primary btn-sm ms-2">
-                            <i class="fas fa-paper-plane me-1"></i> Test Notification
+                        <button id="test-notification" class="btn btn-outline-primary ms-2">
+                            <i class="bi bi-send me-1"></i> Test Notification
                         </button>
                     </div>
 
@@ -30,27 +30,27 @@
                     <div id="notification-preferences-container" class="d-none">
                         <h6>Notification Preferences</h6>
                         
-                        <!-- Tabs for different notification categories -->
-                        <ul class="nav nav-tabs nav-fill mb-3" id="notificationTabs" role="tablist">
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link active" id="vm-tab" data-bs-toggle="tab" data-bs-target="#vm-events" type="button" role="tab" aria-controls="vm-events" aria-selected="true">
-                                    <i class="fas fa-server me-1"></i> VMs
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="backup-tab" data-bs-toggle="tab" data-bs-target="#backup-events" type="button" role="tab" aria-controls="backup-events" aria-selected="false">
-                                    <i class="fas fa-save me-1"></i> Backups
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="system-tab" data-bs-toggle="tab" data-bs-target="#system-events" type="button" role="tab" aria-controls="system-events" aria-selected="false">
-                                    <i class="fas fa-cogs me-1"></i> System
-                                </button>
-                            </li>
-                        </ul>
+                        <!-- Mobile tabs for different notification categories -->
+                        <div class="mobile-tabs" id="notificationTabs" role="tablist">
+                            <a class="mobile-tab active" id="vm-tab" data-bs-toggle="tab" data-bs-target="#vm-events" role="tab" aria-controls="vm-events" aria-selected="true">
+                                <i class="bi bi-display me-1"></i> VMs
+                            </a>
+                            <a class="mobile-tab" id="backup-tab" data-bs-toggle="tab" data-bs-target="#backup-events" role="tab" aria-controls="backup-events" aria-selected="false">
+                                <i class="bi bi-archive me-1"></i> Backups
+                            </a>
+                            <a class="mobile-tab" id="system-tab" data-bs-toggle="tab" data-bs-target="#system-events" role="tab" aria-controls="system-events" aria-selected="false">
+                                <i class="bi bi-gear me-1"></i> System
+                            </a>
+                            <a class="mobile-tab" id="security-tab" data-bs-toggle="tab" data-bs-target="#security-events" role="tab" aria-controls="security-events" aria-selected="false">
+                                <i class="bi bi-shield-lock me-1"></i> Security
+                            </a>
+                            <a class="mobile-tab" id="service-tab" data-bs-toggle="tab" data-bs-target="#service-events" role="tab" aria-controls="service-events" aria-selected="false">
+                                <i class="bi bi-hdd-stack me-1"></i> Services
+                            </a>
+                        </div>
                         
                         <!-- Tab content -->
-                        <div class="tab-content" id="notificationTabContent">
+                        <div class="tab-content mt-3" id="notificationTabContent">
                             <!-- VM Events -->
                             <div class="tab-pane fade show active" id="vm-events" role="tabpanel" aria-labelledby="vm-tab">
                                 <div id="vm-events-prefs">
@@ -86,12 +86,36 @@
                                     </div>
                                 </div>
                             </div>
+                            
+                            <!-- Security Events -->
+                            <div class="tab-pane fade" id="security-events" role="tabpanel" aria-labelledby="security-tab">
+                                <div id="security-events-prefs">
+                                    <!-- Content will be populated by JavaScript -->
+                                    <div class="text-center py-3">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Service Events -->
+                            <div class="tab-pane fade" id="service-events" role="tabpanel" aria-labelledby="service-tab">
+                                <div id="service-events-prefs">
+                                    <!-- Content will be populated by JavaScript -->
+                                    <div class="text-center py-3">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         
                         <!-- Reset Button -->
                         <div class="mt-3">
-                            <button id="reset-notification-preferences" class="btn btn-outline-secondary btn-sm">
-                                <i class="fas fa-redo me-1"></i> Reset to Default
+                            <button id="reset-notification-preferences" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-counterclockwise me-1"></i> Reset to Default
                             </button>
                         </div>
                     </div>
@@ -110,17 +134,105 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- Recent Notifications -->
+            <div class="card mobile-card mt-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Recent Notifications</h5>
+                    <div>
+                        <button id="mark-all-read" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-check-all me-1"></i> Mark All Read
+                        </button>
+                        <button id="clear-notifications" class="btn btn-sm btn-outline-danger ms-2">
+                            <i class="bi bi-trash me-1"></i> Clear All
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="pull-to-refresh">
+                        <ul id="notifications-list" class="notification-list">
+                            <!-- Notifications will be populated by JavaScript -->
+                            <li class="notification-item text-center py-4">
+                                <i class="bi bi-bell-slash fs-3 d-block mb-2 text-muted"></i>
+                                <span class="text-muted">No notifications yet</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Notification Detail Modal -->
+<div class="modal fade modal-bottom-sheet" id="notificationDetailModal" tabindex="-1" aria-labelledby="notificationDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="notificationDetailModalLabel">Notification Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="notification-detail-content">
+                    <!-- Content will be populated by JavaScript -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="notification-action-btn">Take Action</button>
+            </div>
         </div>
     </div>
 </div>
 {% endblock %}
 
-{% block scripts %}
-<script>
+{% block extra_js %}
+<script type="module">
+    import Notifications from '/static/js/modules/notifications.js';
+    import MobileNotifications from '/static/js/modules/mobile_notifications.js';
+    
     document.addEventListener('DOMContentLoaded', function() {
         // Initialize notifications module
         const notificationsModule = new Notifications();
         notificationsModule.initialize();
+        
+        // Initialize mobile notifications module
+        const mobileNotificationsModule = new MobileNotifications();
+        mobileNotificationsModule.initialize();
+        
+        // Set up notification list
+        mobileNotificationsModule.loadNotificationHistory();
+        
+        // Set up pull to refresh
+        const pullContainer = document.querySelector('.pull-to-refresh');
+        if (pullContainer) {
+            pullContainer.addEventListener('pullrefresh', () => {
+                mobileNotificationsModule.loadNotificationHistory().then(() => {
+                    // Dispatch refresh complete event
+                    setTimeout(() => {
+                        pullContainer.dispatchEvent(new CustomEvent('refreshcomplete'));
+                    }, 500);
+                });
+            });
+        }
+        
+        // Set up mark all read button
+        const markAllReadBtn = document.getElementById('mark-all-read');
+        if (markAllReadBtn) {
+            markAllReadBtn.addEventListener('click', () => {
+                mobileNotificationsModule.markAllNotificationsAsRead();
+            });
+        }
+        
+        // Set up clear all button
+        const clearAllBtn = document.getElementById('clear-notifications');
+        if (clearAllBtn) {
+            clearAllBtn.addEventListener('click', () => {
+                if (confirm('Are you sure you want to clear all notifications?')) {
+                    mobileNotificationsModule.clearAllNotifications();
+                }
+            });
+        }
         
         // Set up reset button
         const resetButton = document.getElementById('reset-notification-preferences');
@@ -128,6 +240,49 @@
             resetButton.addEventListener('click', function() {
                 if (confirm('This will reset all notification preferences to default values. Continue?')) {
                     notificationsModule.resetNotificationPreferences();
+                }
+            });
+        }
+        
+        // Set up notification detail modal
+        const notificationDetailModal = document.getElementById('notificationDetailModal');
+        if (notificationDetailModal) {
+            notificationDetailModal.addEventListener('show.bs.modal', (event) => {
+                const button = event.relatedTarget;
+                const notificationId = button.getAttribute('data-notification-id');
+                
+                if (notificationId) {
+                    const notification = mobileNotificationsModule.getNotificationById(notificationId);
+                    if (notification) {
+                        // Set modal title
+                        const modalTitle = notificationDetailModal.querySelector('.modal-title');
+                        modalTitle.textContent = notification.title;
+                        
+                        // Set modal content
+                        const modalContent = document.getElementById('notification-detail-content');
+                        modalContent.innerHTML = `
+                            <div class="mb-3">
+                                <p>${notification.message}</p>
+                                <small class="text-muted">${new Date(notification.timestamp).toLocaleString()}</small>
+                            </div>
+                            ${notification.data ? `<div class="notification-data">${JSON.stringify(notification.data, null, 2)}</div>` : ''}
+                        `;
+                        
+                        // Set action button
+                        const actionBtn = document.getElementById('notification-action-btn');
+                        if (notification.actionUrl) {
+                            actionBtn.style.display = 'block';
+                            actionBtn.textContent = notification.actionText || 'View';
+                            actionBtn.onclick = () => {
+                                window.location.href = notification.actionUrl;
+                            };
+                        } else {
+                            actionBtn.style.display = 'none';
+                        }
+                        
+                        // Mark as read
+                        mobileNotificationsModule.markNotificationAsRead(notificationId);
+                    }
                 }
             });
         }

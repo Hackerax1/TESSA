@@ -1,0 +1,356 @@
+{% extends "base.html" %}
+
+{% block title %}Resource Quota Management{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">Resource Quota Management</h1>
+            
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i> Resource quotas help you control and allocate resources fairly among users and groups.
+            </div>
+            
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">Your Resource Usage</h5>
+                            <div id="loading-user-quota" class="text-center py-4">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p class="mt-2">Loading your resource usage...</p>
+                            </div>
+                            <div id="user-quota-content" class="d-none">
+                                <div class="mb-3">
+                                    <h6>CPU <span id="cpu-usage-text" class="float-end"></span></h6>
+                                    <div class="progress">
+                                        <div id="cpu-usage-bar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <h6>Memory <span id="memory-usage-text" class="float-end"></span></h6>
+                                    <div class="progress">
+                                        <div id="memory-usage-bar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <h6>Disk <span id="disk-usage-text" class="float-end"></span></h6>
+                                    <div class="progress">
+                                        <div id="disk-usage-bar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <h6>VMs <span id="vm-usage-text" class="float-end"></span></h6>
+                                    <div class="progress">
+                                        <div id="vm-usage-bar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <h6>Containers <span id="container-usage-text" class="float-end"></span></h6>
+                                    <div class="progress">
+                                        <div id="container-usage-bar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <h6>Backup Storage <span id="backup-usage-text" class="float-end"></span></h6>
+                                    <div class="progress">
+                                        <div id="backup-usage-bar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="user-quota-error" class="alert alert-danger d-none">
+                                <i class="fas fa-exclamation-circle me-2"></i> <span id="user-quota-error-message"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">Quota Compliance Status</h5>
+                            <div id="loading-compliance" class="text-center py-4">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p class="mt-2">Checking compliance status...</p>
+                            </div>
+                            <div id="compliance-content" class="d-none">
+                                <div id="compliance-status-compliant" class="alert alert-success d-none">
+                                    <i class="fas fa-check-circle me-2"></i> You are within your resource quota limits.
+                                </div>
+                                <div id="compliance-status-non-compliant" class="alert alert-warning d-none">
+                                    <i class="fas fa-exclamation-triangle me-2"></i> You are exceeding some of your resource quota limits.
+                                </div>
+                                <div id="non-compliant-resources" class="d-none">
+                                    <h6>Resources Exceeding Limits:</h6>
+                                    <ul id="non-compliant-list" class="mb-0"></ul>
+                                </div>
+                            </div>
+                            <div id="compliance-error" class="alert alert-danger d-none">
+                                <i class="fas fa-exclamation-circle me-2"></i> <span id="compliance-error-message"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-body">
+                            <h5 class="card-title">Your Quota Limits</h5>
+                            <div id="loading-quota-limits" class="text-center py-4">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p class="mt-2">Loading your quota limits...</p>
+                            </div>
+                            <div id="quota-limits-content" class="d-none">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Resource</th>
+                                            <th>Limit</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>CPU Cores</td>
+                                            <td id="cpu-limit">-</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Memory (MB)</td>
+                                            <td id="memory-limit">-</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Disk Space (GB)</td>
+                                            <td id="disk-limit">-</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Virtual Machines</td>
+                                            <td id="vm-limit">-</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Containers</td>
+                                            <td id="container-limit">-</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Backup Storage (GB)</td>
+                                            <td id="backup-limit">-</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div id="quota-limits-error" class="alert alert-danger d-none">
+                                <i class="fas fa-exclamation-circle me-2"></i> <span id="quota-limits-error-message"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-body">
+                            <h5 class="card-title">Quota Management</h5>
+                            <p class="card-text">Access quota management features and reports.</p>
+                            <div class="d-grid gap-2">
+                                <a href="{{ url_for('quota_ui.quota_report') }}" class="btn btn-outline-primary">
+                                    <i class="fas fa-chart-bar me-2"></i> View Detailed Usage Report
+                                </a>
+                                {% if g.is_admin %}
+                                <a href="{{ url_for('quota_ui.manage_user_quotas') }}" class="btn btn-outline-primary">
+                                    <i class="fas fa-users-cog me-2"></i> Manage User Quotas
+                                </a>
+                                <a href="{{ url_for('quota_ui.manage_group_quotas') }}" class="btn btn-outline-primary">
+                                    <i class="fas fa-users me-2"></i> Manage Group Quotas
+                                </a>
+                                <a href="{{ url_for('quota_ui.quota_settings') }}" class="btn btn-outline-primary">
+                                    <i class="fas fa-cog me-2"></i> Quota Settings
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Get current user ID
+        const currentUserId = '{{ g.user_id }}';
+        
+        // Load user quota
+        loadUserQuota(currentUserId);
+        
+        // Check compliance
+        checkCompliance(currentUserId);
+        
+        // Load quota limits
+        loadQuotaLimits(currentUserId);
+    });
+    
+    function loadUserQuota(userId) {
+        fetch(`/api/quota/users/${userId}/report`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Hide loading indicator
+                    document.getElementById('loading-user-quota').classList.add('d-none');
+                    
+                    // Show content
+                    document.getElementById('user-quota-content').classList.remove('d-none');
+                    
+                    // Get report data
+                    const report = data.report;
+                    const compliance = report.compliance;
+                    
+                    // Update progress bars
+                    updateResourceBar('cpu', compliance.cpu.used, compliance.cpu.limit);
+                    updateResourceBar('memory', compliance.memory.used, compliance.memory.limit);
+                    updateResourceBar('disk', compliance.disk.used, compliance.disk.limit);
+                    updateResourceBar('vm', compliance.vm_count.used, compliance.vm_count.limit);
+                    updateResourceBar('container', compliance.container_count.used, compliance.container_count.limit);
+                    updateResourceBar('backup', compliance.backup_size.used, compliance.backup_size.limit);
+                } else {
+                    // Show error
+                    document.getElementById('loading-user-quota').classList.add('d-none');
+                    document.getElementById('user-quota-error').classList.remove('d-none');
+                    document.getElementById('user-quota-error-message').textContent = data.message || 'Failed to load user quota.';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading user quota:', error);
+                document.getElementById('loading-user-quota').classList.add('d-none');
+                document.getElementById('user-quota-error').classList.remove('d-none');
+                document.getElementById('user-quota-error-message').textContent = 'Error loading user quota. Please try again.';
+            });
+    }
+    
+    function checkCompliance(userId) {
+        fetch(`/api/quota/users/${userId}/compliance`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Hide loading indicator
+                    document.getElementById('loading-compliance').classList.add('d-none');
+                    
+                    // Show content
+                    document.getElementById('compliance-content').classList.remove('d-none');
+                    
+                    // Update compliance status
+                    if (data.is_compliant) {
+                        document.getElementById('compliance-status-compliant').classList.remove('d-none');
+                        document.getElementById('compliance-status-non-compliant').classList.add('d-none');
+                        document.getElementById('non-compliant-resources').classList.add('d-none');
+                    } else {
+                        document.getElementById('compliance-status-compliant').classList.add('d-none');
+                        document.getElementById('compliance-status-non-compliant').classList.remove('d-none');
+                        document.getElementById('non-compliant-resources').classList.remove('d-none');
+                        
+                        // Show non-compliant resources
+                        const nonCompliantList = document.getElementById('non-compliant-list');
+                        nonCompliantList.innerHTML = '';
+                        
+                        for (const [resource, details] of Object.entries(data.compliance)) {
+                            if (!details.compliant) {
+                                const li = document.createElement('li');
+                                li.innerHTML = `<strong>${formatResourceName(resource)}:</strong> Using ${details.used} of ${details.limit} (${Math.round(details.used / details.limit * 100)}%)`;
+                                nonCompliantList.appendChild(li);
+                            }
+                        }
+                    }
+                } else {
+                    // Show error
+                    document.getElementById('loading-compliance').classList.add('d-none');
+                    document.getElementById('compliance-error').classList.remove('d-none');
+                    document.getElementById('compliance-error-message').textContent = data.message || 'Failed to check compliance.';
+                }
+            })
+            .catch(error => {
+                console.error('Error checking compliance:', error);
+                document.getElementById('loading-compliance').classList.add('d-none');
+                document.getElementById('compliance-error').classList.remove('d-none');
+                document.getElementById('compliance-error-message').textContent = 'Error checking compliance. Please try again.';
+            });
+    }
+    
+    function loadQuotaLimits(userId) {
+        fetch(`/api/quota/users/${userId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Hide loading indicator
+                    document.getElementById('loading-quota-limits').classList.add('d-none');
+                    
+                    // Show content
+                    document.getElementById('quota-limits-content').classList.remove('d-none');
+                    
+                    // Update quota limits
+                    const quota = data.quota;
+                    document.getElementById('cpu-limit').textContent = quota.cpu;
+                    document.getElementById('memory-limit').textContent = quota.memory;
+                    document.getElementById('disk-limit').textContent = quota.disk;
+                    document.getElementById('vm-limit').textContent = quota.vm_count;
+                    document.getElementById('container-limit').textContent = quota.container_count;
+                    document.getElementById('backup-limit').textContent = quota.backup_size;
+                } else {
+                    // Show error
+                    document.getElementById('loading-quota-limits').classList.add('d-none');
+                    document.getElementById('quota-limits-error').classList.remove('d-none');
+                    document.getElementById('quota-limits-error-message').textContent = data.message || 'Failed to load quota limits.';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading quota limits:', error);
+                document.getElementById('loading-quota-limits').classList.add('d-none');
+                document.getElementById('quota-limits-error').classList.remove('d-none');
+                document.getElementById('quota-limits-error-message').textContent = 'Error loading quota limits. Please try again.';
+            });
+    }
+    
+    function updateResourceBar(resource, used, limit) {
+        const percentage = Math.min(Math.round(used / limit * 100), 100);
+        const bar = document.getElementById(`${resource}-usage-bar`);
+        const text = document.getElementById(`${resource}-usage-text`);
+        
+        bar.style.width = `${percentage}%`;
+        bar.setAttribute('aria-valuenow', percentage);
+        text.textContent = `${used} / ${limit} (${percentage}%)`;
+        
+        // Set color based on usage
+        if (percentage >= 90) {
+            bar.className = 'progress-bar bg-danger';
+        } else if (percentage >= 75) {
+            bar.className = 'progress-bar bg-warning';
+        } else {
+            bar.className = 'progress-bar bg-success';
+        }
+    }
+    
+    function formatResourceName(resource) {
+        switch (resource) {
+            case 'cpu':
+                return 'CPU Cores';
+            case 'memory':
+                return 'Memory';
+            case 'disk':
+                return 'Disk Space';
+            case 'vm_count':
+                return 'Virtual Machines';
+            case 'container_count':
+                return 'Containers';
+            case 'backup_size':
+                return 'Backup Storage';
+            default:
+                return resource.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+        }
+    }
+</script>
+{% endblock %}

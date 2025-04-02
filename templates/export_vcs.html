@@ -1,0 +1,425 @@
+{% extends "base.html" %}
+
+{% block title %}Infrastructure as Code Export{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>Infrastructure as Code Export</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="nav nav-tabs" id="exportTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="terraform-tab" data-bs-toggle="tab" data-bs-target="#terraform" type="button" role="tab" aria-controls="terraform" aria-selected="true">Terraform</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="ansible-tab" data-bs-toggle="tab" data-bs-target="#ansible" type="button" role="tab" aria-controls="ansible" aria-selected="false">Ansible</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="vcs-tab" data-bs-toggle="tab" data-bs-target="#vcs" type="button" role="tab" aria-controls="vcs" aria-selected="false">Version Control</button>
+                        </li>
+                    </ul>
+                    <div class="tab-content pt-3" id="exportTabsContent">
+                        <div class="tab-pane fade show active" id="terraform" role="tabpanel" aria-labelledby="terraform-tab">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6>Export to Terraform</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <form id="terraform-export-form">
+                                                <div class="mb-3">
+                                                    <label class="form-label">Resource Types</label>
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" id="terraform-vm" checked>
+                                                        <label class="form-check-label" for="terraform-vm">
+                                                            Virtual Machines
+                                                        </label>
+                                                    </div>
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" id="terraform-lxc" checked>
+                                                        <label class="form-check-label" for="terraform-lxc">
+                                                            LXC Containers
+                                                        </label>
+                                                    </div>
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" id="terraform-storage" checked>
+                                                        <label class="form-check-label" for="terraform-storage">
+                                                            Storage
+                                                        </label>
+                                                    </div>
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" id="terraform-network" checked>
+                                                        <label class="form-check-label" for="terraform-network">
+                                                            Network
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" id="terraform-sensitive">
+                                                        <label class="form-check-label" for="terraform-sensitive">
+                                                            Include sensitive information
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" id="terraform-vcs">
+                                                        <label class="form-check-label" for="terraform-vcs">
+                                                            Commit to version control
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                                <div class="d-grid">
+                                                    <button type="submit" class="btn btn-primary">Export to Terraform</button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6>Recent Exports</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div id="terraform-exports-list">
+                                                <p class="text-muted text-center">No recent exports</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="ansible" role="tabpanel" aria-labelledby="ansible-tab">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6>Export to Ansible</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <form id="ansible-export-form">
+                                                <div class="mb-3">
+                                                    <label class="form-label">Resource Types</label>
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" id="ansible-vm" checked>
+                                                        <label class="form-check-label" for="ansible-vm">
+                                                            Virtual Machines
+                                                        </label>
+                                                    </div>
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" id="ansible-lxc" checked>
+                                                        <label class="form-check-label" for="ansible-lxc">
+                                                            LXC Containers
+                                                        </label>
+                                                    </div>
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" id="ansible-storage" checked>
+                                                        <label class="form-check-label" for="ansible-storage">
+                                                            Storage
+                                                        </label>
+                                                    </div>
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" id="ansible-network" checked>
+                                                        <label class="form-check-label" for="ansible-network">
+                                                            Network
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" id="ansible-sensitive">
+                                                        <label class="form-check-label" for="ansible-sensitive">
+                                                            Include sensitive information
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" id="ansible-vcs">
+                                                        <label class="form-check-label" for="ansible-vcs">
+                                                            Commit to version control
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                                <div class="d-grid">
+                                                    <button type="submit" class="btn btn-primary">Export to Ansible</button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6>Recent Exports</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div id="ansible-exports-list">
+                                                <p class="text-muted text-center">No recent exports</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="vcs" role="tabpanel" aria-labelledby="vcs-tab">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div id="vcs-setup-form-container" class="mb-4"></div>
+                                    <div id="vcs-repositories-container"></div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6>Version Control Settings</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <form id="vcs-settings-form">
+                                                <div class="mb-3">
+                                                    <div class="form-check form-switch">
+                                                        <input class="form-check-input" type="checkbox" id="vcs-enabled">
+                                                        <label class="form-check-label" for="vcs-enabled">
+                                                            Enable version control integration
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <div class="form-check form-switch">
+                                                        <input class="form-check-input" type="checkbox" id="vcs-auto-commit">
+                                                        <label class="form-check-label" for="vcs-auto-commit">
+                                                            Automatically commit exports
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label for="vcs-commit-message" class="form-label">Default Commit Message</label>
+                                                    <input type="text" class="form-control" id="vcs-commit-message" 
+                                                        value="Update configuration via TESSA export">
+                                                </div>
+                                                <div class="d-grid">
+                                                    <button type="submit" class="btn btn-primary">Save Settings</button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+    import { VcsIntegration } from '/static/js/modules/vcs_integration.js';
+    import { apiRequest } from '/static/js/modules/api.js';
+    import { showToast } from '/static/js/modules/notifications.js';
+
+    // Initialize VCS integration
+    const vcsIntegration = new VcsIntegration();
+    vcsIntegration.init();
+
+    // Load export configuration
+    async function loadExportConfig() {
+        try {
+            const response = await apiRequest('GET', '/api/export/config');
+            
+            if (response && response.success) {
+                const config = response.config;
+                
+                // Update Terraform form
+                document.getElementById('terraform-vm').checked = config.terraform.resource_types.includes('vm');
+                document.getElementById('terraform-lxc').checked = config.terraform.resource_types.includes('lxc');
+                document.getElementById('terraform-storage').checked = config.terraform.resource_types.includes('storage');
+                document.getElementById('terraform-network').checked = config.terraform.resource_types.includes('network');
+                document.getElementById('terraform-sensitive').checked = config.terraform.include_sensitive;
+                document.getElementById('terraform-vcs').checked = config.version_control.enabled && config.version_control.auto_commit;
+                
+                // Update Ansible form
+                document.getElementById('ansible-vm').checked = config.ansible.resource_types.includes('vm');
+                document.getElementById('ansible-lxc').checked = config.ansible.resource_types.includes('lxc');
+                document.getElementById('ansible-storage').checked = config.ansible.resource_types.includes('storage');
+                document.getElementById('ansible-network').checked = config.ansible.resource_types.includes('network');
+                document.getElementById('ansible-sensitive').checked = config.ansible.include_sensitive;
+                document.getElementById('ansible-vcs').checked = config.version_control.enabled && config.version_control.auto_commit;
+                
+                // Update VCS settings
+                document.getElementById('vcs-enabled').checked = config.version_control.enabled;
+                document.getElementById('vcs-auto-commit').checked = config.version_control.auto_commit;
+                document.getElementById('vcs-commit-message').value = config.version_control.commit_message;
+            }
+        } catch (error) {
+            console.error('Error loading export configuration:', error);
+        }
+    }
+
+    // Handle Terraform export form submission
+    document.getElementById('terraform-export-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        
+        const resourceTypes = [];
+        if (document.getElementById('terraform-vm').checked) resourceTypes.push('vm');
+        if (document.getElementById('terraform-lxc').checked) resourceTypes.push('lxc');
+        if (document.getElementById('terraform-storage').checked) resourceTypes.push('storage');
+        if (document.getElementById('terraform-network').checked) resourceTypes.push('network');
+        
+        const includeSensitive = document.getElementById('terraform-sensitive').checked;
+        const useVcs = document.getElementById('terraform-vcs').checked;
+        
+        // Update configuration
+        await apiRequest('PUT', '/api/export/config', {
+            terraform: {
+                resource_types: resourceTypes,
+                include_sensitive: includeSensitive
+            },
+            version_control: {
+                auto_commit: useVcs
+            }
+        });
+        
+        // Perform export
+        try {
+            showToast('Exporting to Terraform...', 'info');
+            
+            const response = await apiRequest('POST', '/api/export/terraform', {
+                resource_types: resourceTypes
+            });
+            
+            if (response && response.success) {
+                showToast(response.message, 'success');
+                
+                // Add to recent exports
+                const exportsList = document.getElementById('terraform-exports-list');
+                const exportTime = new Date().toLocaleString();
+                
+                exportsList.innerHTML = `
+                    <div class="alert alert-success">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>Export successful</strong><br>
+                                <small>${exportTime}</small>
+                            </div>
+                            <a href="/api/export/download/${response.output_dir.split('/').pop()}" 
+                               class="btn btn-sm btn-outline-success">
+                                <i class="fas fa-download"></i> Download
+                            </a>
+                        </div>
+                    </div>
+                    ${exportsList.innerHTML}
+                `;
+            } else {
+                showToast(response.message || 'Export failed', 'error');
+            }
+        } catch (error) {
+            console.error('Error exporting to Terraform:', error);
+            showToast('Error exporting to Terraform', 'error');
+        }
+    });
+
+    // Handle Ansible export form submission
+    document.getElementById('ansible-export-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        
+        const resourceTypes = [];
+        if (document.getElementById('ansible-vm').checked) resourceTypes.push('vm');
+        if (document.getElementById('ansible-lxc').checked) resourceTypes.push('lxc');
+        if (document.getElementById('ansible-storage').checked) resourceTypes.push('storage');
+        if (document.getElementById('ansible-network').checked) resourceTypes.push('network');
+        
+        const includeSensitive = document.getElementById('ansible-sensitive').checked;
+        const useVcs = document.getElementById('ansible-vcs').checked;
+        
+        // Update configuration
+        await apiRequest('PUT', '/api/export/config', {
+            ansible: {
+                resource_types: resourceTypes,
+                include_sensitive: includeSensitive
+            },
+            version_control: {
+                auto_commit: useVcs
+            }
+        });
+        
+        // Perform export
+        try {
+            showToast('Exporting to Ansible...', 'info');
+            
+            const response = await apiRequest('POST', '/api/export/ansible', {
+                resource_types: resourceTypes
+            });
+            
+            if (response && response.success) {
+                showToast(response.message, 'success');
+                
+                // Add to recent exports
+                const exportsList = document.getElementById('ansible-exports-list');
+                const exportTime = new Date().toLocaleString();
+                
+                exportsList.innerHTML = `
+                    <div class="alert alert-success">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>Export successful</strong><br>
+                                <small>${exportTime}</small>
+                            </div>
+                            <a href="/api/export/download/${response.output_dir.split('/').pop()}" 
+                               class="btn btn-sm btn-outline-success">
+                                <i class="fas fa-download"></i> Download
+                            </a>
+                        </div>
+                    </div>
+                    ${exportsList.innerHTML}
+                `;
+            } else {
+                showToast(response.message || 'Export failed', 'error');
+            }
+        } catch (error) {
+            console.error('Error exporting to Ansible:', error);
+            showToast('Error exporting to Ansible', 'error');
+        }
+    });
+
+    // Handle VCS settings form submission
+    document.getElementById('vcs-settings-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        
+        const enabled = document.getElementById('vcs-enabled').checked;
+        const autoCommit = document.getElementById('vcs-auto-commit').checked;
+        const commitMessage = document.getElementById('vcs-commit-message').value;
+        
+        // Update configuration
+        try {
+            const response = await apiRequest('PUT', '/api/export/config', {
+                version_control: {
+                    enabled: enabled,
+                    auto_commit: autoCommit,
+                    commit_message: commitMessage
+                }
+            });
+            
+            if (response && response.success) {
+                showToast('Version control settings updated', 'success');
+            } else {
+                showToast(response.message || 'Failed to update settings', 'error');
+            }
+        } catch (error) {
+            console.error('Error updating VCS settings:', error);
+            showToast('Error updating VCS settings', 'error');
+        }
+    });
+
+    // Load export configuration on page load
+    document.addEventListener('DOMContentLoaded', loadExportConfig);
+</script>
+{% endblock %}

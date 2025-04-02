@@ -1,0 +1,546 @@
+{% extends "base.html" %}
+
+{% block title %}Manage User Quotas{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">Manage User Quotas</h1>
+            
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">User Quota Management</h5>
+                    <p class="card-text">Set and manage resource quotas for individual users.</p>
+                    
+                    <div id="loading-users" class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading users...</p>
+                    </div>
+                    
+                    <div id="users-table-container" class="table-responsive d-none">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>User ID</th>
+                                    <th>CPU</th>
+                                    <th>Memory</th>
+                                    <th>Disk</th>
+                                    <th>VMs</th>
+                                    <th>Containers</th>
+                                    <th>Backup</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="users-table-body">
+                                <!-- Users will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div id="no-users" class="alert alert-info d-none">
+                        <i class="fas fa-info-circle me-2"></i> No users found with custom quotas. Default quotas are being applied.
+                    </div>
+                    
+                    <div id="users-error" class="alert alert-danger d-none">
+                        <i class="fas fa-exclamation-circle me-2"></i> <span id="users-error-message"></span>
+                    </div>
+                    
+                    <button id="add-user-quota-btn" class="btn btn-primary mt-3">
+                        <i class="fas fa-plus me-2"></i> Add User Quota
+                    </button>
+                </div>
+            </div>
+            
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Default Quotas</h5>
+                    <p class="card-text">These quotas are applied to users who don't have custom quotas set.</p>
+                    
+                    <div id="loading-defaults" class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading default quotas...</p>
+                    </div>
+                    
+                    <div id="defaults-content" class="d-none">
+                        <form id="default-quotas-form">
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label for="default-cpu" class="form-label">CPU Cores</label>
+                                    <input type="number" class="form-control" id="default-cpu" min="1" step="1" required>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="default-memory" class="form-label">Memory (MB)</label>
+                                    <input type="number" class="form-control" id="default-memory" min="512" step="512" required>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="default-disk" class="form-label">Disk Space (GB)</label>
+                                    <input type="number" class="form-control" id="default-disk" min="1" step="1" required>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label for="default-vm-count" class="form-label">Virtual Machines</label>
+                                    <input type="number" class="form-control" id="default-vm-count" min="0" step="1" required>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="default-container-count" class="form-label">Containers</label>
+                                    <input type="number" class="form-control" id="default-container-count" min="0" step="1" required>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="default-backup-size" class="form-label">Backup Storage (GB)</label>
+                                    <input type="number" class="form-control" id="default-backup-size" min="0" step="1" required>
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-2"></i> Save Default Quotas
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    <div id="defaults-error" class="alert alert-danger d-none">
+                        <i class="fas fa-exclamation-circle me-2"></i> <span id="defaults-error-message"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Add/Edit User Quota Modal -->
+    <div class="modal fade" id="user-quota-modal" tabindex="-1" aria-labelledby="user-quota-modal-label" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="user-quota-modal-label">Add User Quota</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="user-quota-form">
+                        <div class="mb-3">
+                            <label for="user-id" class="form-label">User ID</label>
+                            <input type="text" class="form-control" id="user-id" required>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="user-cpu" class="form-label">CPU Cores</label>
+                                <input type="number" class="form-control" id="user-cpu" min="1" step="1" required>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="user-memory" class="form-label">Memory (MB)</label>
+                                <input type="number" class="form-control" id="user-memory" min="512" step="512" required>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="user-disk" class="form-label">Disk Space (GB)</label>
+                                <input type="number" class="form-control" id="user-disk" min="1" step="1" required>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="user-vm-count" class="form-label">Virtual Machines</label>
+                                <input type="number" class="form-control" id="user-vm-count" min="0" step="1" required>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="user-container-count" class="form-label">Containers</label>
+                                <input type="number" class="form-control" id="user-container-count" min="0" step="1" required>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="user-backup-size" class="form-label">Backup Storage (GB)</label>
+                                <input type="number" class="form-control" id="user-backup-size" min="0" step="1" required>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="save-user-quota">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Delete Confirmation Modal -->
+    <div class="modal fade" id="delete-confirm-modal" tabindex="-1" aria-labelledby="delete-confirm-modal-label" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="delete-confirm-modal-label">Confirm Deletion</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete the quota for <strong id="delete-user-id"></strong>?</p>
+                    <p>This will reset the user to use default quotas.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="confirm-delete">Delete Quota</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize modals
+        const userQuotaModal = new bootstrap.Modal(document.getElementById('user-quota-modal'));
+        const deleteConfirmModal = new bootstrap.Modal(document.getElementById('delete-confirm-modal'));
+        
+        // Load users with quotas
+        loadUsers();
+        
+        // Load default quotas
+        loadDefaultQuotas();
+        
+        // Add event listeners
+        document.getElementById('add-user-quota-btn').addEventListener('click', function() {
+            // Reset form
+            document.getElementById('user-quota-form').reset();
+            document.getElementById('user-id').disabled = false;
+            document.getElementById('user-quota-modal-label').textContent = 'Add User Quota';
+            
+            // Load default values
+            const defaultCpu = document.getElementById('default-cpu').value;
+            const defaultMemory = document.getElementById('default-memory').value;
+            const defaultDisk = document.getElementById('default-disk').value;
+            const defaultVmCount = document.getElementById('default-vm-count').value;
+            const defaultContainerCount = document.getElementById('default-container-count').value;
+            const defaultBackupSize = document.getElementById('default-backup-size').value;
+            
+            document.getElementById('user-cpu').value = defaultCpu;
+            document.getElementById('user-memory').value = defaultMemory;
+            document.getElementById('user-disk').value = defaultDisk;
+            document.getElementById('user-vm-count').value = defaultVmCount;
+            document.getElementById('user-container-count').value = defaultContainerCount;
+            document.getElementById('user-backup-size').value = defaultBackupSize;
+            
+            // Show modal
+            userQuotaModal.show();
+        });
+        
+        document.getElementById('save-user-quota').addEventListener('click', function() {
+            // Validate form
+            const form = document.getElementById('user-quota-form');
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+            
+            // Get form values
+            const userId = document.getElementById('user-id').value;
+            const cpu = parseInt(document.getElementById('user-cpu').value);
+            const memory = parseInt(document.getElementById('user-memory').value);
+            const disk = parseInt(document.getElementById('user-disk').value);
+            const vmCount = parseInt(document.getElementById('user-vm-count').value);
+            const containerCount = parseInt(document.getElementById('user-container-count').value);
+            const backupSize = parseInt(document.getElementById('user-backup-size').value);
+            
+            // Create quota object
+            const quota = {
+                cpu: cpu,
+                memory: memory,
+                disk: disk,
+                vm_count: vmCount,
+                container_count: containerCount,
+                backup_size: backupSize
+            };
+            
+            // Save quota
+            saveUserQuota(userId, quota, userQuotaModal);
+        });
+        
+        document.getElementById('default-quotas-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Get form values
+            const cpu = parseInt(document.getElementById('default-cpu').value);
+            const memory = parseInt(document.getElementById('default-memory').value);
+            const disk = parseInt(document.getElementById('default-disk').value);
+            const vmCount = parseInt(document.getElementById('default-vm-count').value);
+            const containerCount = parseInt(document.getElementById('default-container-count').value);
+            const backupSize = parseInt(document.getElementById('default-backup-size').value);
+            
+            // Create quota object
+            const quota = {
+                cpu: cpu,
+                memory: memory,
+                disk: disk,
+                vm_count: vmCount,
+                container_count: containerCount,
+                backup_size: backupSize
+            };
+            
+            // Save default quotas
+            saveDefaultQuotas(quota);
+        });
+        
+        document.getElementById('confirm-delete').addEventListener('click', function() {
+            const userId = document.getElementById('delete-user-id').textContent;
+            deleteUserQuota(userId, deleteConfirmModal);
+        });
+    });
+    
+    function loadUsers() {
+        fetch('/api/quota/users')
+            .then(response => response.json())
+            .then(data => {
+                // Hide loading indicator
+                document.getElementById('loading-users').classList.add('d-none');
+                
+                if (data.success) {
+                    const quotas = data.quotas;
+                    const users = quotas.users;
+                    
+                    if (Object.keys(users).length > 0) {
+                        // Show users table
+                        document.getElementById('users-table-container').classList.remove('d-none');
+                        document.getElementById('no-users').classList.add('d-none');
+                        
+                        // Populate table
+                        const tableBody = document.getElementById('users-table-body');
+                        tableBody.innerHTML = '';
+                        
+                        for (const [userId, userQuota] of Object.entries(users)) {
+                            const row = document.createElement('tr');
+                            
+                            // Merge with defaults for any missing values
+                            const defaults = quotas.defaults;
+                            const quota = {
+                                cpu: userQuota.cpu !== undefined ? userQuota.cpu : defaults.cpu,
+                                memory: userQuota.memory !== undefined ? userQuota.memory : defaults.memory,
+                                disk: userQuota.disk !== undefined ? userQuota.disk : defaults.disk,
+                                vm_count: userQuota.vm_count !== undefined ? userQuota.vm_count : defaults.vm_count,
+                                container_count: userQuota.container_count !== undefined ? userQuota.container_count : defaults.container_count,
+                                backup_size: userQuota.backup_size !== undefined ? userQuota.backup_size : defaults.backup_size
+                            };
+                            
+                            row.innerHTML = `
+                                <td>${userId}</td>
+                                <td>${quota.cpu}</td>
+                                <td>${quota.memory} MB</td>
+                                <td>${quota.disk} GB</td>
+                                <td>${quota.vm_count}</td>
+                                <td>${quota.container_count}</td>
+                                <td>${quota.backup_size} GB</td>
+                                <td>
+                                    <button class="btn btn-sm btn-primary edit-user-quota" data-user-id="${userId}">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-danger delete-user-quota" data-user-id="${userId}">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            `;
+                            
+                            tableBody.appendChild(row);
+                        }
+                        
+                        // Add event listeners for edit and delete buttons
+                        addUserActionListeners();
+                    } else {
+                        // Show no users message
+                        document.getElementById('users-table-container').classList.add('d-none');
+                        document.getElementById('no-users').classList.remove('d-none');
+                    }
+                } else {
+                    // Show error
+                    document.getElementById('users-error').classList.remove('d-none');
+                    document.getElementById('users-error-message').textContent = data.message || 'Failed to load users.';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading users:', error);
+                document.getElementById('loading-users').classList.add('d-none');
+                document.getElementById('users-error').classList.remove('d-none');
+                document.getElementById('users-error-message').textContent = 'Error loading users. Please try again.';
+            });
+    }
+    
+    function loadDefaultQuotas() {
+        fetch('/api/quota/defaults')
+            .then(response => response.json())
+            .then(data => {
+                // Hide loading indicator
+                document.getElementById('loading-defaults').classList.add('d-none');
+                
+                if (data.success) {
+                    // Show content
+                    document.getElementById('defaults-content').classList.remove('d-none');
+                    
+                    // Populate form
+                    const defaults = data.defaults;
+                    document.getElementById('default-cpu').value = defaults.cpu;
+                    document.getElementById('default-memory').value = defaults.memory;
+                    document.getElementById('default-disk').value = defaults.disk;
+                    document.getElementById('default-vm-count').value = defaults.vm_count;
+                    document.getElementById('default-container-count').value = defaults.container_count;
+                    document.getElementById('default-backup-size').value = defaults.backup_size;
+                } else {
+                    // Show error
+                    document.getElementById('defaults-error').classList.remove('d-none');
+                    document.getElementById('defaults-error-message').textContent = data.message || 'Failed to load default quotas.';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading default quotas:', error);
+                document.getElementById('loading-defaults').classList.add('d-none');
+                document.getElementById('defaults-error').classList.remove('d-none');
+                document.getElementById('defaults-error-message').textContent = 'Error loading default quotas. Please try again.';
+            });
+    }
+    
+    function addUserActionListeners() {
+        // Edit buttons
+        document.querySelectorAll('.edit-user-quota').forEach(button => {
+            button.addEventListener('click', function() {
+                const userId = this.getAttribute('data-user-id');
+                editUserQuota(userId);
+            });
+        });
+        
+        // Delete buttons
+        document.querySelectorAll('.delete-user-quota').forEach(button => {
+            button.addEventListener('click', function() {
+                const userId = this.getAttribute('data-user-id');
+                document.getElementById('delete-user-id').textContent = userId;
+                const deleteConfirmModal = new bootstrap.Modal(document.getElementById('delete-confirm-modal'));
+                deleteConfirmModal.show();
+            });
+        });
+    }
+    
+    function editUserQuota(userId) {
+        // Fetch user quota
+        fetch(`/api/quota/users/${userId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Populate form
+                    const quota = data.quota;
+                    document.getElementById('user-id').value = userId;
+                    document.getElementById('user-id').disabled = true;
+                    document.getElementById('user-cpu').value = quota.cpu;
+                    document.getElementById('user-memory').value = quota.memory;
+                    document.getElementById('user-disk').value = quota.disk;
+                    document.getElementById('user-vm-count').value = quota.vm_count;
+                    document.getElementById('user-container-count').value = quota.container_count;
+                    document.getElementById('user-backup-size').value = quota.backup_size;
+                    
+                    // Update modal title
+                    document.getElementById('user-quota-modal-label').textContent = `Edit Quota for ${userId}`;
+                    
+                    // Show modal
+                    const userQuotaModal = new bootstrap.Modal(document.getElementById('user-quota-modal'));
+                    userQuotaModal.show();
+                } else {
+                    showAlert('danger', data.message || 'Failed to load user quota.');
+                }
+            })
+            .catch(error => {
+                console.error('Error loading user quota:', error);
+                showAlert('danger', 'Error loading user quota. Please try again.');
+            });
+    }
+    
+    function saveUserQuota(userId, quota, modal) {
+        fetch(`/api/quota/users/${userId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(quota)
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Hide modal
+                    modal.hide();
+                    
+                    // Show success message
+                    showAlert('success', data.message || 'User quota saved successfully.');
+                    
+                    // Reload users
+                    loadUsers();
+                } else {
+                    showAlert('danger', data.message || 'Failed to save user quota.');
+                }
+            })
+            .catch(error => {
+                console.error('Error saving user quota:', error);
+                showAlert('danger', 'Error saving user quota. Please try again.');
+            });
+    }
+    
+    function deleteUserQuota(userId, modal) {
+        fetch(`/api/quota/users/${userId}`, {
+            method: 'DELETE'
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Hide modal
+                    modal.hide();
+                    
+                    // Show success message
+                    showAlert('success', data.message || 'User quota deleted successfully.');
+                    
+                    // Reload users
+                    loadUsers();
+                } else {
+                    showAlert('danger', data.message || 'Failed to delete user quota.');
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting user quota:', error);
+                showAlert('danger', 'Error deleting user quota. Please try again.');
+            });
+    }
+    
+    function saveDefaultQuotas(quota) {
+        fetch('/api/quota/defaults', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(quota)
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show success message
+                    showAlert('success', data.message || 'Default quotas saved successfully.');
+                } else {
+                    showAlert('danger', data.message || 'Failed to save default quotas.');
+                }
+            })
+            .catch(error => {
+                console.error('Error saving default quotas:', error);
+                showAlert('danger', 'Error saving default quotas. Please try again.');
+            });
+    }
+    
+    function showAlert(type, message) {
+        const alertElement = document.createElement('div');
+        alertElement.className = `alert alert-${type} alert-dismissible fade show`;
+        alertElement.innerHTML = `
+            <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'} me-2"></i> ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        
+        document.querySelector('.container').prepend(alertElement);
+        
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => {
+            alertElement.classList.remove('show');
+            setTimeout(() => alertElement.remove(), 150);
+        }, 5000);
+    }
+</script>
+{% endblock %}

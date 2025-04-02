@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Cross-Platform Migration{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>Cross-Platform Migration Wizard</h5>
+                </div>
+                <div class="card-body">
+                    <div id="migration-wizard-container">
+                        <!-- Wizard will be rendered here by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+    import { MigrationWizard } from '/static/js/modules/migration_wizard.js';
+    
+    // Initialize migration wizard
+    const migrationWizard = new MigrationWizard();
+    migrationWizard.init();
+</script>
+{% endblock %}

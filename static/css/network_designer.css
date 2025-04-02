@@ -1,0 +1,179 @@
+/**
+ * Network Designer CSS
+ * Styles for the network topology designer
+ */
+
+/* Topology container */
+.topology-container {
+    position: relative;
+    width: 100%;
+    height: 600px;
+    overflow: hidden;
+    background-color: #f8f9fa;
+    background-image: 
+        linear-gradient(rgba(0, 0, 0, 0.1) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 0, 0, 0.1) 1px, transparent 1px);
+    background-size: 20px 20px;
+    border: 1px solid #dee2e6;
+}
+
+/* Topology canvas */
+.topology-canvas {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-origin: 0 0;
+}
+
+/* Loading indicator */
+.topology-loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+
+/* Node items in toolbox */
+.node-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 60px;
+    height: 60px;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    cursor: grab;
+    transition: all 0.2s ease;
+}
+
+.node-item:hover {
+    background-color: #e9ecef;
+    transform: translateY(-2px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.node-item i {
+    font-size: 1.5rem;
+    margin-bottom: 5px;
+}
+
+.node-item span {
+    font-size: 0.75rem;
+    text-align: center;
+}
+
+/* Node elements on canvas */
+.node {
+    position: absolute;
+    width: 80px;
+    height: 80px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: #ffffff;
+    border: 2px solid #6c757d;
+    border-radius: 8px;
+    cursor: move;
+    z-index: 10;
+    transition: box-shadow 0.2s ease;
+    user-select: none;
+}
+
+.node:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.node.selected {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.25);
+}
+
+.node i {
+    font-size: 2rem;
+    margin-bottom: 5px;
+}
+
+.node-label {
+    font-size: 0.75rem;
+    text-align: center;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Node type specific styles */
+.node[data-node-type="server"] {
+    border-color: #0d6efd;
+}
+
+.node[data-node-type="router"] {
+    border-color: #fd7e14;
+}
+
+.node[data-node-type="switch"] {
+    border-color: #6f42c1;
+}
+
+.node[data-node-type="firewall"] {
+    border-color: #dc3545;
+}
+
+.node[data-node-type="network"] {
+    border-color: #198754;
+    border-radius: 50%;
+}
+
+/* Connection endpoints */
+.endpoint {
+    z-index: 11;
+}
+
+/* Connection styles */
+.jtk-connector {
+    z-index: 9;
+}
+
+.jtk-endpoint {
+    z-index: 10;
+}
+
+.jtk-overlay {
+    z-index: 11;
+}
+
+/* Mode buttons */
+.mode-active {
+    background-color: #0d6efd;
+    color: white;
+}
+
+/* Properties panel */
+.node-type-properties {
+    display: none;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .topology-container {
+        height: 400px;
+    }
+    
+    .node-item {
+        width: 50px;
+        height: 50px;
+    }
+    
+    .node {
+        width: 60px;
+        height: 60px;
+    }
+    
+    .node i {
+        font-size: 1.5rem;
+    }
+}

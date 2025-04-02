@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}Register Voice Authentication{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">Register Voice Authentication</h1>
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Register Your Voice</h5>
+                    <p class="card-text">You'll need to record at least 3 voice samples to create your voice signature. For best results, speak clearly and use the same distance from the microphone each time.</p>
+                    
+                    <form id="voice-register-form" class="mb-4">
+                        <div class="mb-3">
+                            <label for="user-id" class="form-label">User ID</label>
+                            <input type="text" class="form-control" id="user-id" required>
+                            <div class="form-text">Enter your user ID or create a new one.</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="passphrase" class="form-label">Optional Passphrase</label>
+                            <input type="text" class="form-control" id="passphrase">
+                            <div class="form-text">You can set a passphrase for additional security. You'll need to speak this phrase when authenticating.</div>
+                        </div>
+                    </form>
+                    
+                    <div class="text-center my-4">
+                        <div id="voice-register-status" class="alert alert-info">
+                            Ready to record. Click the button below to start recording sample 1 of 3.
+                        </div>
+                        
+                        <div id="voice-visualization" class="mb-3">
+                            <canvas id="voice-waveform" height="100"></canvas>
+                        </div>
+                        
+                        <div class="progress mb-3 d-none" id="samples-progress-container">
+                            <div id="samples-progress" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                        </div>
+                        
+                        <button id="start-recording" class="btn btn-primary btn-lg">
+                            <i class="fas fa-microphone me-2"></i> Record Sample <span id="current-sample">1</span>/3
+                        </button>
+                        <button id="stop-recording" class="btn btn-danger btn-lg d-none">
+                            <i class="fas fa-stop-circle me-2"></i> Stop Recording
+                        </button>
+                    </div>
+                    
+                    <div id="registration-result" class="d-none">
+                        <div class="alert alert-success mb-3" id="registration-success">
+                            <i class="fas fa-check-circle me-2"></i> Voice registration successful!
+                        </div>
+                        <div class="alert alert-danger mb-3" id="registration-failure">
+                            <i class="fas fa-times-circle me-2"></i> <span id="registration-error-message">Registration failed.</span>
+                        </div>
+                        <div class="text-center">
+                            <button id="try-again" class="btn btn-outline-primary me-2">Try Again</button>
+                            <a href="{{ url_for('voice_auth.voice_auth_page') }}" class="btn btn-outline-secondary">Go to Authentication</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Voice Registration Tips</h5>
+                    <ul class="mb-0">
+                        <li>Speak in your natural voice at a consistent volume</li>
+                        <li>Record in a quiet environment with minimal background noise</li>
+                        <li>Keep the same distance from your microphone for all samples</li>
+                        <li>If using a passphrase, speak it clearly each time</li>
+                        <li>For best results, register your voice in the same environment where you'll authenticate</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/modules/voice.js') }}"></script>
+<script src="{{ url_for('static', filename='js/modules/voice_auth.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        VoiceAuth.initRegistrationPage();
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Voice Authentication{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">Manage Voice Authentication</h1>
+            
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Your Voice Profiles</h5>
+                    <p class="card-text">View and manage your registered voice profiles.</p>
+                    
+                    <div id="loading-profiles" class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading voice profiles...</p>
+                    </div>
+                    
+                    <div id="no-profiles" class="alert alert-info d-none">
+                        <i class="fas fa-info-circle me-2"></i> You don't have any registered voice profiles yet.
+                        <div class="mt-2">
+                            <a href="{{ url_for('voice_auth.voice_auth_register_page') }}" class="btn btn-sm btn-primary">
+                                <i class="fas fa-user-plus me-1"></i> Register Your Voice
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <div id="profiles-container" class="d-none">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>User ID</th>
+                                        <th>Created</th>
+                                        <th>Last Updated</th>
+                                        <th>Passphrase</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="profiles-table-body">
+                                    <!-- Profiles will be populated here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Update Voice Profile</h5>
+                    <p class="card-text">Add a new voice sample to improve recognition accuracy.</p>
+                    
+                    <form id="update-profile-form" class="mb-4">
+                        <div class="mb-3">
+                            <label for="update-user-id" class="form-label">Select User ID</label>
+                            <select class="form-select" id="update-user-id" required>
+                                <option value="" selected disabled>Select a user ID</option>
+                                <!-- User IDs will be populated here -->
+                            </select>
+                        </div>
+                    </form>
+                    
+                    <div class="text-center my-4">
+                        <div id="update-status" class="alert alert-info">
+                            Select a user ID and click the button below to record a new voice sample.
+                        </div>
+                        
+                        <div id="update-visualization" class="mb-3">
+                            <canvas id="update-waveform" height="100"></canvas>
+                        </div>
+                        
+                        <button id="start-update" class="btn btn-primary" disabled>
+                            <i class="fas fa-microphone me-2"></i> Record New Sample
+                        </button>
+                        <button id="stop-update" class="btn btn-danger d-none">
+                            <i class="fas fa-stop-circle me-2"></i> Stop Recording
+                        </button>
+                    </div>
+                    
+                    <div id="update-result" class="d-none">
+                        <div class="alert alert-success mb-3" id="update-success">
+                            <i class="fas fa-check-circle me-2"></i> Voice profile updated successfully!
+                        </div>
+                        <div class="alert alert-danger mb-3" id="update-failure">
+                            <i class="fas fa-times-circle me-2"></i> <span id="update-error-message">Update failed.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Set or Update Passphrase</h5>
+                    <p class="card-text">Add an optional passphrase for additional security.</p>
+                    
+                    <form id="passphrase-form">
+                        <div class="mb-3">
+                            <label for="passphrase-user-id" class="form-label">Select User ID</label>
+                            <select class="form-select" id="passphrase-user-id" required>
+                                <option value="" selected disabled>Select a user ID</option>
+                                <!-- User IDs will be populated here -->
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="new-passphrase" class="form-label">New Passphrase</label>
+                            <input type="text" class="form-control" id="new-passphrase" required>
+                            <div class="form-text">Choose a phrase that is easy for you to remember and pronounce consistently.</div>
+                        </div>
+                        
+                        <div class="text-end">
+                            <button type="submit" class="btn btn-primary" id="save-passphrase" disabled>
+                                <i class="fas fa-save me-2"></i> Save Passphrase
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <div id="passphrase-result" class="mt-3 d-none">
+                        <div class="alert alert-success mb-0" id="passphrase-success">
+                            <i class="fas fa-check-circle me-2"></i> Passphrase updated successfully!
+                        </div>
+                        <div class="alert alert-danger mb-0" id="passphrase-failure">
+                            <i class="fas fa-times-circle me-2"></i> <span id="passphrase-error-message">Failed to update passphrase.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Delete Confirmation Modal -->
+    <div class="modal fade" id="delete-confirm-modal" tabindex="-1" aria-labelledby="delete-confirm-modal-label" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="delete-confirm-modal-label">Confirm Deletion</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete the voice profile for <strong id="delete-user-id"></strong>?</p>
+                    <p class="text-danger">This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="confirm-delete">Delete Profile</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/modules/voice.js') }}"></script>
+<script src="{{ url_for('static', filename='js/modules/voice_auth.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        VoiceAuth.initManagementPage();
+    });
+</script>
+{% endblock %}
