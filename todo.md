@@ -81,6 +81,7 @@
   - [ ] Build documentation search and indexing system.
   - [X] Generate visual diagrams from code structure.
   - [ ] Add contextual help integration with autodoc system.
+  - [ ] Have Autodoc document a user's environment/homelab.
 
 - [ ] **Community Integration:**
   - [ ] Create community templates gallery for sharing service configurations.
@@ -144,8 +145,8 @@
   - [ ] Add ESXi migration assistant
 
 - [ ] **Enhance service discovery**
-  - [ ] Implement automated local DNS configuration
-  - [ ] Add mDNS/Avahi integration
+  - [X] Implement automated local DNS configuration
+  - [X] Add mDNS/Avahi integration
   - [ ] Create unified service directory
 
 - [x] **User Experience Improvements:**

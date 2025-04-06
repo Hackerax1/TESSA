@@ -37,3 +37,4 @@ mkdocs
 mkdocs-material
 mkdocstrings
 pydocstyle
+zeroconf

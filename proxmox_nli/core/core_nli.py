@@ -17,6 +17,8 @@ from ..nlu.ollama_client import OllamaClient
 from ..nlu.huggingface_client import HuggingFaceClient
 from ..commands.update_command import UpdateCommand
 from ..services.update_manager import UpdateManager
+from ..utils.discovery import discover_network_services, DEFAULT_SERVICE_DEFINITIONS
+from ..utils.dns_config import update_hosts_file
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -68,7 +70,8 @@ class ProxmoxNLI(BaseNLI):
                        'docker_container_logs', 'vm_status', 'help', 'list_available_services',
                        'list_deployed_services', 'find_service', 'service_status',
                        'check_updates', 'list_updates', 'get_update_status',
-                       'get_scheduler_status', 'list_backups', 'verify_backup']
+                       'get_scheduler_status', 'list_backups', 'verify_backup',
+                       'discover_proxmox', 'discover_service', 'discover_all_services']
         
         if self.require_confirmation and intent not in safe_intents:
             # Store command for later execution
@@ -88,6 +91,10 @@ class ProxmoxNLI(BaseNLI):
         # Handle update-related intents through update command
         elif intent in ['check_updates', 'list_updates', 'apply_updates', 'update_settings', 'get_update_status']:
             return self._handle_update_intent(intent, args, entities)
+            
+        # --- Handle Discovery Intents ---
+        elif intent in ['discover_proxmox', 'discover_service', 'discover_all_services']:
+            return self._handle_discovery_intent(intent, args, entities)
             
         # Handle other commands through command executor
         return self.command_executor._execute_command(intent, args, entities)
@@ -128,6 +135,82 @@ class ProxmoxNLI(BaseNLI):
             return self.update_command.get_update_status()
         
         return {"success": False, "message": f"Unknown update intent: {intent}"}
+
+    def _handle_discovery_intent(self, intent, args, entities):
+        """Handles all service discovery related intents."""
+        logger.info(f"Executing discovery intent: {intent}")
+        service_names_to_discover = None # Default: discover all
+        target_service_description = "all defined services"
+        
+        if intent == 'discover_proxmox':
+            service_names_to_discover = ["proxmox"]
+            target_service_description = "Proxmox instances"
+        elif intent == 'discover_service':
+            # Extract service name from entities (NLU needs to provide SERVICE_NAME)
+            target_name = entities.get('SERVICE_NAME', '').lower()
+            if not target_name:
+                 return {"success": False, "message": "Please specify which service to discover (e.g., 'discover jellyfin')."}
+            
+            # Map common names to internal definition keys if needed
+            # Example simple mapping:
+            service_mapping = { "jellyfin": "jellyfin_http" } 
+            internal_name = service_mapping.get(target_name, target_name) # Use target_name if no mapping
+            
+            if internal_name not in DEFAULT_SERVICE_DEFINITIONS:
+                 known_services = ", ".join(DEFAULT_SERVICE_DEFINITIONS.keys())
+                 return {"success": False, "message": f"Sorry, I don't know how to discover '{target_name}'. Known types: {known_services}"}
+            
+            service_names_to_discover = [internal_name]
+            target_service_description = f"{target_name} instances"
+            
+        # For 'discover_all_services', service_names_to_discover remains None
+        
+        dns_update_message = ""
+        message = f"Attempting to discover {target_service_description} on the network...\n"
+
+        try:
+            # Perform discovery
+            # Can add timeout argument extraction from args/entities if needed later
+            discovered_services = discover_network_services(service_names=service_names_to_discover, timeout=10)
+            
+            all_discovered_hosts = [] # Flatten list for DNS update
+            found_any = False
+            
+            if discovered_services:
+                result_message_parts = ["Discovery Results:"]
+                for service_name, hosts in discovered_services.items():
+                    if hosts:
+                        found_any = True
+                        result_message_parts.append(f"  {service_name.replace('_', ' ').title()}:")
+                        for host in hosts:
+                             result_message_parts.append(f"    - Server: {host['server']} ({host['address']}:{host['port']})")
+                             all_discovered_hosts.append(host) # Add to flat list for DNS
+                    # Optionally report services that were searched for but not found
+                    # else:
+                    #    result_message_parts.append(f"  {service_name.replace('_',' ').title()}: None found")
+                message += "\n".join(result_message_parts)
+                logger.info(f"Discovery successful, found {len(all_discovered_hosts)} total instances across requested types.")
+            
+            if not found_any:
+                 message += f"\nNo {target_service_description} found on the local network via mDNS discovery."
+                 logger.info("Discovery completed, no matching instances found.")
+
+            # --- Attempt to update hosts file with *all* discovered hosts ---
+            if all_discovered_hosts:
+                 logger.info(f"Attempting to update local hosts file with {len(all_discovered_hosts)} discovered entries...")
+                 # Pass the flat list of all found hosts regardless of type
+                 dns_result = update_hosts_file(all_discovered_hosts)
+                 dns_update_message = f"\n\nHosts file update status:\n{dns_result.get('message', 'Unknown error during DNS update.')}"
+                 logger.info(f"Hosts file update result: {dns_result}")
+            # --- End hosts file update ---
+
+            # Combine discovery message and DNS update message
+            final_message = message + dns_update_message
+            return {"success": True, "message": final_message}
+                
+        except Exception as e:
+            logger.error(f"Error during service discovery execution: {e}", exc_info=True)
+            return {"success": False, "message": f"An error occurred during discovery: {e}"}
 
     def confirm_command(self, confirmed=True):
         """Handle command confirmation"""

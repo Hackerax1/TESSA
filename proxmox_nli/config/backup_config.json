@@ -1,6 +1,6 @@
 {
   "backup_locations": {
-    "local": "c:\\Users\\jackd\\Documents\\Projects\\proxmox-nli\\proxmox_nli\\backups",
+    "local": "",
     "remote": []
   },
   "retention": {
