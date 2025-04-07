@@ -1,220 +1,152 @@
+"""
+Docker and container management commands.
+Handles interaction with Docker and other container engines on VMs.
+"""
 from .vm_command import VMCommand
+from .container_engines.factory import ContainerEngineFactory
 
 class DockerCommands:
+    """
+    Commands for managing containers across different container engines.
+    Despite the name, this class can work with Docker alternatives like Podman.
+    """
+    
     def __init__(self, api):
         self.api = api
         self.vm_command = VMCommand(api)
-
-    def list_docker_containers(self, vm_id=None, node=None):
-        """List Docker containers on a VM or across the cluster"""
-        if vm_id:
-            # Get the VM location if not provided
-            if not node:
-                vm_info = self._get_vm_location(vm_id)
-                if not vm_info['success']:
-                    return vm_info
-                node = vm_info['node']
+        self.engine_factory = ContainerEngineFactory(api)
+        
+    def get_container_engine(self, vm_id=None, node=None, engine_name=None):
+        """
+        Get the appropriate container engine for a VM.
+        
+        If engine_name is specified, use that engine.
+        Otherwise, detect available engines on the VM and use the preferred one.
+        
+        Args:
+            vm_id: Target VM ID
+            node: Optional node where VM is located
+            engine_name: Optional engine name to use
             
-            # Execute docker ps command via the VM's console
-            result = self.vm_command.execute_command(vm_id, node, "docker ps --format '{{.ID}}\t{{.Image}}\t{{.Status}}\t{{.Names}}'")
-            
-            if result['success']:
-                containers = []
-                lines = result['output'].strip().split('\n')
-                for line in lines[1:]:  # Skip header if present
-                    if line.strip():
-                        parts = line.strip().split('\t')
-                        if len(parts) >= 4:
-                            containers.append({
-                                'id': parts[0],
-                                'image': parts[1],
-                                'status': parts[2],
-                                'name': parts[3]
-                            })
-                
-                return {"success": True, "message": f"Docker containers on VM {vm_id}", "containers": containers}
-            else:
-                return result
-        else:
-            # List Docker containers across the cluster (via Proxmox API)
-            # This would require checking each running VM
-            return {"success": False, "message": "Listing Docker containers across the cluster is not implemented yet"}
-
-    def start_docker_container(self, container_name, vm_id=None, node=None):
-        """Start a Docker container on a VM"""
-        if not vm_id:
-            return {"success": False, "message": "Please specify a VM ID"}
-            
-        if not node:
-            vm_info = self._get_vm_location(vm_id)
-            if not vm_info['success']:
-                return vm_info
-            node = vm_info['node']
-        
-        command = f"docker start {container_name}"
-        result = self.vm_command.execute_command(vm_id, node, command)
-        
-        if result['success']:
-            if container_name in result['output'].strip():
-                return {"success": True, "message": f"Docker container {container_name} started successfully"}
-            else:
-                return {"success": False, "message": f"Failed to start Docker container {container_name}: {result['output']}"}
-        else:
-            return result
-
-    def stop_docker_container(self, container_name, vm_id=None, node=None):
-        """Stop a Docker container on a VM"""
-        if not vm_id:
-            return {"success": False, "message": "Please specify a VM ID"}
-            
-        if not node:
-            vm_info = self._get_vm_location(vm_id)
-            if not vm_info['success']:
-                return vm_info
-            node = vm_info['node']
-        
-        command = f"docker stop {container_name}"
-        result = self.vm_command.execute_command(vm_id, node, command)
-        
-        if result['success']:
-            if container_name in result['output'].strip():
-                return {"success": True, "message": f"Docker container {container_name} stopped successfully"}
-            else:
-                return {"success": False, "message": f"Failed to stop Docker container {container_name}: {result['output']}"}
-        else:
-            return result
-
-    def docker_container_logs(self, container_name, vm_id=None, node=None, lines=10):
-        """Get logs from a Docker container"""
-        if not vm_id:
-            return {"success": False, "message": "Please specify a VM ID"}
-            
-        if not node:
-            vm_info = self._get_vm_location(vm_id)
-            if not vm_info['success']:
-                return vm_info
-            node = vm_info['node']
-        
-        command = f"docker logs --tail {lines} {container_name}"
-        result = self.vm_command.execute_command(vm_id, node, command)
-        
-        if result['success']:
-            return {"success": True, "message": f"Logs for Docker container {container_name}", "logs": result['output']}
-        else:
-            return result
-
-    def docker_container_info(self, container_name, vm_id=None, node=None):
-        """Get detailed information about a Docker container"""
-        if not vm_id:
-            return {"success": False, "message": "Please specify a VM ID"}
-            
-        if not node:
-            vm_info = self._get_vm_location(vm_id)
-            if not vm_info['success']:
-                return vm_info
-            node = vm_info['node']
-        
-        command = f"docker inspect {container_name}"
-        result = self.vm_command.execute_command(vm_id, node, command)
-        
-        if result['success']:
+        Returns:
+            The container engine to use or None if none available
+        """
+        if engine_name:
             try:
-                import json
-                info = json.loads(result['output'])
-                return {"success": True, "message": f"Info for Docker container {container_name}", "info": info}
-            except Exception as e:
-                return {"success": False, "message": f"Failed to parse Docker container info: {str(e)}"}
-        else:
-            return result
+                return self.engine_factory.get_engine(engine_name)
+            except ValueError as e:
+                return None
+                
+        if vm_id:
+            # Detect available engines
+            result = self.engine_factory.detect_available_engines(vm_id, node)
+            if result["success"] and result["preferred_engine"]:
+                return self.engine_factory.get_engine(result["preferred_engine"])
+                
+        # Fall back to default engine
+        return self.engine_factory.get_engine()
 
-    def pull_docker_image(self, image_name, vm_id=None, node=None):
-        """Pull a Docker image on a VM"""
+    def list_docker_containers(self, vm_id=None, node=None, engine_name=None):
+        """List containers on a VM or across the cluster"""
         if not vm_id:
             return {"success": False, "message": "Please specify a VM ID"}
             
-        if not node:
-            vm_info = self._get_vm_location(vm_id)
-            if not vm_info['success']:
-                return vm_info
-            node = vm_info['node']
-        
-        command = f"docker pull {image_name}"
-        result = self.vm_command.execute_command(vm_id, node, command)
-        
-        if result['success']:
-            return {"success": True, "message": f"Docker image {image_name} pulled successfully", "output": result['output']}
-        else:
-            return result
+        engine = self.get_container_engine(vm_id, node, engine_name)
+        if not engine:
+            return {"success": False, "message": f"No supported container engine found on VM {vm_id}"}
+            
+        return engine.list_containers(vm_id, node)
 
-    def run_docker_container(self, image_name, container_name=None, ports=None, volumes=None, environment=None, vm_id=None, node=None):
-        """Run a Docker container on a VM"""
+    def start_docker_container(self, container_name, vm_id=None, node=None, engine_name=None):
+        """Start a container on a VM"""
         if not vm_id:
             return {"success": False, "message": "Please specify a VM ID"}
             
-        if not node:
-            vm_info = self._get_vm_location(vm_id)
-            if not vm_info['success']:
-                return vm_info
-            node = vm_info['node']
-        
-        # Build docker run command
-        command = "docker run -d"
-        
-        if container_name:
-            command += f" --name {container_name}"
-        
-        if ports:
-            for port in ports:
-                command += f" -p {port}"
-        
-        if volumes:
-            for volume in volumes:
-                command += f" -v {volume}"
-        
-        if environment:
-            for env in environment:
-                command += f" -e {env}"
-        
-        command += f" {image_name}"
-        
-        result = self.vm_command.execute_command(vm_id, node, command)
-        
-        if result['success']:
-            return {"success": True, "message": f"Docker container started successfully", "container_id": result['output'].strip()}
-        else:
-            return result
+        engine = self.get_container_engine(vm_id, node, engine_name)
+        if not engine:
+            return {"success": False, "message": f"No supported container engine found on VM {vm_id}"}
+            
+        return engine.start_container(container_name, vm_id, node)
 
-    def list_docker_images(self, vm_id=None, node=None):
-        """List Docker images on a VM"""
+    def stop_docker_container(self, container_name, vm_id=None, node=None, engine_name=None):
+        """Stop a container on a VM"""
         if not vm_id:
             return {"success": False, "message": "Please specify a VM ID"}
             
-        if not node:
-            vm_info = self._get_vm_location(vm_id)
-            if not vm_info['success']:
-                return vm_info
-            node = vm_info['node']
-        
-        command = "docker images --format '{{.Repository}}:{{.Tag}}\t{{.ID}}\t{{.Size}}'"
-        result = self.vm_command.execute_command(vm_id, node, command)
-        
-        if result['success']:
-            images = []
-            lines = result['output'].strip().split('\n')
-            for line in lines:
-                if line.strip():
-                    parts = line.strip().split('\t')
-                    if len(parts) >= 3:
-                        images.append({
-                            'name': parts[0],
-                            'id': parts[1],
-                            'size': parts[2]
-                        })
+        engine = self.get_container_engine(vm_id, node, engine_name)
+        if not engine:
+            return {"success": False, "message": f"No supported container engine found on VM {vm_id}"}
             
-            return {"success": True, "message": "Docker images", "images": images}
-        else:
-            return result
+        return engine.stop_container(container_name, vm_id, node)
 
+    def docker_container_logs(self, container_name, vm_id=None, node=None, lines=10, engine_name=None):
+        """Get logs from a container"""
+        if not vm_id:
+            return {"success": False, "message": "Please specify a VM ID"}
+            
+        engine = self.get_container_engine(vm_id, node, engine_name)
+        if not engine:
+            return {"success": False, "message": f"No supported container engine found on VM {vm_id}"}
+            
+        return engine.get_container_logs(container_name, vm_id, node, lines)
+
+    def docker_container_info(self, container_name, vm_id=None, node=None, engine_name=None):
+        """Get detailed information about a container"""
+        if not vm_id:
+            return {"success": False, "message": "Please specify a VM ID"}
+            
+        engine = self.get_container_engine(vm_id, node, engine_name)
+        if not engine:
+            return {"success": False, "message": f"No supported container engine found on VM {vm_id}"}
+            
+        return engine.get_container_info(container_name, vm_id, node)
+
+    def pull_docker_image(self, image_name, vm_id=None, node=None, engine_name=None):
+        """Pull a container image on a VM"""
+        if not vm_id:
+            return {"success": False, "message": "Please specify a VM ID"}
+            
+        engine = self.get_container_engine(vm_id, node, engine_name)
+        if not engine:
+            return {"success": False, "message": f"No supported container engine found on VM {vm_id}"}
+            
+        return engine.pull_image(image_name, vm_id, node)
+
+    def run_docker_container(self, image_name, container_name=None, ports=None, volumes=None, environment=None, vm_id=None, node=None, engine_name=None):
+        """Run a container on a VM"""
+        if not vm_id:
+            return {"success": False, "message": "Please specify a VM ID"}
+            
+        engine = self.get_container_engine(vm_id, node, engine_name)
+        if not engine:
+            return {"success": False, "message": f"No supported container engine found on VM {vm_id}"}
+            
+        return engine.run_container(image_name, vm_id, node, container_name, ports, volumes, environment)
+
+    def list_docker_images(self, vm_id=None, node=None, engine_name=None):
+        """List container images on a VM"""
+        if not vm_id:
+            return {"success": False, "message": "Please specify a VM ID"}
+            
+        engine = self.get_container_engine(vm_id, node, engine_name)
+        if not engine:
+            return {"success": False, "message": f"No supported container engine found on VM {vm_id}"}
+            
+        return engine.list_images(vm_id, node)
+    
+    def list_available_engines(self, vm_id, node=None):
+        """
+        List available container engines on a VM.
+        
+        Args:
+            vm_id: Target VM ID
+            node: Optional node where VM is located
+            
+        Returns:
+            Dict with available container engines and their versions
+        """
+        return self.engine_factory.detect_available_engines(vm_id, node)
+    
     def _get_vm_location(self, vm_id):
         """Get the node where a VM is located"""
         result = self.api.api_request('GET', 'cluster/resources?type=vm')

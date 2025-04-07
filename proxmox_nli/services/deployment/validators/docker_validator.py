@@ -1,16 +1,24 @@
 """
-Docker-specific validator for Docker service configurations.
+Validator for container-based service configurations, supporting Docker, Podman, and other container engines.
 """
 import logging
 from typing import Dict, Optional, List
-from docker.errors import DockerException
-from docker import DockerClient
 import re
+
+try:
+    from docker.errors import DockerException
+    from docker import DockerClient
+    HAS_DOCKER_PY = True
+except ImportError:
+    HAS_DOCKER_PY = False
 
 logger = logging.getLogger(__name__)
 
 class DockerValidator:
-    """Validator for Docker service configurations."""
+    """Validator for container service configurations."""
+    
+    # List of supported container engines
+    SUPPORTED_CONTAINER_ENGINES = ['docker', 'podman']
     
     # Adding backup schema to existing class
     BACKUP_SCHEMA = {
@@ -40,11 +48,38 @@ class DockerValidator:
     }
     
     @staticmethod
-    def validate_image_name(image_name: str) -> Dict:
-        """Validate Docker image name format.
+    def validate_container_engine(engine_name: str) -> Dict:
+        """Validate container engine name.
         
         Args:
-            image_name: Docker image name to validate
+            engine_name: Container engine name to validate
+            
+        Returns:
+            Validation result dictionary
+        """
+        if not engine_name:
+            return {
+                "success": True,
+                "message": "No container engine specified, will use default or auto-detect"
+            }
+            
+        if engine_name.lower() in DockerValidator.SUPPORTED_CONTAINER_ENGINES:
+            return {
+                "success": True,
+                "message": f"Valid container engine: {engine_name}"
+            }
+        
+        return {
+            "success": False,
+            "message": f"Unsupported container engine: {engine_name}. Supported engines: {', '.join(DockerValidator.SUPPORTED_CONTAINER_ENGINES)}"
+        }
+    
+    @staticmethod
+    def validate_image_name(image_name: str) -> Dict:
+        """Validate container image name format.
+        
+        Args:
+            image_name: Container image name to validate
             
         Returns:
             Validation result dictionary
@@ -54,16 +89,16 @@ class DockerValidator:
         if re.match(pattern, image_name):
             return {
                 "success": True,
-                "message": "Valid Docker image name"
+                "message": "Valid container image name"
             }
         return {
             "success": False,
-            "message": f"Invalid Docker image name format: {image_name}"
+            "message": f"Invalid container image name format: {image_name}"
         }
         
     @staticmethod
     def validate_port_mappings(port_mappings: str) -> Dict:
-        """Validate Docker port mapping format.
+        """Validate container port mapping format.
         
         Args:
             port_mappings: Port mappings string to validate
@@ -87,7 +122,7 @@ class DockerValidator:
         
     @staticmethod
     def validate_volume_mappings(volume_mappings: str) -> Dict:
-        """Validate Docker volume mapping format.
+        """Validate container volume mapping format.
         
         Args:
             volume_mappings: Volume mappings string to validate
@@ -111,7 +146,7 @@ class DockerValidator:
         
     @staticmethod
     def validate_environment_vars(env_vars: str) -> Dict:
-        """Validate Docker environment variables format.
+        """Validate container environment variables format.
         
         Args:
             env_vars: Environment variables string to validate
@@ -135,10 +170,10 @@ class DockerValidator:
         
     @staticmethod
     def validate_compose_config(compose_content: str) -> Dict:
-        """Validate Docker Compose configuration.
+        """Validate container compose configuration (docker-compose, podman-compose, etc.).
         
         Args:
-            compose_content: Docker Compose YAML content to validate
+            compose_content: Compose YAML content to validate
             
         Returns:
             Validation result dictionary
@@ -151,19 +186,19 @@ class DockerValidator:
             if not isinstance(compose_dict, dict):
                 return {
                     "success": False,
-                    "message": "Invalid Docker Compose format: root must be a mapping"
+                    "message": "Invalid compose format: root must be a mapping"
                 }
                 
             if 'version' not in compose_dict:
                 return {
                     "success": False,
-                    "message": "Docker Compose configuration must specify version"
+                    "message": "Compose configuration must specify version"
                 }
                 
             if 'services' not in compose_dict:
                 return {
                     "success": False,
-                    "message": "Docker Compose configuration must contain services"
+                    "message": "Compose configuration must contain services"
                 }
                 
             if not isinstance(compose_dict['services'], dict):
@@ -188,24 +223,24 @@ class DockerValidator:
                     
             return {
                 "success": True,
-                "message": "Valid Docker Compose configuration"
+                "message": "Valid compose configuration"
             }
             
         except yaml.YAMLError as e:
             return {
                 "success": False,
-                "message": f"Invalid YAML syntax in Docker Compose configuration: {str(e)}"
+                "message": f"Invalid YAML syntax in compose configuration: {str(e)}"
             }
         except Exception as e:
-            logger.error(f"Error validating Docker Compose configuration: {str(e)}")
+            logger.error(f"Error validating compose configuration: {str(e)}")
             return {
                 "success": False,
-                "message": f"Error validating Docker Compose configuration: {str(e)}"
+                "message": f"Error validating compose configuration: {str(e)}"
             }
             
     @staticmethod
     def validate_backup_config(backup_config: Dict) -> Dict:
-        """Validate Docker service backup configuration.
+        """Validate container service backup configuration.
         
         Args:
             backup_config: Backup configuration to validate
@@ -284,7 +319,7 @@ class DockerValidator:
     
     @classmethod
     def validate_deployment_config(cls, deployment_config: Dict) -> Dict:
-        """Validate complete Docker deployment configuration.
+        """Validate complete container deployment configuration.
         
         Args:
             deployment_config: Deployment configuration dictionary
@@ -293,8 +328,14 @@ class DockerValidator:
             Validation result dictionary
         """
         try:
+            # Validate container engine if specified
+            if 'container_engine' in deployment_config:
+                engine_result = cls.validate_container_engine(deployment_config['container_engine'])
+                if not engine_result["success"]:
+                    return engine_result
+            
             if deployment_config.get('docker_image'):
-                # Validate Docker image deployment
+                # Validate container image deployment
                 image_result = cls.validate_image_name(deployment_config['docker_image'])
                 if not image_result["success"]:
                     return image_result
@@ -316,7 +357,7 @@ class DockerValidator:
                         return env_result
                         
             elif deployment_config.get('docker_compose'):
-                # Validate Docker Compose deployment
+                # Validate compose deployment
                 return cls.validate_compose_config(deployment_config['docker_compose'])
                 
             # Add backup configuration validation
@@ -327,12 +368,12 @@ class DockerValidator:
         
             return {
                 "success": True,
-                "message": "Valid Docker deployment configuration"
+                "message": "Valid container deployment configuration"
             }
             
         except Exception as e:
-            logger.error(f"Error validating Docker deployment configuration: {str(e)}")
+            logger.error(f"Error validating container deployment configuration: {str(e)}")
             return {
                 "success": False,
-                "message": f"Error validating Docker deployment configuration: {str(e)}"
+                "message": f"Error validating container deployment configuration: {str(e)}"
             }
